@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 
 import psutil
 import requests
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from dotenv import load_dotenv
 
 import matplotlib
@@ -572,6 +572,36 @@ def api_system_monthly():
         "disk": [avg(b["disk"], k) for k in keys],
         "month": datetime.now().strftime("%B %Y"),
     })
+
+
+@flask_app.route("/api/date")
+def api_date():
+    date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "invalid date, use YYYY-MM-DD"}), 400
+    next_d = d + timedelta(days=1)
+    rows = query(
+        "SELECT timestamp, temp_c, cpu_pct, ram_pct, disk_pct FROM temperature "
+        "WHERE timestamp >= ? AND timestamp < ? AND cpu_pct IS NOT NULL ORDER BY timestamp",
+        (d.strftime("%Y-%m-%d %H:%M:%S"), next_d.strftime("%Y-%m-%d %H:%M:%S")),
+    )
+    hourly = {}
+    for ts, temp, cpu, ram, disk in rows:
+        h = int(ts[11:13])
+        if h not in hourly:
+            hourly[h] = {"t": [], "c": [], "r": [], "d": []}
+        hourly[h]["t"].append(temp); hourly[h]["c"].append(cpu)
+        hourly[h]["r"].append(ram);  hourly[h]["d"].append(disk)
+    avg = lambda lst: round(sum(lst) / len(lst), 1)
+    labels, temps, cpus, rams, disks = [], [], [], [], []
+    for h in sorted(hourly):
+        labels.append(f"{h:02d}:00")
+        temps.append(avg(hourly[h]["t"])); cpus.append(avg(hourly[h]["c"]))
+        rams.append(avg(hourly[h]["r"])); disks.append(avg(hourly[h]["d"]))
+    return jsonify({"date": date_str, "labels": labels, "temp": temps,
+                    "cpu": cpus, "ram": rams, "disk": disks, "count": len(rows)})
 
 
 @flask_app.route("/api/reboot", methods=["POST"])
