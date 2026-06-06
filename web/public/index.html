@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -19,7 +20,7 @@
   --danger:#ff3355; --text:#e0eaff; --dim:#7b8cae; --purple:#a855f7;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth;font-size:25px}
+html{scroll-behavior:smooth;font-size:23.5px}
 body{font-family:'Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6}
 
 /* animated grid bg */
@@ -105,8 +106,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   padding:16px;margin-bottom:12px}
 .cc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .cc-title{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.72rem;letter-spacing:2px;
-  color:var(--dim);text-transform:uppercase}
+  color:var(--dim);text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
 .cc-title span{color:var(--text)}
+.cc-title svg{width:1.25em;height:1.25em;color:var(--accent);flex-shrink:0;stroke-width:2.2}
+.sn-btn svg{width:1.15em;height:1.15em;flex-shrink:0}
+.sc-label svg{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:-.18em;margin-right:5px}
+.sc-temp .sc-label svg{color:var(--info)}
+.sc-cpu .sc-label svg{color:var(--info)}
+.sc-ram .sc-label svg{color:var(--purple)}
+.sc-disk .sc-label svg{color:var(--warn)}
 .delta-chip{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.68rem;padding:2px 10px;border-radius:20px;
   border:1px solid var(--border);color:var(--dim)}
 .delta-chip.up{color:var(--danger);border-color:rgba(255,51,85,.4);background:rgba(255,51,85,.07)}
@@ -217,25 +225,25 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="stat-grid">
     <div class="stat-card sc-temp">
       <div class="sc-bar"></div>
-      <div class="sc-label">Temperature</div>
+      <div class="sc-label"><i data-lucide="thermometer"></i>Temperature</div>
       <div class="sc-value" id="sTemp">--.-°</div>
       <div class="sc-sub" id="sTempSub">--</div>
     </div>
     <div class="stat-card sc-cpu">
       <div class="sc-bar"></div>
-      <div class="sc-label">CPU</div>
+      <div class="sc-label"><i data-lucide="cpu"></i>CPU</div>
       <div class="sc-value" id="sCpu">--.-%</div>
       <div class="sc-sub">Processing</div>
     </div>
     <div class="stat-card sc-ram">
       <div class="sc-bar"></div>
-      <div class="sc-label">RAM</div>
+      <div class="sc-label"><i data-lucide="memory-stick"></i>RAM</div>
       <div class="sc-value" id="sRam">--.-%</div>
       <div class="sc-sub" id="sRamSub">ว่าง -- MB</div>
     </div>
     <div class="stat-card sc-disk">
       <div class="sc-bar"></div>
-      <div class="sc-label">Disk</div>
+      <div class="sc-label"><i data-lucide="hard-drive"></i>Disk</div>
       <div class="sc-value" id="sDisk">--.-%</div>
       <div class="sc-sub" id="sDiskSub">ว่าง -- GB</div>
     </div>
@@ -245,7 +253,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="dual-row">
     <div class="chart-card">
       <div class="cc-head">
-        <div class="cc-title">🌡 วันนี้ vs เมื่อวาน</div>
+        <div class="cc-title"><i data-lucide="thermometer-sun"></i>วันนี้ vs เมื่อวาน</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="legend-row">
             <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>วันนี้</span>
@@ -259,7 +267,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
     <div class="chart-card info-card">
       <div class="cc-head" style="margin-bottom:8px">
-        <div class="cc-title">⚡ ข้อมูล Pi</div>
+        <div class="cc-title"><i data-lucide="activity"></i>ข้อมูล Pi</div>
       </div>
       <div class="info-row"><span class="ir-label">Status</span><span class="ir-val online" id="iPiStatus">ONLINE</span></div>
       <div class="info-row"><span class="ir-label">Uptime</span><span class="ir-val" id="iUptime">--</span></div>
@@ -270,9 +278,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <!-- Section Nav -->
   <div class="section-nav">
-    <button class="sn-btn active" onclick="switchPanel('temp',this)">🌡 อุณหภูมิ</button>
-    <button class="sn-btn" onclick="switchPanel('system',this)">🖥 ระบบ</button>
-    <button class="sn-btn" onclick="switchPanel('monthly',this)">📊 Monthly</button>
+    <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
+    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="server"></i>ระบบ</button>
+    <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
   </div>
 
   <!-- Panel: Temperature -->
@@ -286,7 +294,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
     <div class="chart-card">
       <div class="cc-head">
-        <div class="cc-title">อุณหภูมิรายชั่วโมง — <span id="tempDateLabel">วันนี้</span></div>
+        <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิรายชั่วโมง — <span id="tempDateLabel">วันนี้</span></div>
         <div class="sum-mini" id="tempSum"></div>
       </div>
       <div class="chart-wrap" style="height:280px">
@@ -307,7 +315,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
     <div class="chart-card">
       <div class="cc-head">
-        <div class="cc-title">CPU % — <span id="sysDateLabel">วันนี้</span></div>
+        <div class="cc-title"><i data-lucide="cpu"></i>CPU % — <span id="sysDateLabel">วันนี้</span></div>
         <div class="sum-mini" id="cpuSum"></div>
       </div>
       <div class="chart-wrap" style="height:220px">
@@ -316,11 +324,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
     <div class="chart-card">
-      <div class="cc-head"><div class="cc-title">RAM %</div><div class="sum-mini" id="ramSum"></div></div>
+      <div class="cc-head"><div class="cc-title"><i data-lucide="memory-stick"></i>RAM %</div><div class="sum-mini" id="ramSum"></div></div>
       <div class="chart-wrap" style="height:220px"><canvas id="ramChart"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="cc-head"><div class="cc-title">Disk %</div><div class="sum-mini" id="diskSum"></div></div>
+      <div class="cc-head"><div class="cc-title"><i data-lucide="hard-drive"></i>Disk %</div><div class="sum-mini" id="diskSum"></div></div>
       <div class="chart-wrap" style="height:220px"><canvas id="diskChart"></canvas></div>
     </div>
   </div>
@@ -329,17 +337,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div id="panel-monthly" class="s-panel">
     <div class="chart-card">
       <div class="cc-head">
-        <div class="cc-title">อุณหภูมิรายวัน — <span id="mTempTitle">--</span></div>
+        <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิรายวัน — <span id="mTempTitle">--</span></div>
         <div class="sum-mini" id="mTempSum"></div>
       </div>
       <div class="chart-wrap" style="height:260px"><canvas id="mTempChart"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="cc-head"><div class="cc-title">CPU % รายวัน</div><div class="sum-mini" id="mCpuSum"></div></div>
+      <div class="cc-head"><div class="cc-title"><i data-lucide="cpu"></i>CPU % รายวัน</div><div class="sum-mini" id="mCpuSum"></div></div>
       <div class="chart-wrap" style="height:200px"><canvas id="mCpuChart"></canvas></div>
     </div>
     <div class="chart-card">
-      <div class="cc-head"><div class="cc-title">RAM % รายวัน</div><div class="sum-mini" id="mRamSum"></div></div>
+      <div class="cc-head"><div class="cc-title"><i data-lucide="memory-stick"></i>RAM % รายวัน</div><div class="sum-mini" id="mRamSum"></div></div>
       <div class="chart-wrap" style="height:200px"><canvas id="mRamChart"></canvas></div>
     </div>
   </div>
@@ -348,5 +356,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 
 <script src="app.js"></script>
+<script>if (window.lucide) lucide.createIcons();</script>
 </body>
 </html>
