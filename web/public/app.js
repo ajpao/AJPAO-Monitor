@@ -210,12 +210,14 @@ async function cloudFetchDate(dateStr){
   const hourly = {};
   for(const r of rows){
     if(!hourly[r.h]) hourly[r.h]={t:[],c:[],r:[],d:[]};
-    hourly[r.h].t.push(r.temp); hourly[r.h].c.push(r.cpu);
-    hourly[r.h].r.push(r.ram);  hourly[r.h].d.push(r.disk);
+    if(r.temp!=null) hourly[r.h].t.push(r.temp);
+    if(r.cpu!=null)  hourly[r.h].c.push(r.cpu);
+    if(r.ram!=null)  hourly[r.h].r.push(r.ram);
+    if(r.disk!=null) hourly[r.h].d.push(r.disk);
   }
-  const avg = a=>Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10;
+  const avg = a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null;
   const labels=[],temp=[],cpu=[],ram=[],disk=[];
-  for(const h of Object.keys(hourly).map(Number).sort()){
+  for(const h of Object.keys(hourly).map(Number).sort((a,b)=>a-b)){
     labels.push(`${pad2(h)}:00`);
     temp.push(avg(hourly[h].t)); cpu.push(avg(hourly[h].c));
     ram.push(avg(hourly[h].r));  disk.push(avg(hourly[h].d));
@@ -234,10 +236,12 @@ async function cloudFetchMonthly(){
   const buckets = {};
   for(const r of rows){
     if(!buckets[r.day]) buckets[r.day]={t:[],c:[],r:[],d:[]};
-    buckets[r.day].t.push(r.temp); buckets[r.day].c.push(r.cpu);
-    buckets[r.day].r.push(r.ram);  buckets[r.day].d.push(r.disk);
+    if(r.temp!=null) buckets[r.day].t.push(r.temp);
+    if(r.cpu!=null)  buckets[r.day].c.push(r.cpu);
+    if(r.ram!=null)  buckets[r.day].r.push(r.ram);
+    if(r.disk!=null) buckets[r.day].d.push(r.disk);
   }
-  const avg = a=>Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10;
+  const avg = a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null;
   const days=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
   const labels=days.map(String);
   const month=now.toLocaleDateString('th-TH',{month:'long',year:'numeric'});

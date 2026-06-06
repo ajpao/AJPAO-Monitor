@@ -584,7 +584,7 @@ def api_date():
     next_d = d + timedelta(days=1)
     rows = query(
         "SELECT timestamp, temp_c, cpu_pct, ram_pct, disk_pct FROM temperature "
-        "WHERE timestamp >= ? AND timestamp < ? AND cpu_pct IS NOT NULL ORDER BY timestamp",
+        "WHERE timestamp >= ? AND timestamp < ? ORDER BY timestamp",
         (d.strftime("%Y-%m-%d %H:%M:%S"), next_d.strftime("%Y-%m-%d %H:%M:%S")),
     )
     hourly = {}
@@ -592,9 +592,12 @@ def api_date():
         h = int(ts[11:13])
         if h not in hourly:
             hourly[h] = {"t": [], "c": [], "r": [], "d": []}
-        hourly[h]["t"].append(temp); hourly[h]["c"].append(cpu)
-        hourly[h]["r"].append(ram);  hourly[h]["d"].append(disk)
-    avg = lambda lst: round(sum(lst) / len(lst), 1)
+        if temp is not None: hourly[h]["t"].append(temp)
+        if cpu  is not None: hourly[h]["c"].append(cpu)
+        if ram  is not None: hourly[h]["r"].append(ram)
+        if disk is not None: hourly[h]["d"].append(disk)
+    # เฉลี่ยเฉพาะค่าที่มี — ชั่วโมงไหนไม่มีค่าเลยคืน null (ข้อมูลเก่าบางช่วงมีแต่ temp)
+    avg = lambda lst: round(sum(lst) / len(lst), 1) if lst else None
     labels, temps, cpus, rams, disks = [], [], [], [], []
     for h in sorted(hourly):
         labels.append(f"{h:02d}:00")
