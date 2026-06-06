@@ -61,6 +61,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:6px;cursor:pointer;transition:.2s;flex-shrink:0;text-transform:uppercase}
 .btn-reboot:hover{background:rgba(255,51,85,.12);border-color:var(--danger);box-shadow:0 0 16px rgba(255,51,85,.2)}
 .btn-reboot:disabled{opacity:.4;cursor:not-allowed}
+.btn-reboot{display:inline-flex;align-items:center;gap:5px}
+.btn-reboot svg{width:1.05em;height:1.05em}
+.btn-shutdown{border-color:rgba(255,107,0,.5);color:var(--accent)}
+.btn-shutdown:hover{background:rgba(255,107,0,.12);border-color:var(--accent);box-shadow:0 0 16px rgba(255,107,0,.2)}
 
 /* main layout */
 .page{position:relative;z-index:2}
@@ -176,6 +180,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
 
+/* device tab */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+@media(max-width:760px){.info-grid{grid-template-columns:1fr}}
+.proc-table{width:100%;border-collapse:collapse;font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace}
+.proc-table th{font-size:.6rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;
+  text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.proc-table th.num,.proc-table td.num{text-align:right}
+.proc-table td{font-size:.72rem;color:var(--text);padding:7px 10px;border-bottom:1px solid rgba(29,47,80,.4)}
+.proc-table tbody tr:hover{background:rgba(51,153,255,.06)}
+.proc-table .pid{color:var(--dim)}
+.proc-table .cpu-hi{color:var(--danger);font-weight:700}
+.proc-table .cpu-mid{color:var(--accent)}
+.proc-empty{text-align:center;color:var(--dim);padding:18px!important;font-size:.7rem}
+.net-on{color:var(--ok)} .net-off{color:var(--danger)}
+
 /* no-data placeholder */
 .no-data{display:flex;align-items:center;justify-content:center;height:180px;
   font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.75rem;color:var(--dim);letter-spacing:1px}
@@ -202,17 +221,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <span class="mode-badge" id="modeBadge">…</span>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
-  <button class="btn-reboot" id="rebootBtn" onclick="confirmReboot()">↺ REBOOT</button>
+  <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')"><i data-lucide="rotate-cw"></i>REBOOT</button>
+  <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')"><i data-lucide="power"></i>SHUTDOWN</button>
 </header>
 
 <!-- Reboot Modal -->
 <div class="modal-bg" id="rebootModal">
   <div class="modal-box">
-    <div class="modal-icon">⚠️</div>
-    <div class="modal-title">ยืนยัน Reboot?</div>
+    <div class="modal-icon" id="modalIcon">⚠️</div>
+    <div class="modal-title" id="modalTitle">ยืนยัน Reboot?</div>
     <div class="modal-sub" id="rebootMsg">Raspberry Pi จะ Restart และใช้เวลาประมาณ 1-2 นาทีกว่าจะกลับมา</div>
     <div class="modal-btns">
-      <button class="modal-confirm" onclick="doReboot()">ยืนยัน Reboot</button>
+      <button class="modal-confirm" id="modalConfirm" onclick="doPower()">ยืนยัน</button>
       <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
     </div>
   </div>
@@ -281,6 +301,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
     <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="server"></i>ระบบ</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
+    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="router"></i>เครื่อง</button>
   </div>
 
   <!-- Panel: Temperature -->
@@ -349,6 +370,42 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="memory-stick"></i>RAM % รายวัน</div><div class="sum-mini" id="mRamSum"></div></div>
       <div class="chart-wrap" style="height:200px"><canvas id="mRamChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Panel: Device (network / OS / processes) -->
+  <div id="panel-device" class="s-panel">
+    <div class="info-grid">
+      <div class="chart-card info-card">
+        <div class="cc-head" style="margin-bottom:8px"><div class="cc-title"><i data-lucide="hard-drive"></i>OS &amp; Hardware</div></div>
+        <div class="info-row"><span class="ir-label">Model</span><span class="ir-val" id="dModel">--</span></div>
+        <div class="info-row"><span class="ir-label">OS</span><span class="ir-val" id="dOS">--</span></div>
+        <div class="info-row"><span class="ir-label">Kernel</span><span class="ir-val" id="dKernel">--</span></div>
+        <div class="info-row"><span class="ir-label">Hostname</span><span class="ir-val" id="dHost">--</span></div>
+        <div class="info-row"><span class="ir-label">Python</span><span class="ir-val" id="dPy">--</span></div>
+        <div class="info-row"><span class="ir-label">Uptime</span><span class="ir-val online" id="dUptime">--</span></div>
+      </div>
+      <div class="chart-card info-card">
+        <div class="cc-head" style="margin-bottom:8px"><div class="cc-title"><i data-lucide="wifi"></i>Network</div></div>
+        <div class="info-row"><span class="ir-label">Internet</span><span class="ir-val" id="dNet">--</span></div>
+        <div class="info-row"><span class="ir-label">Primary IP</span><span class="ir-val" id="dIP">--</span></div>
+        <div id="dIfaces"></div>
+        <div class="info-row">
+          <span class="ir-label">Speed</span>
+          <span class="ir-val">
+            <span style="color:var(--ok)" id="dDown">↓ -- </span>&nbsp;
+            <span style="color:var(--info)" id="dUp">↑ --</span>
+          </span>
+        </div>
+        <div class="info-row"><span class="ir-label">Total</span><span class="ir-val" id="dTotal">--</span></div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="list-tree"></i>Top Processes</div><span class="data-count" id="dProcNote"></span></div>
+      <table class="proc-table">
+        <thead><tr><th>PID</th><th>Process</th><th class="num">CPU %</th><th class="num">MEM %</th></tr></thead>
+        <tbody id="dProcBody"><tr><td colspan="4" class="proc-empty">กำลังโหลด…</td></tr></tbody>
+      </table>
     </div>
   </div>
 

@@ -19,6 +19,8 @@ AJPAO-Monitor — single-file Raspberry Pi monitor.
 import os
 import io
 import time
+import socket
+import platform
 import sqlite3
 import subprocess
 import threading
@@ -152,6 +154,129 @@ def collect_metrics():
     return temp, cpu, ram, disk
 
 
+# ─── system info (network / OS / processes) ─────────────────────────────────────
+
+_OS_INFO = None
+
+
+def get_os_info():
+    """ข้อมูลเครื่อง/OS (cache ส่วนที่ไม่เปลี่ยน) + uptime สดทุกครั้ง"""
+    global _OS_INFO
+    if _OS_INFO is None:
+        model = ""
+        try:
+            with open("/proc/device-tree/model") as f:
+                model = f.read().strip("\x00").strip()
+        except Exception:
+            pass
+        osname = ""
+        try:
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        osname = line.split("=", 1)[1].strip().strip('"')
+                        break
+        except Exception:
+            pass
+        u = os.uname()
+        _OS_INFO = {
+            "model":    model or platform.machine() or "Unknown",
+            "os":       osname or "Unknown",
+            "kernel":   f"{u.sysname} {u.release} {u.machine}",
+            "hostname": socket.gethostname(),
+            "python":   platform.python_version(),
+        }
+    d = dict(_OS_INFO)
+    d["boot_time"]  = int(psutil.boot_time())
+    d["uptime_sec"] = int(time.time() - psutil.boot_time())
+    return d
+
+
+def get_primary_ip():
+    """IP ที่ใช้ออกเน็ตจริง (ไม่ต้องต่อเน็ตก็ได้ — แค่เลือก route)"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return ""
+
+
+def _has_internet(host="1.1.1.1", port=53, timeout=1.5):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        s.connect((host, port))
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def get_sysinfo(n_proc=8, sample=0.8):
+    """รวมข้อมูลสด: network (IP/speed/internet) + OS + top processes (อ่านอย่างเดียว)"""
+    # prime per-process cpu (ครั้งแรก cpu_percent คืน 0 — ต้องวัดเป็นช่วง)
+    procs = []
+    for p in psutil.process_iter(["pid", "name"]):
+        try:
+            p.cpu_percent(None)
+        except Exception:
+            pass
+        procs.append(p)
+    io1 = psutil.net_io_counters()
+    time.sleep(sample)                       # ช่วงเดียว ใช้ทั้งวัด speed + cpu ต่อ process
+    io2 = psutil.net_io_counters()
+
+    rows = []
+    ncpu = psutil.cpu_count() or 1
+    for p in procs:
+        try:
+            rows.append({
+                "pid":  p.pid,
+                "name": (p.info.get("name") or "?")[:24],
+                "cpu":  round(p.cpu_percent(None) / ncpu, 1),   # normalize เป็น % ของทั้งระบบ
+                "mem":  round(p.memory_percent(), 1),
+            })
+        except Exception:
+            pass
+    rows.sort(key=lambda x: (x["cpu"], x["mem"]), reverse=True)
+
+    down = (io2.bytes_recv - io1.bytes_recv) / sample
+    up   = (io2.bytes_sent - io1.bytes_sent) / sample
+
+    addrs = psutil.net_if_addrs()
+    stats = psutil.net_if_stats()
+    ifaces = []
+    for name, alist in addrs.items():
+        if name == "lo":
+            continue
+        ip = mac = None
+        for a in alist:
+            if a.family == socket.AF_INET:
+                ip = a.address
+            elif a.family == psutil.AF_LINK:
+                mac = a.address
+        ifaces.append({"name": name, "ip": ip, "mac": mac,
+                       "up": stats[name].isup if name in stats else False})
+    ifaces.sort(key=lambda x: (not x["up"], x["name"]))
+
+    return {
+        "os": get_os_info(),
+        "net": {
+            "internet":      _has_internet(),
+            "ip":            get_primary_ip(),
+            "interfaces":    ifaces,
+            "down_kbps":     round(down / 1024, 1),
+            "up_kbps":       round(up / 1024, 1),
+            "total_recv_mb": round(io2.bytes_recv / 1048576, 1),
+            "total_sent_mb": round(io2.bytes_sent / 1048576, 1),
+        },
+        "procs": rows[:n_proc],
+    }
+
+
 # ─── firestore sync (best-effort) ───────────────────────────────────────────────
 
 def _aware(dt):
@@ -171,6 +296,7 @@ def push_reading(now, temp, cpu, ram, disk):
             "ram_pct":  round(ram.percent, 1),
             "disk_pct": round(disk.percent, 1),
         })
+        oi = get_os_info()
         db_fs.collection("status").document("latest").set({
             "ts":           _aware(now),
             "temp_c":       round(temp, 1),
@@ -180,6 +306,11 @@ def push_reading(now, temp, cpu, ram, disk):
             "ram_free_mb":  ram.available // 1024 // 1024,
             "disk_free_gb": disk.free // 1024 // 1024 // 1024,
             "uptime":       int(psutil.boot_time()),
+            "model":        oi["model"],
+            "os":           oi["os"],
+            "kernel":       oi["kernel"],
+            "hostname":     oi["hostname"],
+            "ip":           get_primary_ip(),
             "updated_at":   fs.SERVER_TIMESTAMP,
         })
         return True
@@ -481,13 +612,21 @@ def index():
 @flask_app.route("/api/status")
 def api_status():
     temp, cpu, ram, disk = collect_metrics()
+    oi = get_os_info()
     return jsonify({
         "temp": temp, "cpu": cpu, "ram": ram.percent,
         "ram_free_mb": ram.available // 1024 // 1024,
         "disk": disk.percent, "disk_free_gb": disk.free // 1024 // 1024 // 1024,
         "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
         "uptime": int(psutil.boot_time()),
+        "model": oi["model"], "os": oi["os"], "kernel": oi["kernel"],
+        "hostname": oi["hostname"], "ip": get_primary_ip(),
     })
+
+
+@flask_app.route("/api/sysinfo")
+def api_sysinfo():
+    return jsonify(get_sysinfo())
 
 
 def _hourly_temp(rows, label_fmt):
@@ -614,6 +753,13 @@ def api_reboot():
     return jsonify({"ok": True})
 
 
+@flask_app.route("/api/shutdown", methods=["POST"])
+def api_shutdown():
+    # LAN ถือว่า trusted — สั่งปิดเครื่อง (ต้องเปิดเองที่เครื่องถึงจะกลับมา)
+    subprocess.Popen(["sudo", "shutdown", "-h", "now"])
+    return jsonify({"ok": True})
+
+
 # ─── background loops ───────────────────────────────────────────────────────────
 
 def collector_loop():
@@ -698,22 +844,29 @@ def bot_loop():
             time.sleep(5)
 
 
+POWER_CMDS = {
+    "reboot":   (["sudo", "reboot"],               "Reboot"),
+    "shutdown": (["sudo", "shutdown", "-h", "now"], "Shutdown"),
+}
+
+
 def reboot_poll_loop():
     if not db_fs:
         return
-    print("[reboot-poll] เริ่มเฝ้าคำสั่ง reboot จาก cloud")
+    print("[power-poll] เริ่มเฝ้าคำสั่ง reboot/shutdown จาก cloud")
     while True:
         try:
-            ref = db_fs.collection("commands").document("reboot")
-            doc = ref.get()
-            if doc.exists:
-                d = doc.to_dict()
-                if not d.get("handled", True):
-                    broadcast(f"🔄 <b>มีคำสั่ง Reboot จาก cloud dashboard</b>\n👤 {d.get('requested_by', '?')}")
-                    ref.update({"handled": True, "handled_at": fs.SERVER_TIMESTAMP})
-                    subprocess.run(["sudo", "reboot"])
+            for name, (cmd, label) in POWER_CMDS.items():
+                ref = db_fs.collection("commands").document(name)
+                doc = ref.get()
+                if doc.exists:
+                    d = doc.to_dict()
+                    if not d.get("handled", True):
+                        broadcast(f"🔄 <b>มีคำสั่ง {label} จาก cloud dashboard</b>\n👤 {d.get('requested_by', '?')}")
+                        ref.update({"handled": True, "handled_at": fs.SERVER_TIMESTAMP})
+                        subprocess.run(cmd)
         except Exception as e:
-            print(f"[reboot-poll] error: {e}")
+            print(f"[power-poll] error: {e}")
         time.sleep(REBOOT_POLL_SEC)
 
 

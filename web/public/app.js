@@ -22,6 +22,7 @@ const C = {
 
 const charts = {};
 let MODE = null, db = null, auth = null;
+let cloudStatus = null, deviceTimer = null;
 
 // ─── date helpers ────────────────────────────────────────────────────────────
 
@@ -345,6 +346,61 @@ async function loadMonthly(){
   } catch(e){ console.error('monthly error',e); }
 }
 
+// ─── device tab (network / OS / processes) ─────────────────────────────────────
+
+function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function fmtSpeed(kbps){ return kbps>=1024 ? (kbps/1024).toFixed(1)+' MB/s' : kbps.toFixed(0)+' KB/s'; }
+
+async function loadDevice(){
+  if(MODE==='local'){
+    try { renderDeviceLocal(await fetch('/api/sysinfo').then(r=>r.json())); }
+    catch(e){ console.error('sysinfo error',e); }
+  } else {
+    renderDeviceCloud();
+  }
+}
+
+function renderDeviceLocal(d){
+  const o=d.os, n=d.net;
+  setText('dModel',o.model); setText('dOS',o.os); setText('dKernel',o.kernel);
+  setText('dHost',o.hostname); setText('dPy',o.python);
+  setText('dUptime', uptimeFmt(o.boot_time));
+  const net=document.getElementById('dNet');
+  net.textContent = n.internet?'● ONLINE':'● OFFLINE';
+  net.className = 'ir-val '+(n.internet?'net-on':'net-off');
+  setText('dIP', n.ip||'--');
+  document.getElementById('dIfaces').innerHTML = n.interfaces.map(i=>
+    `<div class="info-row"><span class="ir-label">${i.name} ${i.up?'🟢':'⚪'}</span><span class="ir-val">${i.ip||'—'}</span></div>`
+  ).join('');
+  setText('dDown','↓ '+fmtSpeed(n.down_kbps));
+  setText('dUp','↑ '+fmtSpeed(n.up_kbps));
+  setText('dTotal',`↓ ${n.total_recv_mb} MB · ↑ ${n.total_sent_mb} MB`);
+  renderProcs(d.procs);
+  setText('dProcNote', (d.procs?.length||0)+' procs · live');
+}
+
+function renderProcs(procs){
+  const body=document.getElementById('dProcBody');
+  if(!procs||!procs.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ไม่มีข้อมูล</td></tr>'; return; }
+  body.innerHTML = procs.map(p=>{
+    const cls = p.cpu>=50?'cpu-hi':p.cpu>=15?'cpu-mid':'';
+    return `<tr><td class="pid">${p.pid}</td><td>${p.name}</td><td class="num ${cls}">${p.cpu.toFixed(1)}</td><td class="num">${p.mem.toFixed(1)}</td></tr>`;
+  }).join('');
+}
+
+function renderDeviceCloud(){
+  const x = cloudStatus || {};
+  setText('dModel',x.model||'--'); setText('dOS',x.os||'--'); setText('dKernel',x.kernel||'--');
+  setText('dHost',x.hostname||'--'); setText('dPy','—');
+  setText('dUptime', x.uptime?uptimeFmt(x.uptime):'--');
+  const net=document.getElementById('dNet'); net.textContent='—'; net.className='ir-val';
+  setText('dIP', x.ip||'--');
+  document.getElementById('dIfaces').innerHTML='';
+  setText('dDown','—'); setText('dUp','—'); setText('dTotal','—');
+  document.getElementById('dProcBody').innerHTML='<tr><td colspan="4" class="proc-empty">⚠ ดู process / speed สดได้เฉพาะตอนเปิดใน LAN</td></tr>';
+  setText('dProcNote','LAN only');
+}
+
 // ─── status cards ─────────────────────────────────────────────────────────────
 
 function updateCards(d){
@@ -389,46 +445,72 @@ function switchPanel(name, btn){
   btn.classList.add('active');
   document.querySelectorAll('.s-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
+
+  if(deviceTimer){ clearInterval(deviceTimer); deviceTimer=null; }
+
   if(!panelLoaded[name]){
     panelLoaded[name]=true;
     if(name==='temp') loadDatePanel('temp');
     else if(name==='system') loadDatePanel('system');
     else if(name==='monthly') loadMonthly();
+    else if(name==='device') loadDevice();
+  } else if(name==='device'){
+    loadDevice();
+  }
+
+  if(name==='device' && MODE==='local'){
+    deviceTimer = setInterval(loadDevice, 5000);   // refresh speed/processes สด
   }
 }
 
 // ─── reboot ────────────────────────────────────────────────────────────────────
 
-function confirmReboot(){
-  document.getElementById('rebootMsg').textContent = MODE==='cloud'
-    ? 'ต้อง login ก่อนถึงจะสั่ง Reboot ได้ — Pi จะ Restart และใช้เวลา 1-2 นาที'
-    : 'Raspberry Pi จะ Restart และใช้เวลาประมาณ 1-2 นาทีกว่าจะกลับมา';
+let pendingAction = 'reboot';
+
+const POWER = {
+  reboot:   { icon:'⚠️',  title:'ยืนยัน Reboot?',  btn:'ยืนยัน Reboot',
+              subLocal:'Raspberry Pi จะ Restart และใช้เวลาประมาณ 1-2 นาทีกว่าจะกลับมา',
+              subCloud:'ต้อง login ก่อนถึงจะสั่ง Reboot ได้ — Pi จะ Restart และใช้เวลา 1-2 นาที' },
+  shutdown: { icon:'⏻',   title:'ยืนยัน Shutdown?', btn:'ยืนยัน Shutdown',
+              subLocal:'Raspberry Pi จะปิดเครื่อง — ต้องไปกดเปิดที่เครื่องเองถึงจะกลับมา ⚠️',
+              subCloud:'ต้อง login ก่อนถึงจะสั่ง Shutdown ได้ — Pi จะปิดเครื่อง (ต้องเปิดเองที่เครื่อง)' },
+};
+
+function confirmPower(action){
+  pendingAction = action;
+  const p = POWER[action];
+  document.getElementById('modalIcon').textContent = p.icon;
+  document.getElementById('modalTitle').textContent = p.title;
+  document.getElementById('modalConfirm').textContent = p.btn;
+  document.getElementById('rebootMsg').textContent = MODE==='cloud' ? p.subCloud : p.subLocal;
   document.getElementById('rebootModal').classList.add('open');
 }
 function closeModal(){ document.getElementById('rebootModal').classList.remove('open'); }
 document.getElementById('rebootModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 
-async function doReboot(){
+async function doPower(){
   closeModal();
-  const btn = document.getElementById('rebootBtn');
-  btn.textContent='↺ ...'; btn.disabled=true;
+  const action = pendingAction;
+  const btn = document.getElementById(action==='shutdown'?'shutdownBtn':'rebootBtn');
+  const orig = btn.innerHTML;
+  btn.textContent = '… '+action; btn.disabled = true;
   try {
     if(MODE==='local'){
-      await fetch('/api/reboot',{method:'POST'});
+      await fetch('/api/'+action,{method:'POST'});
     } else {
       let user = auth.currentUser;
       if(!user){
         const cred = await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
         user = cred.user;
       }
-      await db.collection('commands').doc('reboot').set({
+      await db.collection('commands').doc(action).set({
         requested_at: firebase.firestore.FieldValue.serverTimestamp(),
         requested_by: user.email||user.uid, handled:false,
       });
     }
   } catch(e){
-    alert('สั่ง Reboot ไม่สำเร็จ: '+(e?.message||e));
-    btn.textContent='↺ REBOOT'; btn.disabled=false;
+    alert('สั่ง '+action+' ไม่สำเร็จ: '+(e?.message||e));
+    btn.innerHTML = orig; btn.disabled = false;
   }
 }
 
@@ -472,10 +554,13 @@ async function init(){
     db.collection('status').doc('latest').onSnapshot(doc=>{
       if(!doc.exists) return;
       const x=doc.data();
+      cloudStatus = x;
       updateCards({
         temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
         ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       });
+      if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
+        renderDeviceCloud();
     });
   }
 
