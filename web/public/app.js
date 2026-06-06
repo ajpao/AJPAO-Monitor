@@ -8,12 +8,12 @@
 
 // ─── Firebase config (ใช้เฉพาะ CLOUD mode — กรอกจาก Firebase Console > Project settings > Web app) ───
 const firebaseConfig = {
-  apiKey:            "REPLACE_API_KEY",
-  authDomain:        "REPLACE_PROJECT.firebaseapp.com",
-  projectId:         "REPLACE_PROJECT",
-  storageBucket:     "REPLACE_PROJECT.appspot.com",
-  messagingSenderId: "REPLACE_SENDER_ID",
-  appId:             "REPLACE_APP_ID",
+  apiKey:            "AIzaSyAGXb05vU8jYVmZGBecNCnvAOh1TDWRAXg",
+  authDomain:        "ajpao-monitor.firebaseapp.com",
+  projectId:         "ajpao-monitor",
+  storageBucket:     "ajpao-monitor.firebasestorage.app",
+  messagingSenderId: "487891341769",
+  appId:             "1:487891341769:web:3e8228b373b9fc73e85818",
 };
 
 Chart.register(ChartDataLabels);
