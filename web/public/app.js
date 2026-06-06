@@ -146,10 +146,10 @@ function makeCompareChart(todayByHour, yestByHour){
       },
       layout:{padding:{top:8}},
       scales:{
-        x:{ticks:{color:C.dim,font:{size:12,family:'Share Tech Mono'},maxRotation:0,maxTicksLimit:12},
+        x:{ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},maxRotation:0,maxTicksLimit:12},
            grid:{color:C.grid}},
         y:{min:Math.max(0,mn-5), max:mx+6,
-           ticks:{color:C.dim,font:{size:12,family:'Share Tech Mono'},callback:v=>v+'°'},
+           ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},callback:v=>v+'°'},
            grid:{color:C.grid}},
       },
     },
