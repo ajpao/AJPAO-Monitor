@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AJPAO's RPi Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans+Thai:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<!-- Firebase (compat) — ใช้เฉพาะตอนเปิดจาก cloud; ตอนเปิดใน LAN จะไม่ถูกเรียกใช้ -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128; --border: #30363d;
+  --text: #e6edf3; --muted: #8b949e; --blue: #4a9fd4; --green: #5dcaa5;
+  --yellow: #f0c040; --red: #e05252; --orange: #e09a3a; --accent: #58a6ff;
+}
+
+body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Thai', sans-serif; font-size: 14px; line-height: 1.6; }
+
+header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; }
+.logo { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; color: var(--accent); }
+.logo span { color: var(--muted); font-weight: 400; }
+.header-time { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.mode-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.mode-badge.local { color: var(--green); border-color: var(--green); }
+.mode-badge.cloud { color: var(--accent); border-color: var(--accent); }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+@media (max-width: 600px) { .container { padding: 12px; } }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 600px) { .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+.stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; transition: border-color .2s; min-width: 0; }
+.stat-card:hover { border-color: var(--accent); }
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+.stat-card.temp::before { display: none; }
+.stat-card.cpu::before { background: var(--blue); }
+.stat-card.ram::before { background: var(--green); }
+.stat-card.disk::before { background: var(--yellow); }
+.stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-value { font-family: 'JetBrains Mono', monospace; font-size: clamp(22px, 5vw, 32px); font-weight: 700; line-height: 1; white-space: nowrap; }
+.stat-value.temp { color: var(--blue); }
+.stat-value.cpu { color: var(--blue); }
+.stat-value.ram { color: var(--green); }
+.stat-value.disk { color: var(--yellow); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; font-family: 'JetBrains Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { padding: 8px 16px; border: none; background: none; color: var(--muted); font-family: 'IBM Plex Sans Thai', sans-serif; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s; white-space: nowrap; flex-shrink: 0; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+.chart-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.chart-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace; }
+.chart-wrap { position: relative; width: 100%; }
+
+.summary-bar { display: flex; gap: 24px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.summary-item { display: flex; flex-direction: column; gap: 2px; }
+.summary-item .s-label { font-size: 10px; color: var(--muted); }
+.summary-item .s-val { font-weight: 700; }
+.s-min { color: var(--blue); }
+.s-avg { color: var(--text); }
+.s-max { color: var(--red); }
+
+.btn-reboot { margin-left: 16px; padding: 6px 14px; background: transparent; border: 1px solid #e05252; color: #e05252; border-radius: 6px; font-size: 12px; font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s, color .15s; }
+.btn-reboot:hover { background: #e05252; color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <div class="logo">🍓 AJPAO<span>'s RPi Monitor</span></div>
+  <span class="mode-badge" id="modeBadge">…</span>
+  <div class="header-time" id="hTime">--:--:--</div>
+  <button id="rebootBtn" class="btn-reboot" onclick="confirmReboot()">⟳ REBOOT</button>
+</header>
+
+<div id="rebootModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:#161b22;border:1px solid #e05252;border-radius:12px;padding:32px;max-width:360px;width:90%;text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+    <div style="font-size:16px;font-weight:600;margin-bottom:8px;color:#e6edf3;">ยืนยัน Reboot?</div>
+    <div id="rebootMsg" style="font-size:13px;color:#8b949e;margin-bottom:24px;">Raspberry Pi จะ Restart และใช้เวลาประมาณ 1-2 นาทีกว่าจะกลับมา</div>
+    <div style="display:flex;gap:12px;justify-content:center;">
+      <button onclick="doReboot()" style="padding:10px 28px;background:#e05252;border:none;color:#fff;border-radius:8px;font-size:14px;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif;">ยืนยัน Reboot</button>
+      <button onclick="closeReboot()" style="padding:10px 28px;background:transparent;border:1px solid #30363d;color:#8b949e;border-radius:8px;font-size:14px;cursor:pointer;font-family:'IBM Plex Sans Thai',sans-serif;">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="stat-grid">
+    <div class="stat-card temp">
+      <div id="tempTopBar" style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--blue);border-radius:10px 10px 0 0;"></div>
+      <div class="stat-label">🌡️ Temperature</div>
+      <div class="stat-value temp" id="sTemp">--</div>
+      <div class="stat-sub" id="sTempStatus">--</div>
+    </div>
+    <div class="stat-card cpu">
+      <div class="stat-label">🖥️ CPU</div>
+      <div class="stat-value cpu" id="sCpu">--</div>
+      <div class="stat-sub">percent</div>
+    </div>
+    <div class="stat-card ram">
+      <div class="stat-label">🧠 RAM</div>
+      <div class="stat-value ram" id="sRam">--</div>
+      <div class="stat-sub" id="sRamFree">--</div>
+    </div>
+    <div class="stat-card disk">
+      <div class="stat-label">💾 Disk</div>
+      <div class="stat-value disk" id="sDisk">--</div>
+      <div class="stat-sub" id="sDiskFree">--</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('today', this)">Today</button>
+    <button class="tab" onclick="switchTab('history', this)">24h</button>
+    <button class="tab" onclick="switchTab('monthly', this)">Monthly</button>
+    <button class="tab" onclick="switchTab('sysToday', this)">System Today</button>
+    <button class="tab" onclick="switchTab('sysMonthly', this)">System Monthly</button>
+  </div>
+
+  <div id="tab-today" class="panel active">
+    <div class="chart-card">
+      <div class="chart-title">อุณหภูมิรายชั่วโมง — วันนี้</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="todayChart"></canvas></div>
+      <div class="summary-bar" id="todaySummary"></div>
+    </div>
+  </div>
+
+  <div id="tab-history" class="panel">
+    <div class="chart-card">
+      <div class="chart-title">อุณหภูมิย้อนหลัง 24 ชั่วโมง</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="historyChart"></canvas></div>
+      <div class="summary-bar" id="historySummary"></div>
+    </div>
+  </div>
+
+  <div id="tab-monthly" class="panel">
+    <div class="chart-card">
+      <div class="chart-title" id="monthlyTitle">อุณหภูมิรายวัน — เดือนนี้</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="monthlyChart"></canvas></div>
+      <div class="summary-bar" id="monthlySummary"></div>
+    </div>
+  </div>
+
+  <div id="tab-sysToday" class="panel">
+    <div class="chart-card">
+      <div class="chart-title">CPU % — วันนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysTodayCpu"></canvas></div>
+      <div class="summary-bar" id="sysTodayCpuSum"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">RAM % — วันนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysTodayRam"></canvas></div>
+      <div class="summary-bar" id="sysTodayRamSum"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Disk % — วันนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysTodayDisk"></canvas></div>
+      <div class="summary-bar" id="sysTodayDiskSum"></div>
+    </div>
+  </div>
+
+  <div id="tab-sysMonthly" class="panel">
+    <div class="chart-card">
+      <div class="chart-title" id="sysMonthlyTitle">CPU % — เดือนนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysMonthlyCpu"></canvas></div>
+      <div class="summary-bar" id="sysMonthlyCpuSum"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">RAM % — เดือนนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysMonthlyRam"></canvas></div>
+      <div class="summary-bar" id="sysMonthlyRamSum"></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Disk % — เดือนนี้</div>
+      <div class="chart-wrap" style="height:220px"><canvas id="sysMonthlyDisk"></canvas></div>
+      <div class="summary-bar" id="sysMonthlyDiskSum"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

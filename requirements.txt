@@ -1,0 +1,6 @@
+flask
+psutil
+requests
+python-dotenv
+matplotlib
+firebase-admin

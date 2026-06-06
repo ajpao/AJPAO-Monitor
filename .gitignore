@@ -1,0 +1,28 @@
+# ─── ความลับ — ห้าม commit เด็ดขาด ───
+.env
+serviceAccountKey.json
+
+# ─── ฐานข้อมูล local ───
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ─── Python ───
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# ─── Firebase / Node ───
+.firebase/
+firebase-debug.log
+*.log
+node_modules/
+
+# ─── OS / editor ───
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

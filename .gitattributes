@@ -1,0 +1,8 @@
+# บังคับ LF เสมอ — ไฟล์เหล่านี้รันบน Linux (Raspberry Pi)
+* text=auto eol=lf
+*.py    text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.html  text eol=lf
+*.service text eol=lf
+*.md    text eol=lf

@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// AJPAO-Monitor — Firestore security rules
+//
+//   readings / status : อ่านได้ทั่วไป (dashboard cloud) แต่ client เขียนไม่ได้
+//                       (ตัว Pi เขียนผ่าน Admin SDK = bypass rules อยู่แล้ว)
+//   commands          : client อ่านไม่ได้; เขียนได้เฉพาะผู้ที่ login (สั่ง reboot)
+//
+// ต้องการจำกัด reboot เฉพาะอีเมลตัวเอง: แก้เงื่อนไข write ของ commands เป็น
+//   allow write: if request.auth != null && request.auth.token.email in ['you@gmail.com'];
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /readings/{doc} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    match /status/{doc} {
+      allow read:  if true;
+      allow write: if false;
+    }
+
+    match /commands/{doc} {
+      allow read:  if false;
+      allow write: if request.auth != null;
+    }
+  }
+}

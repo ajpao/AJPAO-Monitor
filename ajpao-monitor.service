@@ -1,0 +1,26 @@
+# systemd service สำหรับ AJPAO-Monitor (ไฟล์เดียวทำทุกอย่าง)
+#
+# ติดตั้ง:
+#   sudo cp ajpao-monitor.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ajpao-monitor
+#   systemctl status ajpao-monitor
+#   journalctl -u ajpao-monitor -f      # ดู log
+#
+# ปรับ User / WorkingDirectory / ExecStart ให้ตรงกับเครื่องของคุณ
+
+[Unit]
+Description=AJPAO-Monitor (RPi monitor: collector + web + telegram + cloud sync)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ajpao
+WorkingDirectory=/home/ajpao/AJPAO-Monitor
+ExecStart=/usr/bin/python3 /home/ajpao/AJPAO-Monitor/monitor.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
