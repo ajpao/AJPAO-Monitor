@@ -218,6 +218,42 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .proc-empty{text-align:center;color:var(--dim);padding:18px!important;font-size:.7rem}
 .net-on{color:var(--ok)} .net-off{color:var(--danger)}
 
+/* service manager */
+.svc-list{display:flex;flex-direction:column;gap:8px}
+.svc-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:8px;flex-wrap:wrap}
+.svc-info{flex:1;min-width:140px}
+.svc-name{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.82rem;color:var(--text);display:flex;align-items:center;gap:8px}
+.svc-desc{font-size:.62rem;color:var(--dim);margin-top:2px}
+.svc-badge{font-family:'Share Tech Mono',monospace;font-size:.56rem;letter-spacing:1px;text-transform:uppercase;
+  padding:2px 8px;border-radius:20px;border:1px solid var(--border);color:var(--dim);white-space:nowrap}
+.svc-badge.on{color:var(--ok);border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.07)}
+.svc-badge.off{color:var(--dim)}
+.svc-badge.fail{color:var(--danger);border-color:rgba(255,51,85,.4);background:rgba(255,51,85,.07)}
+.svc-btns{display:flex;gap:5px}
+.svc-btn{font-family:'Share Tech Mono',monospace;font-size:.58rem;letter-spacing:1px;text-transform:uppercase;
+  padding:5px 11px;border:1px solid var(--border);background:transparent;color:var(--dim);
+  border-radius:6px;cursor:pointer;transition:.15s}
+.svc-btn:hover{color:var(--text);border-color:var(--text)}
+.svc-btn.start:hover{color:var(--ok);border-color:var(--ok)}
+.svc-btn.stop:hover{color:var(--danger);border-color:var(--danger)}
+.svc-btn.restart:hover{color:var(--info);border-color:var(--info)}
+.svc-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* web terminal */
+.term-card{background:#05080f}
+.term-out{font-family:'Share Tech Mono',ui-monospace,monospace;font-size:.74rem;line-height:1.5;
+  height:360px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;color:#c8d6f0;
+  background:#05080f;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.term-out .t-cmd{color:var(--accent)}
+.term-out .t-err{color:var(--danger)}
+.term-out .t-sys{color:var(--dim)}
+.term-input-row{display:flex;align-items:center;gap:8px}
+.term-prompt{font-family:'Share Tech Mono',monospace;font-size:.74rem;color:var(--ok);white-space:nowrap}
+.term-in{flex:1;font-family:'Share Tech Mono',ui-monospace,monospace;font-size:.78rem;
+  background:#05080f;border:1px solid var(--border);color:#c8d6f0;border-radius:6px;padding:9px 12px;outline:none}
+.term-in:focus{border-color:var(--accent)}
+
 /* no-data placeholder */
 .no-data{display:flex;align-items:center;justify-content:center;height:180px;
   font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.75rem;color:var(--dim);letter-spacing:1px}
@@ -338,6 +374,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="server"></i>ระบบ</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
     <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="router"></i>เครื่อง</button>
+    <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
   </div>
 
   <!-- Panel: Temperature -->
@@ -442,6 +479,25 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <thead><tr><th>PID</th><th>Process</th><th class="num">CPU %</th><th class="num">MEM %</th></tr></thead>
         <tbody id="dProcBody"><tr><td colspan="4" class="proc-empty">กำลังโหลด…</td></tr></tbody>
       </table>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="settings-2"></i>Services</div><span class="data-count" id="svcNote"></span></div>
+      <div id="svcList" class="svc-list"><div class="proc-empty">กำลังโหลด…</div></div>
+    </div>
+  </div>
+
+  <!-- Panel: Terminal (web terminal) -->
+  <div id="panel-terminal" class="s-panel">
+    <div class="chart-card term-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="terminal"></i>Web Terminal</div>
+        <span class="data-count">LAN only · timeout 30s · พิมพ์ clear เพื่อล้างจอ</span>
+      </div>
+      <div class="term-out" id="termOut"></div>
+      <div class="term-input-row">
+        <span class="term-prompt">ajpao@rpi:~$</span>
+        <input id="termIn" class="term-in" placeholder="พิมพ์คำสั่ง แล้วกด Enter — เช่น ls -la, df -h, free -h, uptime" autocomplete="off" spellcheck="false">
+      </div>
     </div>
   </div>
 

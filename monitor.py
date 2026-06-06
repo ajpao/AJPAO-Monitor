@@ -50,6 +50,9 @@ CHAT_ID            = os.getenv("CHAT_ID")
 ALLOWED            = set((os.getenv("ALLOWED_IDS") or (CHAT_ID or "")).split(","))
 
 WEB_PASSWORD       = (os.getenv("WEB_PASSWORD") or "").strip()   # ถ้าว่าง = ไม่บังคับ login (LAN เปิด)
+MANAGED_SERVICES   = [s.strip() for s in (os.getenv("MANAGED_SERVICES")
+                       or "apache2,transmission-daemon,ssh").split(",") if s.strip()]
+EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal: timeout ต่อคำสั่ง (วินาที)
 PORT               = int(os.getenv("PORT", "5000"))
 TEMP_ALERT         = float(os.getenv("TEMP_ALERT", "55"))
 COLLECT_INTERVAL   = int(os.getenv("COLLECT_INTERVAL", "600"))   # วินาที (default 10 นาที)
@@ -822,6 +825,80 @@ def api_date():
                     "cpu": cpus, "ram": rams, "disk": disks, "count": len(rows)})
 
 
+# ─── service manager ─────────────────────────────────────────────────────────────
+
+def _service_status(name):
+    """อ่านสถานะ service ผ่าน systemctl show — คืน None ถ้าไม่มี unit นี้"""
+    try:
+        r = subprocess.run(
+            ["systemctl", "show", name, "--no-pager",
+             "--property=LoadState,ActiveState,SubState,UnitFileState,Description"],
+            capture_output=True, text=True, timeout=5,
+        )
+        d = {}
+        for line in r.stdout.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                d[k] = v
+        if d.get("LoadState") == "not-found":
+            return None
+        return {
+            "name":    name,
+            "active":  d.get("ActiveState", ""),      # active / inactive / failed / activating
+            "sub":     d.get("SubState", ""),
+            "enabled": d.get("UnitFileState", ""),     # enabled / disabled / static / masked
+            "desc":    d.get("Description", name),
+        }
+    except Exception:
+        return None
+
+
+@flask_app.route("/api/services")
+@require_auth
+def api_services():
+    out = [s for s in (_service_status(n) for n in MANAGED_SERVICES) if s]
+    return jsonify({"services": out})
+
+
+@flask_app.route("/api/service/<name>/<action>", methods=["POST"])
+@require_auth
+def api_service_action(name, action):
+    if name not in MANAGED_SERVICES:                   # allowlist — กันสั่ง service มั่ว/inject
+        return jsonify({"ok": False, "error": "service ไม่อยู่ในรายการที่จัดการได้"}), 400
+    if action not in ("start", "stop", "restart"):
+        return jsonify({"ok": False, "error": "action ไม่ถูกต้อง"}), 400
+    if name == "ajpao-monitor" and action == "stop":   # กันหยุดตัวเอง
+        return jsonify({"ok": False, "error": "ห้ามหยุดตัว monitor เอง"}), 400
+    try:
+        r = subprocess.run(["sudo", "systemctl", action, name],
+                           capture_output=True, text=True, timeout=30)
+        return jsonify({"ok": r.returncode == 0,
+                        "output": (r.stdout + r.stderr).strip(),
+                        "status": _service_status(name)})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ─── web terminal (รันคำสั่งสั้นๆ — ต้อง login) ───────────────────────────────────
+
+@flask_app.route("/api/exec", methods=["POST"])
+@require_auth
+def api_exec():
+    data = request.get_json(silent=True) or {}
+    cmd = (data.get("cmd") or "").strip()
+    if not cmd:
+        return jsonify({"ok": False, "error": "คำสั่งว่าง"}), 400
+    try:
+        r = subprocess.run(["bash", "-lc", cmd], capture_output=True, text=True,
+                           timeout=EXEC_TIMEOUT, cwd=os.path.expanduser("~"))
+        return jsonify({"ok": True, "code": r.returncode,
+                        "stdout": r.stdout, "stderr": r.stderr})
+    except subprocess.TimeoutExpired:
+        return jsonify({"ok": False, "error": f"⏱ timeout ({EXEC_TIMEOUT}s) — คำสั่งใช้เวลานานเกินไป"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+
 @flask_app.route("/api/reboot", methods=["POST"])
 @require_auth
 def api_reboot():
@@ -957,7 +1034,7 @@ def main():
     threading.Thread(target=bot_loop, daemon=True).start()
     threading.Thread(target=reboot_poll_loop, daemon=True).start()
     print(f"🌐 LAN dashboard: http://0.0.0.0:{PORT}")
-    flask_app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False)
+    flask_app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False, threaded=True)
 
 
 if __name__ == "__main__":

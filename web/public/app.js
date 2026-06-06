@@ -401,6 +401,104 @@ function renderDeviceCloud(){
   setText('dProcNote','LAN only');
 }
 
+// ─── service manager ───────────────────────────────────────────────────────────
+
+async function loadServices(){
+  const list=document.getElementById('svcList');
+  if(MODE!=='local'){
+    list.innerHTML='<div class="proc-empty">⚠ จัดการ service ได้เฉพาะตอนเปิดใน LAN</div>';
+    setText('svcNote','LAN only'); return;
+  }
+  try{
+    const d=await fetch('/api/services').then(r=>r.json());
+    renderServices(d.services||[]);
+  }catch(e){ list.innerHTML='<div class="proc-empty">โหลดไม่สำเร็จ</div>'; }
+}
+
+function renderServices(svcs){
+  const list=document.getElementById('svcList');
+  setText('svcNote', svcs.length+' services');
+  if(!svcs.length){ list.innerHTML='<div class="proc-empty">ไม่มี service ในรายการ</div>'; return; }
+  list.innerHTML=svcs.map(s=>{
+    const on=s.active==='active', fail=s.active==='failed';
+    const badge=fail?'fail':on?'on':'off';
+    const btxt=(s.active||'?').toUpperCase();
+    return `<div class="svc-row">
+      <div class="svc-info">
+        <div class="svc-name">${s.name} <span class="svc-badge ${badge}">${btxt}</span></div>
+        <div class="svc-desc">${s.desc||''}${s.enabled?' · '+s.enabled:''}</div>
+      </div>
+      <div class="svc-btns">
+        <button class="svc-btn start" onclick="svcAction('${s.name}','start',this)" ${on?'disabled':''}>Start</button>
+        <button class="svc-btn stop" onclick="svcAction('${s.name}','stop',this)" ${on?'':'disabled'}>Stop</button>
+        <button class="svc-btn restart" onclick="svcAction('${s.name}','restart',this)">Restart</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function svcAction(name, action, btn){
+  const row=btn.closest('.svc-row');
+  row.querySelectorAll('button').forEach(b=>b.disabled=true);
+  btn.textContent='…';
+  try{
+    const d=await fetch(`/api/service/${name}/${action}`,{method:'POST'}).then(r=>r.json());
+    if(!d.ok) alert('สั่ง '+action+' '+name+' ไม่สำเร็จ:\n'+(d.error||d.output||''));
+  }catch(e){ alert('error: '+(e?.message||e)); }
+  setTimeout(loadServices, 700);   // รอ systemd อัปเดตสถานะ
+}
+
+// ─── web terminal ──────────────────────────────────────────────────────────────
+
+let termHist=[], termHistIdx=-1, termReady=false;
+
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function termWrite(html){
+  const out=document.getElementById('termOut');
+  out.innerHTML += html;
+  out.scrollTop = out.scrollHeight;
+}
+
+function setupTerminal(){
+  if(termReady) return; termReady=true;
+  const inp=document.getElementById('termIn');
+  if(MODE!=='local'){
+    termWrite('<span class="t-sys">⚠ Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN</span>\n');
+    inp.disabled=true; inp.placeholder='ใช้ได้เฉพาะใน LAN'; return;
+  }
+  termWrite('<span class="t-sys">AJPAO-Monitor web terminal — รันคำสั่งสั้นๆ (timeout 30s)\n'
+    +'⚠ รันด้วยสิทธิ์เต็มของผู้ใช้ ajpao — ระวังคำสั่งอันตราย · พิมพ์ clear เพื่อล้างจอ\n\n</span>');
+  inp.addEventListener('keydown', async e=>{
+    if(e.key==='Enter'){
+      const cmd=inp.value.trim();
+      if(!cmd) return;
+      termHist.push(cmd); termHistIdx=termHist.length; inp.value='';
+      if(cmd==='clear'){ document.getElementById('termOut').innerHTML=''; return; }
+      termWrite('<span class="t-cmd">$ '+esc(cmd)+'</span>\n');
+      inp.disabled=true;
+      try{
+        const d=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({cmd})}).then(r=>r.json());
+        if(d.ok){
+          if(d.stdout) termWrite(esc(d.stdout));
+          if(d.stderr) termWrite('<span class="t-err">'+esc(d.stderr)+'</span>');
+          if(!d.stdout && !d.stderr) termWrite('<span class="t-sys">(no output)</span>\n');
+          if(d.code) termWrite('<span class="t-sys">[exit '+d.code+']</span>\n');
+        } else {
+          termWrite('<span class="t-err">'+esc(d.error||'error')+'</span>\n');
+        }
+      }catch(e){ termWrite('<span class="t-err">เชื่อมต่อไม่ได้</span>\n'); }
+      termWrite('\n'); inp.disabled=false; inp.focus();
+    } else if(e.key==='ArrowUp'){
+      if(termHistIdx>0){ termHistIdx--; inp.value=termHist[termHistIdx]; e.preventDefault(); }
+    } else if(e.key==='ArrowDown'){
+      if(termHistIdx<termHist.length-1){ termHistIdx++; inp.value=termHist[termHistIdx]; }
+      else { termHistIdx=termHist.length; inp.value=''; }
+      e.preventDefault();
+    }
+  });
+}
+
 // ─── status cards ─────────────────────────────────────────────────────────────
 
 function updateCards(d){
@@ -453,13 +551,17 @@ function switchPanel(name, btn){
     if(name==='temp') loadDatePanel('temp');
     else if(name==='system') loadDatePanel('system');
     else if(name==='monthly') loadMonthly();
-    else if(name==='device') loadDevice();
+    else if(name==='device'){ loadDevice(); loadServices(); }
+    else if(name==='terminal') setupTerminal();
   } else if(name==='device'){
-    loadDevice();
+    loadDevice(); loadServices();
   }
 
   if(name==='device' && MODE==='local'){
     deviceTimer = setInterval(loadDevice, 5000);   // refresh speed/processes สด
+  }
+  if(name==='terminal' && MODE==='local'){
+    const t=document.getElementById('termIn'); if(t && !t.disabled) t.focus();
   }
 }
 
