@@ -180,6 +180,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
 
+/* AdGuard widget */
+.adguard-card{margin-bottom:16px}
+.ag-status{display:inline-flex;align-items:center;gap:7px;font-family:'Share Tech Mono',monospace;
+  font-size:.68rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase}
+.ag-dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.ag-dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok);animation:blink 2s ease-in-out infinite}
+.ag-dot.off{background:var(--danger);box-shadow:0 0 8px var(--danger)}
+.ag-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:640px){.ag-grid{grid-template-columns:1fr}}
+.ag-tile{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--panel2);
+  border:1px solid var(--border);border-radius:10px}
+.ag-ico{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.ag-ico svg{width:22px;height:22px}
+.ag-ico.total{background:rgba(51,153,255,.12)}   .ag-ico.total svg{color:var(--info)}
+.ag-ico.blocked{background:rgba(255,51,85,.12)}  .ag-ico.blocked svg{color:var(--danger)}
+.ag-ico.rate{background:rgba(255,107,0,.12)}     .ag-ico.rate svg{color:var(--accent)}
+.ag-meta{min-width:0}
+.ag-val{font-family:'Share Tech Mono',monospace;font-size:1.5rem;font-weight:700;line-height:1.1;color:var(--text)}
+.ag-val.ag-blocked{color:var(--danger)} .ag-val.ag-rate{color:var(--accent)}
+.ag-lbl{font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:1.5px;
+  color:var(--dim);text-transform:uppercase;margin-top:3px}
+
 /* login gate */
 .login-gate{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);
   align-items:center;justify-content:center;padding:20px}
@@ -365,6 +387,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="info-row"><span class="ir-label">Uptime</span><span class="ir-val" id="iUptime">--</span></div>
       <div class="info-row"><span class="ir-label">Last Update</span><span class="ir-val" id="iLastSeen">--</span></div>
       <div class="info-row"><span class="ir-label">Mode</span><span class="ir-val" id="iMode">--</span></div>
+    </div>
+  </div>
+
+  <!-- AdGuard Home widget (โผล่เมื่อมีข้อมูล adguard เท่านั้น) -->
+  <div class="chart-card adguard-card" id="adguardCard" style="display:none">
+    <div class="cc-head">
+      <div class="cc-title"><i data-lucide="shield"></i>AdGuard Home</div>
+      <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">--</span></span>
+    </div>
+    <div class="ag-grid">
+      <div class="ag-tile">
+        <div class="ag-ico total"><i data-lucide="globe"></i></div>
+        <div class="ag-meta"><div class="ag-val" id="agTotal">--</div><div class="ag-lbl">Total Queries</div></div>
+      </div>
+      <div class="ag-tile">
+        <div class="ag-ico blocked"><i data-lucide="shield-ban"></i></div>
+        <div class="ag-meta"><div class="ag-val ag-blocked" id="agBlocked">--</div><div class="ag-lbl">Blocked</div></div>
+      </div>
+      <div class="ag-tile">
+        <div class="ag-ico rate"><i data-lucide="pie-chart"></i></div>
+        <div class="ag-meta"><div class="ag-val ag-rate" id="agRate">--%</div><div class="ag-lbl">Block Rate</div></div>
+      </div>
     </div>
   </div>
 

@@ -53,6 +53,13 @@ WEB_PASSWORD       = (os.getenv("WEB_PASSWORD") or "").strip()   # ถ้าว�
 MANAGED_SERVICES   = [s.strip() for s in (os.getenv("MANAGED_SERVICES")
                        or "apache2,transmission-daemon,ssh").split(",") if s.strip()]
 EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal: timeout ต่อคำสั่ง (วินาที)
+
+# ─── AdGuard Home (ดึงสถิติ DNS) — ปล่อย ADGUARD_IP ว่าง = ปิดฟีเจอร์นี้ ───
+ADGUARD_IP         = (os.getenv("ADGUARD_IP") or "").strip()       # เช่น 127.0.0.1 (เครื่องเดียวกัน) หรือ IP ในวง LAN
+ADGUARD_PORT       = (os.getenv("ADGUARD_PORT") or "80").strip()   # พอร์ต web UI / control API ของ AdGuard
+ADGUARD_USER       = (os.getenv("ADGUARD_USER") or "").strip()     # username สำหรับ Basic Auth
+ADGUARD_PASSWORD   = (os.getenv("ADGUARD_PASSWORD") or "").strip() # password สำหรับ Basic Auth
+
 PORT               = int(os.getenv("PORT", "5000"))
 TEMP_ALERT         = float(os.getenv("TEMP_ALERT", "55"))
 COLLECT_INTERVAL   = int(os.getenv("COLLECT_INTERVAL", "600"))   # วินาที (default 10 นาที)
@@ -157,6 +164,46 @@ def collect_metrics():
     ram  = psutil.virtual_memory()
     disk = psutil.disk_usage("/")
     return temp, cpu, ram, disk
+
+
+# ─── AdGuard Home stats ──────────────────────────────────────────────────────────
+
+def get_adguard_stats():
+    """ดึงสถิติจาก AdGuard Home (/control/stats + /control/status) ผ่าน HTTP Basic Auth
+
+    ออกแบบให้ "ไม่ทำให้ระบบพัง" — ถ้า AdGuard ปิดอยู่/ต่อไม่ได้/ข้อมูลผิดรูปแบบ
+    จะคืน None เฉยๆ เพื่อให้ตัวเรียกข้ามไป แล้วส่งเฉพาะค่า hardware ต่อได้ตามปกติ
+
+    คืน dict เช่น:
+        {"dns_queries": 15200, "blocked_filtering": 4500,
+         "replaced_safebrowsing": 12, "replaced_parental": 0,
+         "protection_enabled": True, "running": True}
+    """
+    if not ADGUARD_IP:                       # ไม่ได้ตั้งค่า = ปิดฟีเจอร์ ไม่ต้องยิง request
+        return None
+
+    base = f"http://{ADGUARD_IP}:{ADGUARD_PORT}"
+    auth = (ADGUARD_USER, ADGUARD_PASSWORD) if ADGUARD_USER else None
+    try:
+        # /control/stats — สถิติการ query/บล็อก   |   /control/status — สถานะระบบ
+        stats  = requests.get(f"{base}/control/stats",  auth=auth, timeout=4).json()
+        status = requests.get(f"{base}/control/status", auth=auth, timeout=4).json()
+    except Exception as e:
+        print(f"[adguard] ดึงข้อมูลไม่ได้ (ข้าม ส่งเฉพาะ hardware): {e}")
+        return None
+
+    try:
+        return {
+            "dns_queries":           int(stats.get("num_dns_queries", 0)),
+            "blocked_filtering":     int(stats.get("num_blocked_filtering", 0)),
+            "replaced_safebrowsing": int(stats.get("num_replaced_safebrowsing", 0)),
+            "replaced_parental":     int(stats.get("num_replaced_parental", 0)),
+            "protection_enabled":    bool(status.get("protection_enabled", False)),
+            "running":               bool(status.get("running", True)),
+        }
+    except Exception as e:
+        print(f"[adguard] ข้อมูลผิดรูปแบบ (ข้าม): {e}")
+        return None
 
 
 # ─── system info (network / OS / processes) ─────────────────────────────────────
@@ -302,7 +349,7 @@ def push_reading(now, temp, cpu, ram, disk):
             "disk_pct": round(disk.percent, 1),
         })
         oi = get_os_info()
-        db_fs.collection("status").document("latest").set({
+        status_doc = {
             "ts":           _aware(now),
             "temp_c":       round(temp, 1),
             "cpu_pct":      round(cpu, 1),
@@ -317,7 +364,11 @@ def push_reading(now, temp, cpu, ram, disk):
             "hostname":     oi["hostname"],
             "ip":           get_primary_ip(),
             "updated_at":   fs.SERVER_TIMESTAMP,
-        })
+        }
+        ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
+        if ag is not None:
+            status_doc["adguard"] = ag
+        db_fs.collection("status").document("latest").set(status_doc)
         return True
     except Exception as e:
         print(f"[firestore] push ล้มเหลว: {e}")
@@ -693,6 +744,7 @@ def api_status():
         "uptime": int(psutil.boot_time()),
         "model": oi["model"], "os": oi["os"], "kernel": oi["kernel"],
         "hostname": oi["hostname"], "ip": get_primary_ip(),
+        "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
     })
 
 

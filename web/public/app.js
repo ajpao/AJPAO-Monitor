@@ -534,6 +534,23 @@ function updateCards(d){
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 }
 
+// ─── AdGuard widget ─────────────────────────────────────────────────────────────
+
+function updateAdguard(ag){
+  const card = document.getElementById('adguardCard');
+  if(!ag){ card.style.display='none'; return; }   // ไม่มีข้อมูล (AdGuard ปิด/ปิดฟีเจอร์) → ซ่อนการ์ด
+  card.style.display='';
+  const total   = ag.dns_queries || 0;
+  const blocked = ag.blocked_filtering || 0;
+  const rate    = total>0 ? (blocked/total*100) : 0;   // Block Rate = (blocked / total) × 100
+  setText('agTotal',   total.toLocaleString());
+  setText('agBlocked', blocked.toLocaleString());
+  setText('agRate',    rate.toFixed(1)+'%');
+  const on = !!ag.protection_enabled;
+  document.getElementById('agDot').className = 'ag-dot '+(on?'on':'off');
+  setText('agStatusText', on ? 'Protection ON' : 'Protection OFF');
+}
+
 // ─── panel switcher ───────────────────────────────────────────────────────────
 
 const panelLoaded = {};
@@ -665,7 +682,11 @@ async function doLogout(){
 function startLocal(){
   document.getElementById('logoutBtn').style.display = 'inline-flex';
   const pollStatus = async () => {
-    try { updateCards(await fetch('/api/status').then(r=>r.json())); } catch(e){}
+    try {
+      const d = await fetch('/api/status').then(r=>r.json());
+      updateCards(d);
+      updateAdguard(d.adguard);
+    } catch(e){}
   };
   pollStatus();
   setInterval(pollStatus, 10000);
@@ -684,6 +705,7 @@ function startCloud(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
     });
+    updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
       renderDeviceCloud();
   });
