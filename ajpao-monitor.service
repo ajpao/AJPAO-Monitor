@@ -18,7 +18,9 @@ Wants=network-online.target
 Type=simple
 User=ajpao
 WorkingDirectory=/home/ajpao/AJPAO-Monitor
-ExecStart=/usr/bin/python3 /home/ajpao/AJPAO-Monitor/monitor.py
+# ใช้ python ใน virtualenv (.venv) ที่ติดตั้ง dependencies ไว้
+# ถ้าไม่ได้ใช้ venv ให้เปลี่ยนเป็น /usr/bin/python3
+ExecStart=/home/ajpao/AJPAO-Monitor/.venv/bin/python3 /home/ajpao/AJPAO-Monitor/monitor.py
 Restart=always
 RestartSec=10
 
