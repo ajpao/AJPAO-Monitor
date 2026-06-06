@@ -518,13 +518,81 @@ async function doPower(){
 
 async function detectMode(){
   try {
-    const r = await fetch('/api/status',{cache:'no-store'});
-    if(r.ok && (r.headers.get('content-type')||'').includes('application/json')){
+    const r = await fetch('/api/ping',{cache:'no-store'});
+    if(r.ok){
       const d = await r.json();
-      if(typeof d.temp==='number') return 'local';
+      if(d && d.local) return 'local';
     }
   } catch(e){}
   return 'cloud';
+}
+
+// ─── login gate (LAN) ──────────────────────────────────────────────────────────
+
+function showLogin(){
+  const g = document.getElementById('loginGate');
+  g.style.display = 'flex';
+  const pw = document.getElementById('loginPw');
+  pw.focus();
+  pw.onkeydown = e => { if(e.key==='Enter') doLogin(); };
+}
+function hideLogin(){ document.getElementById('loginGate').style.display='none'; }
+
+async function doLogin(){
+  const pw  = document.getElementById('loginPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; err.textContent = '';
+  try {
+    const r = await fetch('/api/login',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({password:pw}),
+    });
+    if(r.ok){ hideLogin(); startLocal(); }
+    else { const d=await r.json().catch(()=>({})); err.textContent=d.error||'เข้าสู่ระบบไม่สำเร็จ'; btn.disabled=false; }
+  } catch(e){ err.textContent='เชื่อมต่อไม่ได้'; btn.disabled=false; }
+}
+
+async function doLogout(){
+  try { await fetch('/api/logout',{method:'POST'}); } catch(e){}
+  location.reload();
+}
+
+// ─── start (per mode) ──────────────────────────────────────────────────────────
+
+function startLocal(){
+  document.getElementById('logoutBtn').style.display = 'inline-flex';
+  const pollStatus = async () => {
+    try { updateCards(await fetch('/api/status').then(r=>r.json())); } catch(e){}
+  };
+  pollStatus();
+  setInterval(pollStatus, 10000);
+  startDashboard();
+}
+
+function startCloud(){
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+  db.collection('status').doc('latest').onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const x=doc.data();
+    cloudStatus = x;
+    updateCards({
+      temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
+      ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
+    });
+    if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
+      renderDeviceCloud();
+  });
+  startDashboard();
+}
+
+function startDashboard(){
+  loadCompare();
+  loadDatePanel('temp');
+  panelLoaded['temp'] = true;
+  setInterval(loadCompare, 300000);   // refresh compare ทุก 5 นาที
 }
 
 async function init(){
@@ -534,42 +602,17 @@ async function init(){
   badge.className = 'mode-badge '+MODE;
   document.getElementById('iMode').textContent = MODE==='local'?'LAN / Flask':'Cloud / Firestore';
 
-  // max date for pickers
   const today = todayStr();
-  ['tempDate','sysDate'].forEach(id=>{
-    const el=document.getElementById(id);
-    el.value=today; el.max=today;
-  });
+  ['tempDate','sysDate'].forEach(id=>{ const el=document.getElementById(id); el.value=today; el.max=today; });
 
   if(MODE==='local'){
-    const pollStatus = async () => {
-      try { updateCards(await fetch('/api/status').then(r=>r.json())); } catch(e){}
-    };
-    await pollStatus();
-    setInterval(pollStatus, 10000);
+    let me = {authed:true, auth_required:false};
+    try { me = await fetch('/api/me').then(r=>r.json()); } catch(e){}
+    if(me.auth_required && !me.authed){ showLogin(); return; }   // รอ login ก่อน
+    startLocal();
   } else {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    auth = firebase.auth();
-    db.collection('status').doc('latest').onSnapshot(doc=>{
-      if(!doc.exists) return;
-      const x=doc.data();
-      cloudStatus = x;
-      updateCards({
-        temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
-        ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
-      });
-      if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
-        renderDeviceCloud();
-    });
+    startCloud();
   }
-
-  loadCompare();
-  loadDatePanel('temp');
-  panelLoaded['temp'] = true;
-
-  // refresh compare every 5 min
-  setInterval(loadCompare, 300000);
 }
 
 // clock

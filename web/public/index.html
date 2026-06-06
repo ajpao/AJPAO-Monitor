@@ -180,6 +180,29 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:'Noto Sans Thai',sans-serif;transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
 
+/* login gate */
+.login-gate{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);
+  align-items:center;justify-content:center;padding:20px}
+.login-box{background:var(--panel);border:1px solid var(--border);border-radius:16px;
+  padding:40px 34px;max-width:380px;width:100%;text-align:center;
+  box-shadow:0 0 60px rgba(255,107,0,.08)}
+.login-logo{width:68px;height:68px;margin:0 auto 18px;border-radius:16px;display:grid;place-items:center;
+  background:linear-gradient(135deg,rgba(255,107,0,.16),rgba(51,153,255,.12));
+  border:1px solid rgba(255,107,0,.3)}
+.login-logo svg{width:34px;height:34px;color:var(--accent)}
+.login-brand{font-size:1.1rem;margin-bottom:6px}
+.login-sub{font-size:.82rem;color:var(--dim);margin-bottom:22px}
+.login-input{width:100%;font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;
+  font-size:.95rem;padding:12px 14px;background:var(--panel2);border:1px solid var(--border);
+  color:var(--text);border-radius:10px;outline:none;text-align:center;letter-spacing:2px}
+.login-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.15)}
+.login-err{min-height:20px;font-size:.75rem;color:var(--danger);margin:10px 0}
+.login-btn{width:100%;font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;
+  font-size:.85rem;letter-spacing:2px;padding:12px;border:none;border-radius:10px;cursor:pointer;
+  background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);color:#fff;transition:.2s;text-transform:uppercase}
+.login-btn:hover{box-shadow:0 0 22px rgba(255,107,0,.35)}
+.login-btn:disabled{opacity:.5;cursor:not-allowed}
+
 /* device tab */
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
 @media(max-width:760px){.info-grid{grid-template-columns:1fr}}
@@ -211,6 +234,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <div class="corner tl"></div><div class="corner tr"></div>
 <div class="corner bl"></div><div class="corner br"></div>
 
+<!-- Login Gate (LAN) -->
+<div class="login-gate" id="loginGate">
+  <div class="login-box">
+    <div class="login-logo"><i data-lucide="shield-check"></i></div>
+    <div class="login-brand"><span class="brand-mono">RPi</span> <span class="brand-sub">AJPAO-Monitor</span></div>
+    <div class="login-sub">ใส่รหัสผ่านเพื่อเข้าใช้งาน</div>
+    <input type="password" id="loginPw" class="login-input" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <div class="login-err" id="loginErr"></div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+  </div>
+</div>
+
 <!-- Topbar -->
 <header class="topbar">
   <div class="dot-live" id="dotLive"></div>
@@ -221,6 +256,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <span class="mode-badge" id="modeBadge">…</span>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
+  <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
   <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')"><i data-lucide="rotate-cw"></i>REBOOT</button>
   <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')"><i data-lucide="power"></i>SHUTDOWN</button>
 </header>

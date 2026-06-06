@@ -1,6 +1,7 @@
 # ─── ความลับ — ห้าม commit เด็ดขาด ───
 .env
 serviceAccountKey.json
+.flask_secret
 
 # ─── ฐานข้อมูล local ───
 *.db

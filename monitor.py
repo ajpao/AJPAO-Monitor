@@ -28,7 +28,8 @@ from datetime import datetime, timedelta
 
 import psutil
 import requests
-from flask import Flask, jsonify, send_from_directory, request
+from functools import wraps
+from flask import Flask, jsonify, send_from_directory, request, session
 from dotenv import load_dotenv
 
 import matplotlib
@@ -48,6 +49,7 @@ BOT_TOKEN          = os.getenv("BOT_TOKEN")
 CHAT_ID            = os.getenv("CHAT_ID")
 ALLOWED            = set((os.getenv("ALLOWED_IDS") or (CHAT_ID or "")).split(","))
 
+WEB_PASSWORD       = (os.getenv("WEB_PASSWORD") or "").strip()   # ถ้าว่าง = ไม่บังคับ login (LAN เปิด)
 PORT               = int(os.getenv("PORT", "5000"))
 TEMP_ALERT         = float(os.getenv("TEMP_ALERT", "55"))
 COLLECT_INTERVAL   = int(os.getenv("COLLECT_INTERVAL", "600"))   # วินาที (default 10 นาที)
@@ -604,12 +606,79 @@ BOT_COMMANDS = {
 flask_app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
 
 
+def _load_secret():
+    """secret key ที่คงที่ข้าม restart (ไม่งั้น session หลุดทุกครั้งที่ restart)"""
+    s = os.getenv("SECRET_KEY")
+    if s:
+        return s
+    p = os.path.join(BASE_DIR, ".flask_secret")
+    if os.path.exists(p):
+        return open(p).read().strip()
+    import secrets
+    s = secrets.token_hex(32)
+    try:
+        open(p, "w").write(s)
+        os.chmod(p, 0o600)
+    except Exception:
+        pass
+    return s
+
+
+flask_app.secret_key = _load_secret()
+flask_app.permanent_session_lifetime = timedelta(days=30)
+
+
+def require_auth(f):
+    """endpoint ที่ต้อง login ก่อน (เฉพาะเมื่อมีตั้ง WEB_PASSWORD)"""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if WEB_PASSWORD and not session.get("authed"):
+            return jsonify({"error": "unauthorized"}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+
 @flask_app.route("/")
 def index():
     return send_from_directory(WEB_DIR, "index.html")
 
 
+# ─── auth (LAN) ──────────────────────────────────────────────────────────────────
+
+@flask_app.route("/api/ping")
+def api_ping():
+    # endpoint เปิด — ใช้ detect ว่าเป็น LAN + บอกว่าต้อง login ไหม
+    return jsonify({"ok": True, "local": True, "auth_required": bool(WEB_PASSWORD)})
+
+
+@flask_app.route("/api/me")
+def api_me():
+    return jsonify({
+        "authed": (not WEB_PASSWORD) or bool(session.get("authed")),
+        "auth_required": bool(WEB_PASSWORD),
+    })
+
+
+@flask_app.route("/api/login", methods=["POST"])
+def api_login():
+    import hmac
+    data = request.get_json(silent=True) or {}
+    pw = data.get("password") or ""
+    if WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD):
+        session["authed"] = True
+        session.permanent = True
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "รหัสผ่านไม่ถูกต้อง"}), 401
+
+
+@flask_app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
 @flask_app.route("/api/status")
+@require_auth
 def api_status():
     temp, cpu, ram, disk = collect_metrics()
     oi = get_os_info()
@@ -625,6 +694,7 @@ def api_status():
 
 
 @flask_app.route("/api/sysinfo")
+@require_auth
 def api_sysinfo():
     return jsonify(get_sysinfo())
 
@@ -640,6 +710,7 @@ def _hourly_temp(rows, label_fmt):
 
 
 @flask_app.route("/api/today")
+@require_auth
 def api_today():
     today = datetime.now().strftime("%Y-%m-%d")
     rows = query("SELECT timestamp, temp_c FROM temperature WHERE timestamp LIKE ? ORDER BY timestamp", (f"{today}%",))
@@ -648,6 +719,7 @@ def api_today():
 
 
 @flask_app.route("/api/history")
+@require_auth
 def api_history():
     since = (datetime.now() - timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
     rows = query("SELECT timestamp, temp_c FROM temperature WHERE timestamp >= ? ORDER BY timestamp", (since,))
@@ -656,6 +728,7 @@ def api_history():
 
 
 @flask_app.route("/api/monthly")
+@require_auth
 def api_monthly():
     month = datetime.now().strftime("%Y-%m")
     rows = query("SELECT timestamp, temp_c FROM temperature WHERE timestamp LIKE ? ORDER BY timestamp", (f"{month}%",))
@@ -685,6 +758,7 @@ def _system_buckets(rows, by_day):
 
 
 @flask_app.route("/api/system_today")
+@require_auth
 def api_system_today():
     today = datetime.now().strftime("%Y-%m-%d")
     rows = query("SELECT timestamp, cpu_pct, ram_pct, disk_pct FROM temperature "
@@ -699,6 +773,7 @@ def api_system_today():
 
 
 @flask_app.route("/api/system_monthly")
+@require_auth
 def api_system_monthly():
     month = datetime.now().strftime("%Y-%m")
     rows = query("SELECT timestamp, cpu_pct, ram_pct, disk_pct FROM temperature "
@@ -714,6 +789,7 @@ def api_system_monthly():
 
 
 @flask_app.route("/api/date")
+@require_auth
 def api_date():
     date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
     try:
@@ -747,6 +823,7 @@ def api_date():
 
 
 @flask_app.route("/api/reboot", methods=["POST"])
+@require_auth
 def api_reboot():
     # LAN ถือว่า trusted — กดได้เลยไม่ต้อง login
     subprocess.Popen(["sudo", "reboot"])
@@ -754,6 +831,7 @@ def api_reboot():
 
 
 @flask_app.route("/api/shutdown", methods=["POST"])
+@require_auth
 def api_shutdown():
     # LAN ถือว่า trusted — สั่งปิดเครื่อง (ต้องเปิดเองที่เครื่องถึงจะกลับมา)
     subprocess.Popen(["sudo", "shutdown", "-h", "now"])
