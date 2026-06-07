@@ -529,6 +529,11 @@ function updateCards(d){
   document.getElementById('sDiskSub').textContent = `ว่าง ${d.disk_free_gb} GB`;
 
   if(d.uptime) document.getElementById('iUptime').textContent = uptimeFmt(d.uptime);
+  if(d.model)    setText('iModel', d.model);
+  if(d.hostname) setText('iHostname', d.hostname);
+  if(d.ip)       setText('iIP', d.ip);
+  if(d.down_kbps!=null || d.up_kbps!=null)
+    setText('iSpeed', `↓ ${fmtSpeed(d.down_kbps||0)} · ↑ ${fmtSpeed(d.up_kbps||0)}`);
   const now = new Date();
   document.getElementById('iLastSeen').textContent =
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -704,6 +709,8 @@ function startCloud(){
     updateCards({
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
+      model:x.model, hostname:x.hostname, ip:x.ip,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')

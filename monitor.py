@@ -51,7 +51,7 @@ ALLOWED            = set((os.getenv("ALLOWED_IDS") or (CHAT_ID or "")).split(","
 
 WEB_PASSWORD       = (os.getenv("WEB_PASSWORD") or "").strip()   # ถ้าว่าง = ไม่บังคับ login (LAN เปิด)
 MANAGED_SERVICES   = [s.strip() for s in (os.getenv("MANAGED_SERVICES")
-                       or "apache2,transmission-daemon,ssh").split(",") if s.strip()]
+                       or "AdGuardHome,apache2,transmission-daemon,ssh").split(",") if s.strip()]
 EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal: timeout ต่อคำสั่ง (วินาที)
 
 # ─── AdGuard Home (ดึงสถิติ DNS) — ปล่อย ADGUARD_IP ว่าง = ปิดฟีเจอร์นี้ ───
@@ -267,6 +267,24 @@ def _has_internet(host="1.1.1.1", port=53, timeout=1.5):
         return False
 
 
+# net speed แบบ delta ระหว่างการเรียกสองครั้ง (ไม่ต้อง sleep — ใช้กับ /api/status ที่ถูก poll เป็นช่วง)
+_NET_LAST = {"t": None, "recv": 0, "sent": 0}
+
+
+def get_net_speed():
+    io  = psutil.net_io_counters()
+    now = time.time()
+    last = _NET_LAST
+    if last["t"] is None:
+        _NET_LAST.update(t=now, recv=io.bytes_recv, sent=io.bytes_sent)
+        return {"down_kbps": 0.0, "up_kbps": 0.0}
+    dt = max(now - last["t"], 0.5)
+    down = (io.bytes_recv - last["recv"]) / dt / 1024
+    up   = (io.bytes_sent - last["sent"]) / dt / 1024
+    _NET_LAST.update(t=now, recv=io.bytes_recv, sent=io.bytes_sent)
+    return {"down_kbps": round(max(0.0, down), 1), "up_kbps": round(max(0.0, up), 1)}
+
+
 def get_sysinfo(n_proc=8, sample=0.8):
     """รวมข้อมูลสด: network (IP/speed/internet) + OS + top processes (อ่านอย่างเดียว)"""
     # prime per-process cpu (ครั้งแรก cpu_percent คืน 0 — ต้องวัดเป็นช่วง)
@@ -364,6 +382,7 @@ def push_reading(now, temp, cpu, ram, disk):
             "hostname":     oi["hostname"],
             "ip":           get_primary_ip(),
             "updated_at":   fs.SERVER_TIMESTAMP,
+            **get_net_speed(),               # down_kbps, up_kbps
         }
         ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
         if ag is not None:
@@ -744,6 +763,7 @@ def api_status():
         "uptime": int(psutil.boot_time()),
         "model": oi["model"], "os": oi["os"], "kernel": oi["kernel"],
         "hostname": oi["hostname"], "ip": get_primary_ip(),
+        **get_net_speed(),                  # down_kbps, up_kbps (เน็ตเวิร์ก speed)
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
     })
 
