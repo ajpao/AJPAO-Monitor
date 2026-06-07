@@ -349,6 +349,8 @@ async function loadMonthly(){
 // ─── device tab (network / OS / processes) ─────────────────────────────────────
 
 function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+// "Raspberry Pi 4 Model B Rev 1.2" → "Pi 4 Model B"
+function shortModel(m){ return (m||'').replace(/^Raspberry\s+/i,'').replace(/\s+Rev.*$/i,'').trim() || m; }
 function fmtSpeed(kbps){ return kbps>=1024 ? (kbps/1024).toFixed(1)+' MB/s' : kbps.toFixed(0)+' KB/s'; }
 
 async function loadDevice(){
@@ -530,7 +532,7 @@ function updateCards(d){
   document.getElementById('sDiskSub').textContent = `ว่าง ${d.disk_free_gb} GB`;
 
   if(d.uptime) document.getElementById('iUptime').textContent = uptimeFmt(d.uptime);
-  if(d.model)    setText('iModel', d.model);
+  if(d.model)    setText('iModel', shortModel(d.model));
   if(d.hostname) setText('iHostname', d.hostname);
   if(d.ip)       setText('iIP', d.ip);
   if(d.down_kbps!=null || d.up_kbps!=null)

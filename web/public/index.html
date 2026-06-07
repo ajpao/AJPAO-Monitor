@@ -109,6 +109,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ir-label{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.6rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;flex-shrink:0}
 .ir-val{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.75rem;color:var(--text);text-align:right;word-break:break-all}
 .ir-val.online{color:var(--ok)}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);
+  margin-right:7px;vertical-align:middle;position:relative;animation:liveGlow 1.6s ease-in-out infinite}
+.live-dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--ok);
+  animation:liveRing 1.6s ease-out infinite}
+@keyframes liveGlow{0%,100%{box-shadow:0 0 6px var(--ok)}50%{box-shadow:0 0 12px 2px var(--ok)}}
+@keyframes liveRing{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.6);opacity:0}}
 
 /* compare stats row */
 .cmp-stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
@@ -427,7 +433,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="cc-head" style="margin-bottom:8px">
         <div class="cc-title"><i data-lucide="activity"></i>ข้อมูล Pi</div>
       </div>
-      <div class="info-row"><span class="ir-label">Status</span><span class="ir-val online" id="iPiStatus">ONLINE</span></div>
+      <div class="info-row"><span class="ir-label">Status</span><span class="ir-val online" id="iPiStatus"><span class="live-dot"></span>ONLINE</span></div>
       <div class="info-row"><span class="ir-label">Model</span><span class="ir-val" id="iModel">--</span></div>
       <div class="info-row"><span class="ir-label">Hostname</span><span class="ir-val" id="iHostname">--</span></div>
       <div class="info-row"><span class="ir-label">Primary IP</span><span class="ir-val" id="iIP">--</span></div>
