@@ -572,7 +572,9 @@ function updateAdguard(ag){
 
   agProtection = !!ag.protection_enabled;
   const st = document.getElementById('agState');
-  st.textContent = agProtection?'Active':'Paused';
+  st.innerHTML = agProtection
+    ? '<i data-lucide="shield-check"></i>Active'
+    : '<i data-lucide="pause-circle"></i>Paused';
   st.className = 'ag-protect-state '+(agProtection?'active':'paused');
   document.getElementById('agDot').className = 'ag-dot '+(agProtection?'on':'off');
   setText('agStatusText', agProtection ? 'Protection ON' : 'Protection OFF');
