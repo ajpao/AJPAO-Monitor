@@ -262,7 +262,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-offline svg{width:20px;height:20px}
 
 /* xterm terminal */
-.xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;padding:8px}
+.xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
+  padding:8px;overflow:hidden}
+.xterm-wrap .xterm,.xterm-wrap .xterm-viewport,.xterm-wrap .xterm-screen{height:100%!important}
+.xterm-wrap .xterm-viewport{background:transparent!important}
 @media(max-width:600px){.xterm-wrap{height:340px}}
 
 /* login gate */

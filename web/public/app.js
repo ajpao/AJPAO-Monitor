@@ -598,25 +598,31 @@ function updateCards(d){
 
 // ─── AdGuard widget ─────────────────────────────────────────────────────────────
 
-let agProtection=false, agEverSeen=false;
+let agProtection=false, agEverSeen=false, currentPanel='temp';
+
+// การ์ด AdGuard โชว์เฉพาะหน้า dashboard (แท็บ "อุณหภูมิ") + ต้องมีข้อมูลแล้ว
+function applyAdguardVisibility(){
+  document.getElementById('adguardCard').style.display =
+    (currentPanel==='temp' && agEverSeen) ? '' : 'none';
+}
 
 function updateAdguard(ag){
-  const card = document.getElementById('adguardCard');
   const body = document.getElementById('agBody');
   const off  = document.getElementById('agOffline');
 
   if(!ag){                                  // ติดต่อ AdGuard ไม่ได้
-    if(!agEverSeen){ card.style.display='none'; return; }   // ไม่เคยมีข้อมูล = ยังไม่ได้ตั้งค่า → ซ่อน
-    card.style.display='';                   // เคยมีแล้วแต่ตอนนี้ล่ม → แสดง "Offline"
-    body.style.display='none'; off.style.display='flex';
+    if(!agEverSeen){ applyAdguardVisibility(); return; }   // ไม่เคยมีข้อมูล = ยังไม่ได้ตั้งค่า → ซ่อน
+    body.style.display='none'; off.style.display='flex';   // เคยมีแล้วแต่ตอนนี้ล่ม → "Offline"
     document.getElementById('agDot').className='ag-dot off';
     setText('agStatusText','OFFLINE');
+    applyAdguardVisibility();
     if(window.lucide) lucide.createIcons();
     return;
   }
 
   agEverSeen=true;
-  card.style.display=''; body.style.display=''; off.style.display='none';
+  body.style.display=''; off.style.display='none';
+  applyAdguardVisibility();
   const total   = ag.dns_queries || 0;
   const blocked = ag.blocked_filtering || 0;
   const rate    = total>0 ? (blocked/total*100) : 0;   // Block Rate = (blocked / total) × 100
@@ -672,6 +678,9 @@ function switchPanel(name, btn){
   btn.classList.add('active');
   document.querySelectorAll('.s-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('panel-'+name).classList.add('active');
+
+  currentPanel = name;
+  applyAdguardVisibility();   // โชว์ AdGuard เฉพาะแท็บ "อุณหภูมิ"
 
   if(deviceTimer){ clearInterval(deviceTimer); deviceTimer=null; }
 
