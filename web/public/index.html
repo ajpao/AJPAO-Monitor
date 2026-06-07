@@ -289,6 +289,31 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-btn-toggle:hover{color:var(--ok);border-color:var(--ok)}
 .ag-btn-pause:hover{color:var(--accent);border-color:var(--accent)}
 .ag-btn:disabled{opacity:.4;cursor:not-allowed}
+/* Top 5 mini tables */
+.ag-tops{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+@media(max-width:760px){.ag-tops{grid-template-columns:1fr}}
+.ag-top{background:var(--panel2);border:1px solid var(--border);border-top:2px solid var(--border);
+  border-radius:10px;padding:12px 14px}
+.ag-top.blocked{border-top-color:var(--danger)}
+.ag-top.queries{border-top-color:var(--info)}
+.ag-top.clients{border-top-color:var(--ok)}
+.ag-top-head{display:flex;align-items:center;gap:7px;font-family:'Share Tech Mono',monospace;
+  font-size:.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.ag-top-head svg{width:1.15em;height:1.15em}
+.ag-top.blocked .ag-top-head svg,.ag-top.blocked .ag-top-head{color:var(--danger)}
+.ag-top.queries .ag-top-head svg,.ag-top.queries .ag-top-head{color:var(--info)}
+.ag-top.clients .ag-top-head svg,.ag-top.clients .ag-top-head{color:var(--ok)}
+.ag-top-row{display:flex;align-items:center;gap:8px;padding:5px 0;
+  border-bottom:1px solid rgba(120,140,175,.12);font-family:'Share Tech Mono',monospace;font-size:.66rem}
+.ag-top-row:last-child{border-bottom:none}
+.ag-top-rank{color:var(--dim);width:13px;flex-shrink:0}
+.ag-top-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.ag-top-count{font-weight:700;flex-shrink:0}
+.ag-top.blocked .ag-top-count{color:var(--danger)}
+.ag-top.queries .ag-top-count{color:var(--info)}
+.ag-top.clients .ag-top-count{color:var(--ok)}
+.ag-top-empty{color:var(--dim);font-size:.64rem;padding:12px 0;text-align:center;font-family:'Share Tech Mono',monospace}
+
 .ag-offline{display:flex;align-items:center;justify-content:center;gap:10px;padding:26px;
   color:var(--danger);font-family:'Share Tech Mono',monospace;font-size:.8rem;letter-spacing:1px;
   animation:softPulse 1.6s ease-in-out infinite}
@@ -673,6 +698,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <div class="ag-protect-btns">
           <button class="ag-btn ag-btn-toggle" id="agToggleBtn" onclick="agToggle()"><i data-lucide="power"></i>Toggle</button>
           <button class="ag-btn ag-btn-pause" onclick="agPause5()"><i data-lucide="timer"></i>Pause 5 Mins</button>
+        </div>
+      </div>
+      <div class="ag-tops">
+        <div class="ag-top blocked">
+          <div class="ag-top-head"><i data-lucide="shield-ban"></i>Top 5 Blocked</div>
+          <div class="ag-top-list" id="agTopBlocked"></div>
+        </div>
+        <div class="ag-top queries">
+          <div class="ag-top-head"><i data-lucide="globe"></i>Top 5 Queried</div>
+          <div class="ag-top-list" id="agTopQueries"></div>
+        </div>
+        <div class="ag-top clients">
+          <div class="ag-top-head"><i data-lucide="monitor-smartphone"></i>Top 5 Clients</div>
+          <div class="ag-top-list" id="agTopClients"></div>
         </div>
       </div>
     </div>

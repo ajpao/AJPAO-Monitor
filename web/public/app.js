@@ -678,7 +678,28 @@ function updateAdguard(ag){
   setText('agStatusText', agProtection ? 'Protection ON' : 'Protection OFF');
   document.getElementById('agToggleBtn').innerHTML =
     agProtection ? '<i data-lucide="power"></i>Disable' : '<i data-lucide="power"></i>Enable';
+  renderAgTops(ag);
   if(window.lucide) lucide.createIcons();
+}
+
+function agEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderAgTop(id, arr, key){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(!arr || !arr.length){ el.innerHTML='<div class="ag-top-empty">No data available</div>'; return; }
+  el.innerHTML = arr.map((it,i)=>{
+    const name=agEsc(it[key]||'-'), count=(it.count||0).toLocaleString();
+    return `<div class="ag-top-row"><span class="ag-top-rank">${i+1}</span>`
+      +`<span class="ag-top-name" title="${name}">${name}</span>`
+      +`<span class="ag-top-count">${count}</span></div>`;
+  }).join('');
+}
+
+function renderAgTops(ag){
+  renderAgTop('agTopBlocked', ag.top_blocked, 'domain');
+  renderAgTop('agTopQueries', ag.top_queries, 'domain');
+  renderAgTop('agTopClients', ag.top_clients, 'client');
 }
 
 // เปิด/ปิด protection — LAN ยิง API ตรง / Cloud เขียน command doc (ต้อง login Google)

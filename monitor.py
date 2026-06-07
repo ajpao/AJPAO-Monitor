@@ -207,10 +207,24 @@ def get_adguard_stats():
             "replaced_parental":     int(stats.get("num_replaced_parental", 0)),
             "protection_enabled":    bool(status.get("protection_enabled", False)),
             "running":               bool(status.get("running", True)),
+            # Top 5 — แปลง [{name:count}] → [{key:name, count:count}] เอาแค่ 5 อันดับแรก
+            "top_blocked": _ag_top(stats.get("top_blocked_domains"), "domain"),
+            "top_queries": _ag_top(stats.get("top_queried_domains"), "domain"),
+            "top_clients": _ag_top(stats.get("top_clients"),         "client"),
         }
     except Exception as e:
         print(f"[adguard] ข้อมูลผิดรูปแบบ (ข้าม): {e}")
         return None
+
+
+def _ag_top(arr, key, n=5):
+    """แปลง array ของ AdGuard ([{name:count}, ...]) → [{key:name, count:count}] เอา n อันดับแรก"""
+    out = []
+    for item in (arr or [])[:n]:
+        if isinstance(item, dict) and item:
+            name, count = next(iter(item.items()))
+            out.append({key: name, "count": int(count)})
+    return out
 
 
 def set_adguard_protection(enabled, duration_ms=0):
