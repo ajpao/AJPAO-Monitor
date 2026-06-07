@@ -172,8 +172,8 @@ function makeCompareChart(todayByHour, yestByHour){
     document.getElementById('cmpStats').innerHTML = `
       <div class="cs-item"><span class="cs-lbl"><i data-lucide="bar-chart-2"></i>วันนี้ AVG</span><span class="cs-val">${tAvg.toFixed(1)}°C</span></div>
       ${yAvg!=null?`<div class="cs-item"><span class="cs-lbl"><i data-lucide="history"></i>เมื่อวาน AVG</span><span class="cs-val">${yAvg.toFixed(1)}°C</span></div>`:''}
-      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-up"></i>วันนี้ MAX</span><span class="cs-val danger">${Math.max(...todayVals).toFixed(1)}°C</span></div>
-      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-down"></i>วันนี้ MIN</span><span class="cs-val ok">${Math.min(...todayVals).toFixed(1)}°C</span></div>`;
+      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-down"></i>วันนี้ MIN</span><span class="cs-val ok">${Math.min(...todayVals).toFixed(1)}°C</span></div>
+      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-up"></i>วันนี้ MAX</span><span class="cs-val danger">${Math.max(...todayVals).toFixed(1)}°C</span></div>`;
   }
 
   // บทวิเคราะห์แนวโน้ม (ภาษาคน)
