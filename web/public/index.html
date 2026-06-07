@@ -121,9 +121,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 /* compare stats row */
 .cmp-stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
-.cmp-insight{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
-.ci-line{display:flex;align-items:center;gap:9px;font-size:.78rem;color:var(--text);line-height:1.4}
-.ci-line svg{width:1.1em;height:1.1em;flex-shrink:0;color:var(--dim)}
+.cmp-insight{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+  display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
+@media(max-width:600px){.cmp-insight{grid-template-columns:1fr}}
+.ci-line{display:flex;align-items:center;gap:7px;font-size:.66rem;color:var(--text);line-height:1.35}
+.ci-line svg{width:1.05em;height:1.05em;flex-shrink:0;color:var(--dim)}
 .ci-line b{font-weight:700}
 .ci-line.ok svg{color:var(--ok)}    .ci-line.ok b{color:var(--ok)}
 .ci-line.warn svg{color:var(--accent)} .ci-line.warn b{color:var(--accent)}
