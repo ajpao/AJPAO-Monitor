@@ -630,31 +630,37 @@ function updateCards(d){
 
 // ─── AdGuard widget ─────────────────────────────────────────────────────────────
 
-let agProtection=false, agEverSeen=false, currentPanel='temp';
+let agProtection=false, agEverSeen=false, agLoaded=false, currentPanel='temp';
 
-// การ์ด AdGuard โชว์เฉพาะหน้า dashboard (แท็บ "อุณหภูมิ") + ต้องมีข้อมูลแล้ว
+// การ์ด AdGuard โชว์เฉพาะหน้า dashboard (แท็บ "อุณหภูมิ")
 function applyAdguardVisibility(){
-  document.getElementById('adguardCard').style.display =
-    (currentPanel==='temp' && agEverSeen) ? '' : 'none';
+  document.getElementById('adguardCard').style.display = (currentPanel==='temp') ? '' : 'none';
+}
+
+// สลับ 3 สถานะของการ์ด: skeleton (กำลังโหลด) / data (มีข้อมูล) / offline (ติดต่อไม่ได้)
+function setAgState(which){
+  const sk=document.getElementById('agSkeleton');
+  const body=document.getElementById('agBody');
+  const off=document.getElementById('agOffline');
+  if(sk)   sk.style.display   = which==='skeleton' ? '' : 'none';
+  if(body) body.style.display = which==='data'     ? '' : 'none';
+  if(off)  off.style.display  = which==='offline'  ? 'flex' : 'none';
 }
 
 function updateAdguard(ag){
-  const body = document.getElementById('agBody');
-  const off  = document.getElementById('agOffline');
+  agLoaded = true;
+  applyAdguardVisibility();
 
-  if(!ag){                                  // ติดต่อ AdGuard ไม่ได้
-    if(!agEverSeen){ applyAdguardVisibility(); return; }   // ไม่เคยมีข้อมูล = ยังไม่ได้ตั้งค่า → ซ่อน
-    body.style.display='none'; off.style.display='flex';   // เคยมีแล้วแต่ตอนนี้ล่ม → "Offline"
+  if(!ag){                                  // ติดต่อ AdGuard ไม่ได้ / Offline → ซ่อน skeleton แสดงเตือน
+    setAgState('offline');
     document.getElementById('agDot').className='ag-dot off';
     setText('agStatusText','OFFLINE');
-    applyAdguardVisibility();
     if(window.lucide) lucide.createIcons();
     return;
   }
 
   agEverSeen=true;
-  body.style.display=''; off.style.display='none';
-  applyAdguardVisibility();
+  setAgState('data');                       // มีข้อมูลแล้ว → ซ่อน skeleton แสดงข้อมูลจริง
   const total   = ag.dns_queries || 0;
   const blocked = ag.blocked_filtering || 0;
   const rate    = total>0 ? (blocked/total*100) : 0;   // Block Rate = (blocked / total) × 100
@@ -891,6 +897,7 @@ function startCloudData(){
 }
 
 function startDashboard(){
+  applyAdguardVisibility();            // โชว์การ์ด AdGuard (skeleton) ทันทีระหว่างรอข้อมูล
   loadCompare();
   loadDatePanel('temp');
   panelLoaded['temp'] = true;

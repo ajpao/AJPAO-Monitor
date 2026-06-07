@@ -250,7 +250,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:640px){.ag-grid{grid-template-columns:1fr}}
 .ag-tile{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--panel2);
-  border:1px solid var(--border);border-radius:10px}
+  border:1px solid var(--border);border-radius:10px;transition:transform .18s,border-color .18s,box-shadow .18s}
+.ag-tile:hover{transform:translateY(-2px);border-color:var(--accent);box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* status pill */
+.ag-status{padding:3px 11px;border-radius:20px;border:1px solid var(--border);background:var(--panel2)}
+/* skeleton loader */
+.ag-skeleton .ag-grid{margin-bottom:0}
+.sk-tile,.sk-bar{border-radius:10px;
+  background:linear-gradient(90deg,var(--panel2) 25%,var(--border) 50%,var(--panel2) 75%);
+  background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+.sk-tile{height:74px}
+.sk-bar{height:62px;margin-top:12px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .ag-ico{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
 .ag-ico svg{width:22px;height:22px}
 .ag-ico.total{background:rgba(51,153,255,.12)}   .ag-ico.total svg{color:var(--info)}
@@ -630,9 +641,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="chart-card adguard-card" id="adguardCard" style="display:none">
     <div class="cc-head">
       <div class="cc-title"><i data-lucide="shield"></i>Network &amp; AdGuard Security</div>
-      <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">--</span></span>
+      <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">LOADING…</span></span>
     </div>
-    <div id="agBody">
+    <!-- Skeleton loader (โชว์ระหว่างรอข้อมูล) -->
+    <div id="agSkeleton" class="ag-skeleton">
+      <div class="ag-grid">
+        <div class="sk-tile"></div><div class="sk-tile"></div><div class="sk-tile"></div>
+      </div>
+      <div class="sk-bar"></div>
+    </div>
+    <div id="agBody" style="display:none">
       <div class="ag-grid">
         <div class="ag-tile">
           <div class="ag-ico total"><i data-lucide="globe"></i></div>
