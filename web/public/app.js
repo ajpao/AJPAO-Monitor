@@ -24,6 +24,38 @@ const charts = {};
 let MODE = null, db = null, auth = null;
 let cloudStatus = null, deviceTimer = null;
 
+// ─── theme (dark / light) ──────────────────────────────────────────────────────
+
+function syncChartColors(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  C.text=g('--text'); C.dim=g('--dim'); C.ok=g('--ok'); C.info=g('--info');
+  C.warn=g('--warn'); C.danger=g('--danger'); C.accent=g('--accent'); C.purple=g('--purple');
+  C.panel=g('--panel');
+  C.grid = (document.documentElement.getAttribute('data-theme')==='light')
+    ? 'rgba(120,140,175,.28)' : 'rgba(29,47,80,.5)';
+}
+function applyThemeIcon(){
+  const light = document.documentElement.getAttribute('data-theme')==='light';
+  const btn = document.getElementById('themeBtn');
+  if(btn){ btn.innerHTML = `<i data-lucide="${light?'sun':'moon'}"></i>`; if(window.lucide) lucide.createIcons(); }
+}
+function rerenderCharts(){
+  syncChartColors();
+  loadCompare();
+  if(currentPanel==='system') loadDatePanel('system');
+  else if(currentPanel==='monthly') loadMonthly();
+  else loadDatePanel('temp');
+}
+function toggleTheme(){
+  const light = document.documentElement.getAttribute('data-theme')==='light';
+  if(light){ document.documentElement.removeAttribute('data-theme'); }
+  else      { document.documentElement.setAttribute('data-theme','light'); }
+  try{ localStorage.setItem('theme', light?'dark':'light'); }catch(e){}
+  applyThemeIcon();
+  rerenderCharts();
+}
+
 // ─── date helpers ────────────────────────────────────────────────────────────
 
 const pad = n => String(n).padStart(2,'0');
@@ -866,6 +898,8 @@ function startDashboard(){
 }
 
 async function init(){
+  syncChartColors();
+  applyThemeIcon();
   MODE = await detectMode();
   const badge = document.getElementById('modeBadge');
   badge.textContent = MODE==='local'?'🏠 LAN':'☁️ Cloud';

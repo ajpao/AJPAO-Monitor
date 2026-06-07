@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AJPAO-Monitor</title>
+<script>/* ตั้งธีมก่อน render กันหน้ากระพริบ — default = dark */
+(function(){try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet" />
@@ -21,7 +23,22 @@
   --bg:#060a14; --panel:#0c1424; --panel2:#101a2e; --border:#1d2f50;
   --accent:#ff6b00; --ok:#00e5a0; --info:#3399ff; --warn:#ffcc00;
   --danger:#ff3355; --text:#e0eaff; --dim:#7b8cae; --purple:#a855f7;
+  --topbar-bg:rgba(6,10,20,.92);
 }
+/* ── Light theme ── */
+:root[data-theme="light"]{
+  --bg:#eef2f8; --panel:#ffffff; --panel2:#f4f7fb; --border:#d6deea;
+  --accent:#e35d00; --ok:#0f9d6b; --info:#2563eb; --warn:#b9820a;
+  --danger:#e11d48; --text:#1c2535; --dim:#5d6b85; --purple:#8b3fd6;
+  --topbar-bg:rgba(255,255,255,.9);
+}
+:root[data-theme="light"] body::before{
+  background-image:linear-gradient(rgba(120,140,175,.16) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(120,140,175,.16) 1px,transparent 1px)}
+:root[data-theme="light"] body::after{
+  background:radial-gradient(ellipse 70% 50% at 50% 20%,rgba(227,93,0,.05),transparent 65%),
+             radial-gradient(ellipse 50% 50% at 15% 85%,rgba(15,157,107,.05),transparent 65%),
+             radial-gradient(ellipse 45% 45% at 88% 72%,rgba(37,99,235,.06),transparent 68%)}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;font-size:23.5px}
 body{font-family:'Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6}
@@ -45,7 +62,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .br{bottom:12px;right:12px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
 
 /* topbar */
-.topbar{position:sticky;top:0;z-index:50;min-height:44px;background:rgba(6,10,20,.92);
+.topbar{position:sticky;top:0;z-index:50;min-height:44px;background:var(--topbar-bg);
   border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
   display:flex;align-items:center;gap:9px;padding:5px 14px}
 .dot-live{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;position:relative;
@@ -68,6 +85,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .btn-reboot:disabled{opacity:.4;cursor:not-allowed}
 .btn-reboot{display:inline-flex;align-items:center;gap:5px}
 .btn-reboot svg{width:1.05em;height:1.05em}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:32px;height:32px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
+  border-radius:7px;cursor:pointer;transition:.2s}
+.icon-btn:hover{color:var(--accent);border-color:var(--accent)}
+.icon-btn svg{width:1.05em;height:1.05em}
 .btn-shutdown{border-color:rgba(255,107,0,.5);color:var(--accent)}
 .btn-shutdown:hover{background:rgba(255,107,0,.12);border-color:var(--accent);box-shadow:0 0 16px rgba(255,107,0,.2)}
 /* header mobile: สั้นลง — ซ่อน clock + ข้อความปุ่ม เหลือ icon */
@@ -393,6 +415,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <span class="mode-badge" id="modeBadge">…</span>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
+  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด"><i data-lucide="moon"></i></button>
   <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
   <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i><span class="btn-label">REBOOT</span></button>
   <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i><span class="btn-label">SHUTDOWN</span></button>
