@@ -185,7 +185,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* section nav */
 .section-nav{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .sn-btn{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;
-  padding:8px 20px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
+  flex:1 1 0;min-width:118px;justify-content:center;
+  padding:8px 12px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
   border-radius:8px;cursor:pointer;transition:.2s;display:flex;align-items:center;gap:6px}
 .sn-btn:hover{border-color:var(--accent);color:var(--text);background:var(--panel)}
 .sn-btn.active{border-color:var(--accent);color:var(--accent);
