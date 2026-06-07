@@ -468,43 +468,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- Network & AdGuard Security zone -->
-  <div class="chart-card adguard-card" id="adguardCard" style="display:none">
-    <div class="cc-head">
-      <div class="cc-title"><i data-lucide="shield"></i>Network &amp; AdGuard Security</div>
-      <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">--</span></span>
-    </div>
-    <div id="agBody">
-      <div class="ag-grid">
-        <div class="ag-tile">
-          <div class="ag-ico total"><i data-lucide="globe"></i></div>
-          <div class="ag-meta"><div class="ag-val" id="agTotal">--</div><div class="ag-lbl">Total Queries</div></div>
-        </div>
-        <div class="ag-tile">
-          <div class="ag-ico blocked"><i data-lucide="shield-ban"></i></div>
-          <div class="ag-meta"><div class="ag-val ag-blocked" id="agBlocked">--</div><div class="ag-lbl">Blocked</div></div>
-        </div>
-        <div class="ag-tile">
-          <div class="ag-ico rate"><i data-lucide="pie-chart"></i></div>
-          <div class="ag-meta"><div class="ag-val ag-rate" id="agRate">--%</div><div class="ag-lbl">Block Rate</div></div>
-        </div>
-      </div>
-      <div class="ag-protect">
-        <div class="ag-protect-info">
-          <div class="ag-protect-lbl">Protection Status</div>
-          <div class="ag-protect-state" id="agState">--</div>
-        </div>
-        <div class="ag-protect-btns">
-          <button class="ag-btn ag-btn-toggle" id="agToggleBtn" onclick="agToggle()"><i data-lucide="power"></i>Toggle</button>
-          <button class="ag-btn ag-btn-pause" onclick="agPause5()"><i data-lucide="timer"></i>Pause 5 Mins</button>
-        </div>
-      </div>
-    </div>
-    <div id="agOffline" class="ag-offline" style="display:none">
-      <i data-lucide="wifi-off"></i><span>AdGuard Offline — ติดต่อ API ไม่ได้</span>
-    </div>
-  </div>
-
   <!-- Section Nav -->
   <div class="section-nav">
     <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
@@ -631,6 +594,43 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <span class="data-count" id="termNote">LAN only · interactive shell</span>
       </div>
       <div id="xterm" class="xterm-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Network & AdGuard Security zone (ล่างสุด) -->
+  <div class="chart-card adguard-card" id="adguardCard" style="display:none">
+    <div class="cc-head">
+      <div class="cc-title"><i data-lucide="shield"></i>Network &amp; AdGuard Security</div>
+      <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">--</span></span>
+    </div>
+    <div id="agBody">
+      <div class="ag-grid">
+        <div class="ag-tile">
+          <div class="ag-ico total"><i data-lucide="globe"></i></div>
+          <div class="ag-meta"><div class="ag-val" id="agTotal">--</div><div class="ag-lbl">Total Queries</div></div>
+        </div>
+        <div class="ag-tile">
+          <div class="ag-ico blocked"><i data-lucide="shield-ban"></i></div>
+          <div class="ag-meta"><div class="ag-val ag-blocked" id="agBlocked">--</div><div class="ag-lbl">Blocked</div></div>
+        </div>
+        <div class="ag-tile">
+          <div class="ag-ico rate"><i data-lucide="pie-chart"></i></div>
+          <div class="ag-meta"><div class="ag-val ag-rate" id="agRate">--%</div><div class="ag-lbl">Block Rate</div></div>
+        </div>
+      </div>
+      <div class="ag-protect">
+        <div class="ag-protect-info">
+          <div class="ag-protect-lbl">Protection Status</div>
+          <div class="ag-protect-state" id="agState">--</div>
+        </div>
+        <div class="ag-protect-btns">
+          <button class="ag-btn ag-btn-toggle" id="agToggleBtn" onclick="agToggle()"><i data-lucide="power"></i>Toggle</button>
+          <button class="ag-btn ag-btn-pause" onclick="agPause5()"><i data-lucide="timer"></i>Pause 5 Mins</button>
+        </div>
+      </div>
+    </div>
+    <div id="agOffline" class="ag-offline" style="display:none">
+      <i data-lucide="wifi-off"></i><span>AdGuard Offline — ติดต่อ API ไม่ได้</span>
     </div>
   </div>
 
