@@ -121,6 +121,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 /* compare stats row */
 .cmp-stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.cmp-insight{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.ci-line{display:flex;align-items:center;gap:9px;font-size:.78rem;color:var(--text);line-height:1.4}
+.ci-line svg{width:1.1em;height:1.1em;flex-shrink:0;color:var(--dim)}
+.ci-line b{font-weight:700}
+.ci-line.ok svg{color:var(--ok)}    .ci-line.ok b{color:var(--ok)}
+.ci-line.warn svg{color:var(--accent)} .ci-line.warn b{color:var(--accent)}
+.ci-line.danger svg{color:var(--danger)} .ci-line.danger b{color:var(--danger)}
 .cs-item{display:flex;flex-direction:column;gap:2px}
 .cs-lbl{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.58rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
 .cs-val{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.82rem;font-weight:700;color:var(--text)}
@@ -442,6 +449,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
       <div class="chart-wrap" style="height:200px"><canvas id="compareChart"></canvas></div>
       <div class="cmp-stats" id="cmpStats"></div>
+      <div class="cmp-insight" id="cmpInsight"></div>
     </div>
     <div class="chart-card info-card">
       <div class="cc-head" style="margin-bottom:8px">

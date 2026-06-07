@@ -175,6 +175,60 @@ function makeCompareChart(todayByHour, yestByHour){
       <div class="cs-item"><span class="cs-lbl">วันนี้ MAX</span><span class="cs-val danger">${Math.max(...todayVals).toFixed(1)}°C</span></div>
       <div class="cs-item"><span class="cs-lbl">วันนี้ MIN</span><span class="cs-val ok">${Math.min(...todayVals).toFixed(1)}°C</span></div>`;
   }
+
+  // บทวิเคราะห์แนวโน้ม (ภาษาคน)
+  const ins = document.getElementById('cmpInsight');
+  if(ins){
+    ins.innerHTML = tempInsight(todayByHour, yestByHour);
+    if(window.lucide) lucide.createIcons();
+  }
+}
+
+// สร้างคำอธิบายแนวโน้มอุณหภูมิแบบอ่านง่าย
+function tempInsight(todayByHour, yestByHour){
+  const tHours = Object.keys(todayByHour).map(Number).filter(h=>todayByHour[h]!=null).sort((a,b)=>a-b);
+  if(!tHours.length) return '';
+  const tVals = tHours.map(h=>todayByHour[h]);
+  const tAvg  = tVals.reduce((a,b)=>a+b,0)/tVals.length;
+
+  const yVals = Object.values(yestByHour).filter(v=>v!=null);
+  const yAvg  = yVals.length ? yVals.reduce((a,b)=>a+b,0)/yVals.length : null;
+
+  // จุดร้อนสุด
+  let maxH=tHours[0], maxV=todayByHour[maxH];
+  tHours.forEach(h=>{ if(todayByHour[h]>maxV){ maxV=todayByHour[h]; maxH=h; } });
+
+  // แนวโน้มล่าสุด (เทียบ ~3 ชม.ก่อนหน้า)
+  const lastH=tHours[tHours.length-1], lastV=todayByHour[lastH];
+  const refH = tHours.find(h=>h>=lastH-3) ?? tHours[0];
+  const slope = lastV - todayByHour[refH];
+  const span  = Math.max(1, lastH-refH);
+
+  const L=[];
+  // 1) เทียบเมื่อวาน
+  if(yAvg!=null){
+    const diff=tAvg-yAvg, a=Math.abs(diff);
+    if(a<0.5)      L.push(['minus','',        `วันนี้เฉลี่ย <b>${tAvg.toFixed(1)}°</b> — พอๆ กับเมื่อวาน`]);
+    else if(diff<0)L.push(['trending-down','ok',  `วันนี้เฉลี่ย <b>${tAvg.toFixed(1)}°</b> เย็นกว่าเมื่อวาน <b>${a.toFixed(1)}°</b>`]);
+    else           L.push(['trending-up','warn',  `วันนี้เฉลี่ย <b>${tAvg.toFixed(1)}°</b> อุ่นกว่าเมื่อวาน <b>${a.toFixed(1)}°</b>`]);
+  } else {
+    L.push(['thermometer','', `วันนี้เฉลี่ย <b>${tAvg.toFixed(1)}°</b> (ยังไม่มีข้อมูลเมื่อวานให้เทียบ)`]);
+  }
+  // 2) จุดร้อนสุด
+  L.push(['flame','', `ร้อนสุดวันนี้ <b>${maxV.toFixed(1)}°</b> ตอน <b>${pad(maxH)}:00</b>`]);
+  // 3) แนวโน้มล่าสุด
+  if(tHours.length>=2 && Math.abs(slope)>=0.4){
+    if(slope<0) L.push(['arrow-down-right','ok',  `ช่วงนี้กำลัง<b>เย็นลง</b> (${slope.toFixed(1)}° ใน ~${span} ชม.)`]);
+    else        L.push(['arrow-up-right','warn',  `ช่วงนี้กำลัง<b>ร้อนขึ้น</b> (+${slope.toFixed(1)}° ใน ~${span} ชม.)`]);
+  } else if(tHours.length>=2){
+    L.push(['minus','', `อุณหภูมิ<b>ทรงตัว</b>ในช่วงไม่กี่ชั่วโมงนี้`]);
+  }
+  // 4) ประเมินภาพรวม (จากจุดสูงสุด)
+  if(maxV>=60)      L.push(['alert-triangle','danger', `เคยแตะจุด<b>ร้อนมาก</b> ควรเช็คการระบายความร้อน`]);
+  else if(maxV>=52) L.push(['alert-circle','warn',     `เคยขึ้นระดับ<b>อุ่น</b> แต่ยังอยู่ในเกณฑ์รับได้`]);
+  else              L.push(['circle-check','ok',        `อุณหภูมิอยู่ใน<b>เกณฑ์ปกติ</b>ดี`]);
+
+  return L.map(([i,c,t])=>`<div class="ci-line ${c}"><i data-lucide="${i}"></i><span>${t}</span></div>`).join('');
 }
 
 // ─── LOCAL helpers ────────────────────────────────────────────────────────────
