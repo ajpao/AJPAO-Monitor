@@ -121,6 +121,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 /* compare stats row */
 .cmp-stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+@media(max-width:600px){.cmp-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}}
 .cmp-insight{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
   display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
 @media(max-width:600px){.cmp-insight{grid-template-columns:1fr}}
