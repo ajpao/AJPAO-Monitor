@@ -28,8 +28,15 @@ from datetime import datetime, timedelta
 
 import psutil
 import requests
+import json
+import pty
+import select
+import struct
+import fcntl
+import termios
 from functools import wraps
 from flask import Flask, jsonify, send_from_directory, request, session
+from flask_sock import Sock
 from dotenv import load_dotenv
 
 import matplotlib
@@ -51,7 +58,7 @@ ALLOWED            = set((os.getenv("ALLOWED_IDS") or (CHAT_ID or "")).split(","
 
 WEB_PASSWORD       = (os.getenv("WEB_PASSWORD") or "").strip()   # ถ้าว่าง = ไม่บังคับ login (LAN เปิด)
 MANAGED_SERVICES   = [s.strip() for s in (os.getenv("MANAGED_SERVICES")
-                       or "AdGuardHome,apache2,transmission-daemon,ssh").split(",") if s.strip()]
+                       or "AdGuardHome,plexmediaserver,transmission-daemon,ssh").split(",") if s.strip()]
 EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal: timeout ต่อคำสั่ง (วินาที)
 
 # ─── AdGuard Home (ดึงสถิติ DNS) — ปล่อย ADGUARD_IP ว่าง = ปิดฟีเจอร์นี้ ───
@@ -204,6 +211,27 @@ def get_adguard_stats():
     except Exception as e:
         print(f"[adguard] ข้อมูลผิดรูปแบบ (ข้าม): {e}")
         return None
+
+
+def set_adguard_protection(enabled, duration_ms=0):
+    """เปิด/ปิดการป้องกันของ AdGuard ผ่าน POST /control/protection
+       - enabled=False + duration_ms>0 = ปิดชั่วคราว (เช่น 300000 = 5 นาที)
+       - enabled=True = เปิดทำงานปกติ
+       คืน (ok: bool, msg: str)"""
+    if not ADGUARD_IP:
+        return False, "AdGuard ไม่ได้ตั้งค่า"
+    base = f"http://{ADGUARD_IP}:{ADGUARD_PORT}"
+    auth = (ADGUARD_USER, ADGUARD_PASSWORD) if ADGUARD_USER else None
+    payload = {"enabled": bool(enabled)}
+    if not enabled and duration_ms:
+        payload["duration"] = int(duration_ms)
+    try:
+        r = requests.post(f"{base}/control/protection", json=payload, auth=auth, timeout=5)
+        if r.status_code in (200, 204):
+            return True, "ok"
+        return False, f"AdGuard ตอบกลับ {r.status_code}"
+    except Exception as e:
+        return False, str(e)
 
 
 # ─── system info (network / OS / processes) ─────────────────────────────────────
@@ -699,6 +727,7 @@ def _load_secret():
 
 flask_app.secret_key = _load_secret()
 flask_app.permanent_session_lifetime = timedelta(days=30)
+sock = Sock(flask_app)
 
 
 def require_auth(f):
@@ -971,6 +1000,88 @@ def api_exec():
         return jsonify({"ok": False, "error": str(e)})
 
 
+@sock.route("/ws/terminal")
+def ws_terminal(ws):
+    """Full PTY terminal ผ่าน WebSocket (ไม่มี timeout) — ต้อง login ก่อน
+       client→server: JSON {"type":"input","data":...} หรือ {"type":"resize","cols":..,"rows":..}
+       server→client: ข้อความ output ดิบจาก bash"""
+    if WEB_PASSWORD and not session.get("authed"):
+        try:
+            ws.send("\x1b[31m[unauthorized — กรุณา login ก่อน]\x1b[0m\r\n")
+        except Exception:
+            pass
+        return
+
+    master, slave = pty.openpty()
+    env = dict(os.environ)
+    env["TERM"] = "xterm-256color"
+    proc = subprocess.Popen(
+        ["bash"], preexec_fn=os.setsid,
+        stdin=slave, stdout=slave, stderr=slave,
+        cwd=os.path.expanduser("~"), env=env,
+    )
+    os.close(slave)
+    stop = threading.Event()
+
+    def reader():
+        while not stop.is_set():
+            try:
+                r, _, _ = select.select([master], [], [], 0.2)
+                if master in r:
+                    data = os.read(master, 4096)
+                    if not data:
+                        break
+                    ws.send(data.decode(errors="ignore"))
+            except Exception:
+                break
+        stop.set()
+
+    th = threading.Thread(target=reader, daemon=True)
+    th.start()
+
+    try:
+        while not stop.is_set():
+            msg = ws.receive(timeout=1)
+            if msg is None:
+                if proc.poll() is not None:
+                    break
+                continue
+            try:
+                obj = json.loads(msg)
+            except Exception:
+                obj = {"type": "input", "data": msg}
+            if obj.get("type") == "resize":
+                cols = int(obj.get("cols", 80)); rows = int(obj.get("rows", 24))
+                try:
+                    fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+                except Exception:
+                    pass
+            else:
+                os.write(master, (obj.get("data", "")).encode())
+    except Exception:
+        pass
+    finally:
+        stop.set()
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        try:
+            os.close(master)
+        except Exception:
+            pass
+
+
+@flask_app.route("/api/adguard/protection", methods=["POST"])
+@require_auth
+def api_adguard_protection():
+    data = request.get_json(silent=True) or {}
+    enabled  = bool(data.get("enabled"))
+    duration = int(data.get("duration") or 0)
+    ok, msg = set_adguard_protection(enabled, duration)
+    return jsonify({"ok": ok, "error": None if ok else msg, "adguard": get_adguard_stats()})
+
+
 @flask_app.route("/api/reboot", methods=["POST"])
 @require_auth
 def api_reboot():
@@ -1080,7 +1191,7 @@ POWER_CMDS = {
 def reboot_poll_loop():
     if not db_fs:
         return
-    print("[power-poll] เริ่มเฝ้าคำสั่ง reboot/shutdown จาก cloud")
+    print("[power-poll] เริ่มเฝ้าคำสั่ง reboot/shutdown/adguard จาก cloud")
     while True:
         try:
             for name, (cmd, label) in POWER_CMDS.items():
@@ -1092,6 +1203,15 @@ def reboot_poll_loop():
                         broadcast(f"🔄 <b>มีคำสั่ง {label} จาก cloud dashboard</b>\n👤 {d.get('requested_by', '?')}")
                         ref.update({"handled": True, "handled_at": fs.SERVER_TIMESTAMP})
                         subprocess.run(cmd)
+
+            # คำสั่งควบคุม AdGuard protection จาก cloud
+            ag_ref = db_fs.collection("commands").document("adguard")
+            ag_doc = ag_ref.get()
+            if ag_doc.exists:
+                d = ag_doc.to_dict()
+                if not d.get("handled", True):
+                    set_adguard_protection(bool(d.get("enabled", True)), int(d.get("duration") or 0))
+                    ag_ref.update({"handled": True, "handled_at": fs.SERVER_TIMESTAMP})
         except Exception as e:
             print(f"[power-poll] error: {e}")
         time.sleep(REBOOT_POLL_SEC)

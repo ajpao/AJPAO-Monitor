@@ -448,55 +448,56 @@ async function svcAction(name, action, btn){
   setTimeout(loadServices, 700);   // รอ systemd อัปเดตสถานะ
 }
 
-// ─── web terminal ──────────────────────────────────────────────────────────────
+// ─── web terminal (full PTY ผ่าน WebSocket — ไม่มี timeout) ───────────────────────
 
-let termHist=[], termHistIdx=-1, termReady=false;
-
-function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function termWrite(html){
-  const out=document.getElementById('termOut');
-  out.innerHTML += html;
-  out.scrollTop = out.scrollHeight;
-}
+let term=null, termSock=null, fitAddon=null, termInit=false;
 
 function setupTerminal(){
-  if(termReady) return; termReady=true;
-  const inp=document.getElementById('termIn');
+  const note=document.getElementById('termNote');
   if(MODE!=='local'){
-    termWrite('<span class="t-sys">⚠ Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN</span>\n');
-    inp.disabled=true; inp.placeholder='ใช้ได้เฉพาะใน LAN'; return;
+    note.textContent='⚠ ใช้ได้เฉพาะใน LAN';
+    if(!termInit){
+      termInit=true;
+      document.getElementById('xterm').innerHTML=
+        '<div class="proc-empty" style="padding:40px">Web Terminal (PTY) ใช้ได้เฉพาะตอนเปิดใน LAN<br>'
+        +'(cloud เชื่อมต่อ shell ของ Pi โดยตรงไม่ได้)</div>';
+    }
+    return;
   }
-  termWrite('<span class="t-sys">AJPAO-Monitor web terminal — รันคำสั่งสั้นๆ (timeout 30s)\n'
-    +'⚠ รันด้วยสิทธิ์เต็มของผู้ใช้ ajpao — ระวังคำสั่งอันตราย · พิมพ์ clear เพื่อล้างจอ\n\n</span>');
-  inp.addEventListener('keydown', async e=>{
-    if(e.key==='Enter'){
-      const cmd=inp.value.trim();
-      if(!cmd) return;
-      termHist.push(cmd); termHistIdx=termHist.length; inp.value='';
-      if(cmd==='clear'){ document.getElementById('termOut').innerHTML=''; return; }
-      termWrite('<span class="t-cmd">$ '+esc(cmd)+'</span>\n');
-      inp.disabled=true;
-      try{
-        const d=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({cmd})}).then(r=>r.json());
-        if(d.ok){
-          if(d.stdout) termWrite(esc(d.stdout));
-          if(d.stderr) termWrite('<span class="t-err">'+esc(d.stderr)+'</span>');
-          if(!d.stdout && !d.stderr) termWrite('<span class="t-sys">(no output)</span>\n');
-          if(d.code) termWrite('<span class="t-sys">[exit '+d.code+']</span>\n');
-        } else {
-          termWrite('<span class="t-err">'+esc(d.error||'error')+'</span>\n');
-        }
-      }catch(e){ termWrite('<span class="t-err">เชื่อมต่อไม่ได้</span>\n'); }
-      termWrite('\n'); inp.disabled=false; inp.focus();
-    } else if(e.key==='ArrowUp'){
-      if(termHistIdx>0){ termHistIdx--; inp.value=termHist[termHistIdx]; e.preventDefault(); }
-    } else if(e.key==='ArrowDown'){
-      if(termHistIdx<termHist.length-1){ termHistIdx++; inp.value=termHist[termHistIdx]; }
-      else { termHistIdx=termHist.length; inp.value=''; }
-      e.preventDefault();
+  if(termInit){
+    // กลับเข้าแท็บอีกครั้ง — เชื่อมใหม่ถ้าหลุด + จัดขนาด
+    if(!termSock || termSock.readyState>1) connectTerm();
+    if(fitAddon) setTimeout(()=>{ fitAddon.fit(); sendResize(); },60);
+    if(term) term.focus();
+    return;
+  }
+  termInit=true;
+  term=new Terminal({fontFamily:"'Share Tech Mono', monospace", fontSize:13, cursorBlink:true,
+    theme:{background:'#05080f', foreground:'#c8d6f0', cursor:'#ff6b00', selectionBackground:'#1d2f50'}});
+  fitAddon=new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(document.getElementById('xterm'));
+  setTimeout(()=>fitAddon.fit(),60);
+  term.onData(d=>{ if(termSock && termSock.readyState===1) termSock.send(JSON.stringify({type:'input',data:d})); });
+  connectTerm();
+  window.addEventListener('resize',()=>{
+    if(fitAddon && document.getElementById('panel-terminal').classList.contains('active')){
+      fitAddon.fit(); sendResize();
     }
   });
+}
+
+function connectTerm(){
+  const proto = location.protocol==='https:'?'wss':'ws';
+  termSock = new WebSocket(`${proto}://${location.host}/ws/terminal`);
+  termSock.onopen    = ()=>{ sendResize(); if(term) term.focus(); };
+  termSock.onmessage = e=>{ if(term) term.write(e.data); };
+  termSock.onclose   = ()=>{ if(term) term.write('\r\n\x1b[31m[การเชื่อมต่อปิด — กดแท็บอื่นแล้วกลับมาเพื่อเชื่อมใหม่]\x1b[0m\r\n'); };
+}
+
+function sendResize(){
+  if(termSock && termSock.readyState===1 && term)
+    termSock.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
 }
 
 // ─── status cards ─────────────────────────────────────────────────────────────
@@ -541,20 +542,68 @@ function updateCards(d){
 
 // ─── AdGuard widget ─────────────────────────────────────────────────────────────
 
+let agProtection=false, agEverSeen=false;
+
 function updateAdguard(ag){
   const card = document.getElementById('adguardCard');
-  if(!ag){ card.style.display='none'; return; }   // ไม่มีข้อมูล (AdGuard ปิด/ปิดฟีเจอร์) → ซ่อนการ์ด
-  card.style.display='';
+  const body = document.getElementById('agBody');
+  const off  = document.getElementById('agOffline');
+
+  if(!ag){                                  // ติดต่อ AdGuard ไม่ได้
+    if(!agEverSeen){ card.style.display='none'; return; }   // ไม่เคยมีข้อมูล = ยังไม่ได้ตั้งค่า → ซ่อน
+    card.style.display='';                   // เคยมีแล้วแต่ตอนนี้ล่ม → แสดง "Offline"
+    body.style.display='none'; off.style.display='flex';
+    document.getElementById('agDot').className='ag-dot off';
+    setText('agStatusText','OFFLINE');
+    if(window.lucide) lucide.createIcons();
+    return;
+  }
+
+  agEverSeen=true;
+  card.style.display=''; body.style.display=''; off.style.display='none';
   const total   = ag.dns_queries || 0;
   const blocked = ag.blocked_filtering || 0;
   const rate    = total>0 ? (blocked/total*100) : 0;   // Block Rate = (blocked / total) × 100
   setText('agTotal',   total.toLocaleString());
   setText('agBlocked', blocked.toLocaleString());
   setText('agRate',    rate.toFixed(1)+'%');
-  const on = !!ag.protection_enabled;
-  document.getElementById('agDot').className = 'ag-dot '+(on?'on':'off');
-  setText('agStatusText', on ? 'Protection ON' : 'Protection OFF');
+
+  agProtection = !!ag.protection_enabled;
+  const st = document.getElementById('agState');
+  st.textContent = agProtection?'Active':'Paused';
+  st.className = 'ag-protect-state '+(agProtection?'active':'paused');
+  document.getElementById('agDot').className = 'ag-dot '+(agProtection?'on':'off');
+  setText('agStatusText', agProtection ? 'Protection ON' : 'Protection OFF');
+  document.getElementById('agToggleBtn').innerHTML =
+    agProtection ? '<i data-lucide="power"></i>Disable' : '<i data-lucide="power"></i>Enable';
+  if(window.lucide) lucide.createIcons();
 }
+
+// เปิด/ปิด protection — LAN ยิง API ตรง / Cloud เขียน command doc (ต้อง login Google)
+async function agControl(enabled, duration){
+  if(MODE==='local'){
+    try{
+      const d=await fetch('/api/adguard/protection',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({enabled, duration:duration||0})}).then(r=>r.json());
+      if(!d.ok){ alert('AdGuard: '+(d.error||'ทำคำสั่งไม่สำเร็จ')); return; }
+      if(d.adguard) updateAdguard(d.adguard);
+    }catch(e){ alert('error: '+(e?.message||e)); }
+  } else {
+    try{
+      let user=auth.currentUser;
+      if(!user){ const c=await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); user=c.user; }
+      await db.collection('commands').doc('adguard').set({
+        enabled, duration:duration||0,
+        requested_at:firebase.firestore.FieldValue.serverTimestamp(),
+        requested_by:user.email||user.uid, handled:false,
+      });
+      alert('ส่งคำสั่งแล้ว — Pi จะอัปเดตภายใน ~15 วินาที');
+    }catch(e){ alert('error: '+(e?.message||e)); }
+  }
+}
+function agToggle(){ agControl(!agProtection, 0); }
+function agPause5(){ agControl(false, 300000); }   // ปิดชั่วคราว 5 นาที
 
 // ─── panel switcher ───────────────────────────────────────────────────────────
 
@@ -678,8 +727,18 @@ async function doLogin(){
 }
 
 async function doLogout(){
+  if(MODE==='cloud' && auth){ try{ await auth.signOut(); }catch(e){} location.reload(); return; }
   try { await fetch('/api/logout',{method:'POST'}); } catch(e){}
   location.reload();
+}
+
+// ─── login gate (Cloud — Google sign-in) ─────────────────────────────────────────
+
+function showCloudLogin(){ document.getElementById('cloudGate').style.display='flex'; }
+function hideCloudLogin(){ document.getElementById('cloudGate').style.display='none'; }
+async function doGoogleLogin(){
+  try { await auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+  catch(e){ document.getElementById('cloudErr').textContent = e?.message || 'ลงชื่อเข้าใช้ไม่สำเร็จ'; }
 }
 
 // ─── start (per mode) ──────────────────────────────────────────────────────────
@@ -698,10 +757,23 @@ function startLocal(){
   startDashboard();
 }
 
+let cloudStarted = false;
+
 function startCloud(){
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
   auth = firebase.auth();
+  // บังคับ login Google ก่อนใช้งาน cloud
+  auth.onAuthStateChanged(user=>{
+    if(user){ hideCloudLogin(); startCloudData(); }
+    else { showCloudLogin(); }
+  });
+}
+
+function startCloudData(){
+  document.getElementById('logoutBtn').style.display = 'inline-flex';
+  if(cloudStarted) return;       // กัน onAuthStateChanged ยิงซ้ำ
+  cloudStarted = true;
   db.collection('status').doc('latest').onSnapshot(doc=>{
     if(!doc.exists) return;
     const x=doc.data();

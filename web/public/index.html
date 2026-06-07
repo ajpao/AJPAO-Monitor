@@ -10,6 +10,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -42,9 +45,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .br{bottom:12px;right:12px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
 
 /* topbar */
-.topbar{position:sticky;top:0;z-index:50;height:52px;background:rgba(6,10,20,.92);
+.topbar{position:sticky;top:0;z-index:50;min-height:44px;background:rgba(6,10,20,.92);
   border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:10px;padding:0 18px}
+  display:flex;align-items:center;gap:9px;padding:5px 14px}
 .dot-live{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;
   animation:blink 2s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--ok)}50%{opacity:.35;box-shadow:none}}
@@ -65,10 +68,19 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .btn-reboot svg{width:1.05em;height:1.05em}
 .btn-shutdown{border-color:rgba(255,107,0,.5);color:var(--accent)}
 .btn-shutdown:hover{background:rgba(255,107,0,.12);border-color:var(--accent);box-shadow:0 0 16px rgba(255,107,0,.2)}
+/* header mobile: สั้นลง — ซ่อน clock + ข้อความปุ่ม เหลือ icon */
+@media(max-width:640px){
+  .clock{display:none}
+  .btn-label{display:none}
+  .btn-reboot{padding:6px 9px}
+  .brand-sub{display:none}
+  .topbar{gap:7px;padding:5px 10px}
+}
 
 /* main layout */
 .page{position:relative;z-index:2}
 .container{max-width:1280px;margin:0 auto;padding:18px 16px}
+@media(max-width:640px){.container{padding:12px 10px}}
 
 /* stat cards */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
@@ -201,6 +213,27 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-val.ag-blocked{color:var(--danger)} .ag-val.ag-rate{color:var(--accent)}
 .ag-lbl{font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:1.5px;
   color:var(--dim);text-transform:uppercase;margin-top:3px}
+/* protection switch */
+.ag-protect{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  margin-top:12px;padding:14px 16px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
+.ag-protect-lbl{font-family:'Share Tech Mono',monospace;font-size:.6rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase}
+.ag-protect-state{font-family:'Share Tech Mono',monospace;font-size:1.05rem;font-weight:700;margin-top:3px}
+.ag-protect-state.active{color:var(--ok)} .ag-protect-state.paused{color:var(--danger)}
+.ag-protect-btns{display:flex;gap:8px;flex-wrap:wrap}
+.ag-btn{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:.62rem;
+  letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--dim);cursor:pointer;transition:.15s}
+.ag-btn svg{width:1.1em;height:1.1em}
+.ag-btn-toggle:hover{color:var(--ok);border-color:var(--ok)}
+.ag-btn-pause:hover{color:var(--accent);border-color:var(--accent)}
+.ag-btn:disabled{opacity:.4;cursor:not-allowed}
+.ag-offline{display:flex;align-items:center;justify-content:center;gap:10px;padding:26px;
+  color:var(--danger);font-family:'Share Tech Mono',monospace;font-size:.8rem;letter-spacing:1px}
+.ag-offline svg{width:20px;height:20px}
+
+/* xterm terminal */
+.xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;padding:8px}
+@media(max-width:600px){.xterm-wrap{height:340px}}
 
 /* login gate */
 .login-gate{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);
@@ -304,6 +337,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 </div>
 
+<!-- Login Gate (Cloud — Google) -->
+<div class="login-gate" id="cloudGate">
+  <div class="login-box">
+    <div class="login-logo"><i data-lucide="shield-check"></i></div>
+    <div class="login-brand"><span class="brand-mono">RPi</span> <span class="brand-sub">AJPAO-Monitor</span></div>
+    <div class="login-sub">เข้าสู่ระบบด้วย Google เพื่อดู Dashboard (Cloud)</div>
+    <button class="login-btn" id="cloudLoginBtn" onclick="doGoogleLogin()">เข้าสู่ระบบด้วย Google</button>
+    <div class="login-err" id="cloudErr"></div>
+  </div>
+</div>
+
 <!-- Topbar -->
 <header class="topbar">
   <div class="dot-live" id="dotLive"></div>
@@ -315,8 +359,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
   <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
-  <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')"><i data-lucide="rotate-cw"></i>REBOOT</button>
-  <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')"><i data-lucide="power"></i>SHUTDOWN</button>
+  <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i><span class="btn-label">REBOOT</span></button>
+  <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i><span class="btn-label">SHUTDOWN</span></button>
 </header>
 
 <!-- Reboot Modal -->
@@ -394,25 +438,40 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- AdGuard Home widget (โผล่เมื่อมีข้อมูล adguard เท่านั้น) -->
+  <!-- Network & AdGuard Security zone -->
   <div class="chart-card adguard-card" id="adguardCard" style="display:none">
     <div class="cc-head">
-      <div class="cc-title"><i data-lucide="shield"></i>AdGuard Home</div>
+      <div class="cc-title"><i data-lucide="shield"></i>Network &amp; AdGuard Security</div>
       <span class="ag-status" id="agStatus"><span class="ag-dot" id="agDot"></span><span id="agStatusText">--</span></span>
     </div>
-    <div class="ag-grid">
-      <div class="ag-tile">
-        <div class="ag-ico total"><i data-lucide="globe"></i></div>
-        <div class="ag-meta"><div class="ag-val" id="agTotal">--</div><div class="ag-lbl">Total Queries</div></div>
+    <div id="agBody">
+      <div class="ag-grid">
+        <div class="ag-tile">
+          <div class="ag-ico total"><i data-lucide="globe"></i></div>
+          <div class="ag-meta"><div class="ag-val" id="agTotal">--</div><div class="ag-lbl">Total Queries</div></div>
+        </div>
+        <div class="ag-tile">
+          <div class="ag-ico blocked"><i data-lucide="shield-ban"></i></div>
+          <div class="ag-meta"><div class="ag-val ag-blocked" id="agBlocked">--</div><div class="ag-lbl">Blocked</div></div>
+        </div>
+        <div class="ag-tile">
+          <div class="ag-ico rate"><i data-lucide="pie-chart"></i></div>
+          <div class="ag-meta"><div class="ag-val ag-rate" id="agRate">--%</div><div class="ag-lbl">Block Rate</div></div>
+        </div>
       </div>
-      <div class="ag-tile">
-        <div class="ag-ico blocked"><i data-lucide="shield-ban"></i></div>
-        <div class="ag-meta"><div class="ag-val ag-blocked" id="agBlocked">--</div><div class="ag-lbl">Blocked</div></div>
+      <div class="ag-protect">
+        <div class="ag-protect-info">
+          <div class="ag-protect-lbl">Protection Status</div>
+          <div class="ag-protect-state" id="agState">--</div>
+        </div>
+        <div class="ag-protect-btns">
+          <button class="ag-btn ag-btn-toggle" id="agToggleBtn" onclick="agToggle()"><i data-lucide="power"></i>Toggle</button>
+          <button class="ag-btn ag-btn-pause" onclick="agPause5()"><i data-lucide="timer"></i>Pause 5 Mins</button>
+        </div>
       </div>
-      <div class="ag-tile">
-        <div class="ag-ico rate"><i data-lucide="pie-chart"></i></div>
-        <div class="ag-meta"><div class="ag-val ag-rate" id="agRate">--%</div><div class="ag-lbl">Block Rate</div></div>
-      </div>
+    </div>
+    <div id="agOffline" class="ag-offline" style="display:none">
+      <i data-lucide="wifi-off"></i><span>AdGuard Offline — ติดต่อ API ไม่ได้</span>
     </div>
   </div>
 
@@ -534,18 +593,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- Panel: Terminal (web terminal) -->
+  <!-- Panel: Terminal (full PTY) -->
   <div id="panel-terminal" class="s-panel">
     <div class="chart-card term-card">
       <div class="cc-head">
-        <div class="cc-title"><i data-lucide="terminal"></i>Web Terminal</div>
-        <span class="data-count">LAN only · timeout 30s · พิมพ์ clear เพื่อล้างจอ</span>
+        <div class="cc-title"><i data-lucide="terminal"></i>Web Terminal (PTY)</div>
+        <span class="data-count" id="termNote">LAN only · interactive shell</span>
       </div>
-      <div class="term-out" id="termOut"></div>
-      <div class="term-input-row">
-        <span class="term-prompt">ajpao@rpi:~$</span>
-        <input id="termIn" class="term-in" placeholder="พิมพ์คำสั่ง แล้วกด Enter — เช่น ls -la, df -h, free -h, uptime" autocomplete="off" spellcheck="false">
-      </div>
+      <div id="xterm" class="xterm-wrap"></div>
     </div>
   </div>
 
