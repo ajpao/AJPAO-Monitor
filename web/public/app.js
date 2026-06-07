@@ -454,8 +454,8 @@ function renderDeviceLocal(d){
   setText('dHost',o.hostname); setText('dPy',o.python);
   setText('dUptime', uptimeFmt(o.boot_time));
   const net=document.getElementById('dNet');
-  net.textContent = n.internet?'● ONLINE':'● OFFLINE';
-  net.className = 'ir-val '+(n.internet?'net-on':'net-off');
+  if(n.internet){ net.className='ir-val online';  net.innerHTML='<span class="live-dot"></span>ONLINE'; }
+  else          { net.className='ir-val offline'; net.innerHTML='<span class="live-dot off"></span>OFFLINE'; }
   setText('dIP', n.ip||'--');
   document.getElementById('dIfaces').innerHTML = n.interfaces.map(i=>
     `<div class="info-row"><span class="ir-label">${i.name} ${i.up?'🟢':'⚪'}</span><span class="ir-val">${i.ip||'—'}</span></div>`
@@ -513,7 +513,7 @@ function renderServices(svcs){
     const btxt=(s.active||'?').toUpperCase();
     return `<div class="svc-row">
       <div class="svc-info">
-        <div class="svc-name">${s.name} <span class="svc-badge ${badge}">${btxt}</span></div>
+        <div class="svc-name"><i data-lucide="box"></i>${s.name} <span class="svc-badge ${badge}">${btxt}</span></div>
         <div class="svc-desc">${s.desc||''}${s.enabled?' · '+s.enabled:''}</div>
       </div>
       <div class="svc-btns">
@@ -523,6 +523,7 @@ function renderServices(svcs){
       </div>
     </div>`;
   }).join('');
+  if(window.lucide) lucide.createIcons();
 }
 
 async function svcAction(name, action, btn){
