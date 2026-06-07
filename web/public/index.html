@@ -41,7 +41,7 @@
              radial-gradient(ellipse 45% 45% at 88% 72%,rgba(37,99,235,.06),transparent 68%)}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;font-size:23.5px}
-body{font-family:'Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6}
+body{font-family:'Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6;overflow-x:hidden}
 
 /* animated grid bg */
 body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
@@ -294,7 +294,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-tops{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
 @media(max-width:760px){.ag-tops{grid-template-columns:1fr}}
 .ag-top{background:var(--panel2);border:1px solid var(--border);border-top:2px solid var(--border);
-  border-radius:10px;padding:12px 14px}
+  border-radius:10px;padding:12px 14px;min-width:0}
+.ag-top-list{min-width:0}
 .ag-top.blocked{border-top-color:var(--danger)}
 .ag-top.queries{border-top-color:var(--info)}
 .ag-top.clients{border-top-color:var(--ok)}
@@ -537,9 +538,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <!-- Section Nav -->
   <div class="section-nav">
     <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
-    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="server"></i>ระบบ</button>
+    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
-    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="router"></i>เครื่อง</button>
+    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
   </div>
 
