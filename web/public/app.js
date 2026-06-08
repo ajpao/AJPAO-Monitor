@@ -1413,7 +1413,8 @@ async function init(){
   applyThemeIcon();
   MODE = await detectMode();
   const badge = document.getElementById('modeBadge');
-  badge.textContent = MODE==='local'?'🏠 LAN':'☁️ Cloud';
+  badge.innerHTML = MODE==='local' ? '<i data-lucide="network"></i>LAN' : '<i data-lucide="cloud"></i>Cloud';
+  if(window.lucide) lucide.createIcons();
   badge.className = 'mode-badge '+MODE;
   document.getElementById('iMode').textContent = MODE==='local'?'LAN / Flask':'Cloud / Firestore';
 

@@ -89,7 +89,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .brand-mono{font-family:var(--font-mono);color:var(--accent);font-size:1rem;letter-spacing:2px}
 .brand-sub{font-family:var(--font-mono);color:var(--dim);font-size:.7rem;letter-spacing:1px;margin-left:2px}
 .mode-badge{font-family:var(--font-mono);font-size:.62rem;padding:2px 9px;border-radius:20px;
-  border:1px solid var(--border);color:var(--dim);letter-spacing:1px;text-transform:uppercase;flex-shrink:0}
+  border:1px solid var(--border);color:var(--dim);letter-spacing:1px;text-transform:uppercase;flex-shrink:0;
+  display:inline-flex;align-items:center;gap:5px}
+.mode-badge svg{width:1.15em;height:1.15em}
 .mode-badge.local{color:var(--ok);border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.06)}
 .mode-badge.cloud{color:var(--info);border-color:rgba(51,153,255,.4);background:rgba(51,153,255,.06)}
 .spacer{flex:1}
