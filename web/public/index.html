@@ -189,9 +189,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .section-nav{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .sn-btn{font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace;font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;
   flex:1 1 0;min-width:118px;justify-content:center;
-  padding:9px 14px;border:1px solid transparent;background:var(--panel2);color:var(--dim);
+  padding:9px 14px;border:1px solid currentColor;background:var(--panel2);color:var(--dim);
   border-radius:12px;cursor:pointer;transition:.18s;display:flex;align-items:center;gap:7px}
-.sn-btn:hover{color:var(--text);background:var(--panel)}
+.sn-btn:hover{color:var(--info);background:linear-gradient(rgba(51,153,255,.14),rgba(51,153,255,.14)),var(--panel)}
 .sn-btn.active{color:var(--accent);
   background:linear-gradient(rgba(255,107,0,.16),rgba(255,107,0,.16)),var(--panel2)}
 
@@ -365,7 +365,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .note-text a{color:var(--info);text-decoration:underline;word-break:break-all}
 .note-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
   border-top:1px solid rgba(120,140,175,.12);padding-top:7px}
-.note-time{font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--dim);letter-spacing:1px}
+.note-times{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap}
+.note-time{display:inline-flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--dim);letter-spacing:1px}
+.note-edited{display:inline-flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:.56rem;
+  color:var(--info);opacity:.7;letter-spacing:1px}
+.note-time svg,.note-edited svg{width:1.05em;height:1.05em}
 .note-acts{display:flex;gap:6px}
 .note-btn{display:inline-flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:.56rem;
   letter-spacing:1px;text-transform:uppercase;padding:4px 9px;border:1px solid var(--border);background:transparent;

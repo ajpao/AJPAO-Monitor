@@ -895,7 +895,11 @@ function drawNotes(){
     return `<div class="note-card">
       ${titleHtml}
       <div class="note-text">${noteLinkify(n.text)}</div>
-      <div class="note-foot"><span class="note-time">${noteTime(n.updated)}</span>
+      <div class="note-foot">
+        <span class="note-times">
+          <span class="note-time"><i data-lucide="calendar-plus"></i>${noteTime(noteCreated(n))}</span>
+          ${ (n.updated && n.created && n.updated > n.created+1) ? `<span class="note-edited"><i data-lucide="pencil"></i>แก้ไข ${noteTime(n.updated)}</span>` : '' }
+        </span>
         <div class="note-acts">
           <button class="note-btn edit" onclick="noteEdit('${n.id}')"><i data-lucide="pencil"></i>แก้ไข</button>
           <button class="note-btn del" onclick="noteDelete('${n.id}')"><i data-lucide="trash-2"></i></button>
