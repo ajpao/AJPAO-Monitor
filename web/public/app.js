@@ -333,34 +333,39 @@ function compareInsight(cfg, todayBy, yestBy){
   return L.map(([i,c,t])=>`<div class="ci-line ${c}"><i data-lucide="${i}"></i><span>${t}</span></div>`).join('');
 }
 
-const USAGE_CFG = {
-  canvas:'usageCmpChart', deltaId:'usageDelta', statsId:'usageCmpStats', insightId:'usageCmpInsight',
-  idx:Array.from({length:24},(_,i)=>i), labels:Array.from({length:24},(_,i)=>`${pad(i)}:00`),
-  unit:'%', axis:'%', barColor:v=>(v>=80?C.danger:v>=50?C.accent:C.info)+'cc',
-  todayLabel:'วันนี้', yestLabel:'เมื่อวาน', todayWord:'วันนี้', yestWord:'เมื่อวาน',
-  ins:{ unit:'%', lowerWord:'ต่ำกว่า', higherWord:'สูงกว่า', lowerCls:'ok', higherCls:'warn',
-    avgIcon:'cpu', peakWord:'ใช้งานสูงสุด', peakIcon:'activity', xFmt:k=>`ตอน <b>${pad(k)}:00</b>`,
-    upWord:'สูงขึ้น', downWord:'ลดลง', trendUnit:'ชม.',
-    assess:mx=> mx>=90?['alert-triangle','danger','เคยพีคเกือบ<b>เต็ม</b> ระวังงานหนัก']
-              : mx>=60?['alert-circle','warn','เคยขึ้นระดับ<b>ใช้งานสูง</b> แต่ยังโอเค']
-              : ['circle-check','ok','การใช้งานอยู่ใน<b>เกณฑ์ปกติ</b>'] },
-};
+// factory สร้าง config การ์ด compare (hour=วันนี้/เมื่อวาน, day=เดือนนี้/เดือนก่อน)
+function mkCmpCfg(prefix, span, metric, colorKey){
+  const isHour=span==='hour', isTemp=metric==='temp';
+  const today=isHour?'วันนี้':'เดือนนี้', yest=isHour?'เมื่อวาน':'เดือนก่อน';
+  const xFmt=isHour?(k=>`ตอน <b>${pad(k)}:00</b>`):(k=>`วันที่ <b>${k}</b>`);
+  const trendUnit=isHour?'ชม.':'วัน';
+  const ins=isTemp?{
+    unit:'°',lowerWord:'เย็นกว่า',higherWord:'ร้อนกว่า',lowerCls:'ok',higherCls:'warn',
+    avgIcon:'thermometer',peakWord:'ร้อนสุด',peakIcon:'flame',xFmt,upWord:'ร้อนขึ้น',downWord:'เย็นลง',trendUnit,
+    assess:mx=> mx>=60?['alert-triangle','danger','เคยแตะ<b>ร้อนมาก</b> ควรเช็คระบายความร้อน']:mx>=52?['alert-circle','warn','เคยขึ้นระดับ<b>อุ่น</b> แต่ยังรับได้']:['circle-check','ok','อุณหภูมิอยู่ใน<b>เกณฑ์ปกติ</b>'],
+  }:{
+    unit:'%',lowerWord:'ต่ำกว่า',higherWord:'สูงกว่า',lowerCls:'ok',higherCls:'warn',
+    avgIcon:'activity',peakWord:'ใช้งานสูงสุด',peakIcon:'activity',xFmt,upWord:'สูงขึ้น',downWord:'ลดลง',trendUnit,
+    assess:mx=> mx>=90?['alert-triangle','danger','เคยพีคเกือบ<b>เต็ม</b> ระวังงานหนัก']:mx>=60?['alert-circle','warn','เคยขึ้นระดับ<b>ใช้งานสูง</b> แต่ยังโอเค']:['circle-check','ok','การใช้งานอยู่ใน<b>เกณฑ์ปกติ</b>'],
+  };
+  return {
+    canvas:prefix+'Chart', deltaId:prefix+'Delta', statsId:prefix+'Stats', insightId:prefix+'Insight',
+    idx:isHour?Array.from({length:24},(_,i)=>i):Array.from({length:31},(_,i)=>i+1),
+    labels:isHour?Array.from({length:24},(_,i)=>`${pad(i)}:00`):Array.from({length:31},(_,i)=>String(i+1)),
+    unit:isTemp?'°C':'%', axis:isTemp?'°':'%',
+    barColor:isTemp?(v=>tempColor(v)+'cc'):(v=>(v>=80?C.danger:v>=50?C.accent:C[colorKey])+'cc'),
+    todayLabel:today, yestLabel:yest, todayWord:today, yestWord:yest, ins,
+  };
+}
 
-const MONTH_CFG = {
-  canvas:'monthCmpChart', deltaId:'monthDelta', statsId:'monthCmpStats', insightId:'monthCmpInsight',
-  idx:Array.from({length:31},(_,i)=>i+1), labels:Array.from({length:31},(_,i)=>String(i+1)),
-  unit:'°C', axis:'°', barColor:v=>tempColor(v)+'cc',
-  todayLabel:'เดือนนี้', yestLabel:'เดือนก่อน', todayWord:'เดือนนี้', yestWord:'เดือนก่อน',
-  ins:{ unit:'°', lowerWord:'เย็นกว่า', higherWord:'ร้อนกว่า', lowerCls:'ok', higherCls:'warn',
-    avgIcon:'thermometer', peakWord:'ร้อนสุด', peakIcon:'flame', xFmt:k=>`วันที่ <b>${k}</b>`,
-    upWord:'ร้อนขึ้น', downWord:'เย็นลง', trendUnit:'วัน',
-    assess:mx=> mx>=60?['alert-triangle','danger','เคยแตะ<b>ร้อนมาก</b> ควรเช็คระบายความร้อน']
-              : mx>=52?['alert-circle','warn','เคยขึ้นระดับ<b>อุ่น</b> แต่ยังรับได้']
-              : ['circle-check','ok','อุณหภูมิอยู่ใน<b>เกณฑ์ปกติ</b>'] },
-};
+const U_CPU =mkCmpCfg('uCpu','hour','usage','info'),  U_RAM =mkCmpCfg('uRam','hour','usage','purple'),  U_DISK =mkCmpCfg('uDisk','hour','usage','warn');
+const MC_TEMP=mkCmpCfg('mcTemp','day','temp'), MC_CPU=mkCmpCfg('mcCpu','day','usage','info'), MC_RAM=mkCmpCfg('mcRam','day','usage','purple'), MC_DISK=mkCmpCfg('mcDisk','day','usage','warn');
+
+const hourMap = (labels,arr)=>{ const m={}; (labels||[]).forEach((l,i)=>{ const h=parseInt(l); if(!isNaN(h)) m[h]=arr?.[i]; }); return m; };
 
 // month helpers
 function ymStr(offset){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+
 async function fetchMonthTemp(m){ return MODE==='local' ? localFetchMonthTemp(m) : cloudFetchMonthTemp(m); }
 async function localFetchMonthTemp(m){
   const d=await fetch(`/api/monthly?month=${m}`).then(r=>r.json());
@@ -374,19 +379,40 @@ async function cloudFetchMonthTemp(m){
   const by={}; Object.keys(byDay).forEach(day=>{ const a=byDay[day]; by[day]=Math.round(a.reduce((p,q)=>p+q,0)/a.length*10)/10; }); return by;
 }
 
+async function fetchMonthSys(m){ return MODE==='local' ? localFetchMonthSys(m) : cloudFetchMonthSys(m); }
+async function localFetchMonthSys(m){
+  const d=await fetch(`/api/system_monthly?month=${m}`).then(r=>r.json());
+  const mk=arr=>{ const by={}; (d.labels||[]).forEach((l,i)=>{ by[parseInt(l)]=arr?.[i]; }); return by; };
+  return { cpu:mk(d.cpu), ram:mk(d.ram), disk:mk(d.disk) };
+}
+async function cloudFetchMonthSys(m){
+  const start=new Date(m+'-01T00:00:00'); const end=new Date(start); end.setMonth(end.getMonth()+1);
+  const snap=await db.collection('readings').where('ts','>=',start).where('ts','<',end).orderBy('ts').get();
+  const b={cpu:{},ram:{},disk:{}};
+  snap.forEach(doc=>{ const x=doc.data(); const day=x.ts.toDate().getDate();
+    if(x.cpu_pct!=null)(b.cpu[day]=b.cpu[day]||[]).push(x.cpu_pct);
+    if(x.ram_pct!=null)(b.ram[day]=b.ram[day]||[]).push(x.ram_pct);
+    if(x.disk_pct!=null)(b.disk[day]=b.disk[day]||[]).push(x.disk_pct); });
+  const avg=o=>{ const r={}; Object.keys(o).forEach(d=>{ const a=o[d]; r[d]=Math.round(a.reduce((p,q)=>p+q,0)/a.length*10)/10; }); return r; };
+  return { cpu:avg(b.cpu), ram:avg(b.ram), disk:avg(b.disk) };
+}
+
 async function loadUsageCompare(){
   try{
     const [td,yd]=await Promise.all([fetchDate(todayStr()),fetchDate(yesterdayStr())]);
-    const tMap={},yMap={};
-    td.labels.forEach((l,i)=>{ const h=parseInt(l); if(!isNaN(h)) tMap[h]=td.cpu[i]; });
-    yd.labels.forEach((l,i)=>{ const h=parseInt(l); if(!isNaN(h)) yMap[h]=yd.cpu[i]; });
-    buildCompareCard(USAGE_CFG, tMap, yMap);
+    buildCompareCard(U_CPU,  hourMap(td.labels,td.cpu),  hourMap(yd.labels,yd.cpu));
+    buildCompareCard(U_RAM,  hourMap(td.labels,td.ram),  hourMap(yd.labels,yd.ram));
+    buildCompareCard(U_DISK, hourMap(td.labels,td.disk), hourMap(yd.labels,yd.disk));
   }catch(e){ console.error('usage compare',e); }
 }
 async function loadMonthlyCompare(){
   try{
-    const [tBy,yBy]=await Promise.all([fetchMonthTemp(ymStr(0)),fetchMonthTemp(ymStr(-1))]);
-    buildCompareCard(MONTH_CFG, tBy, yBy);
+    const m0=ymStr(0), m1=ymStr(-1);
+    const [t0,t1,s0,s1]=await Promise.all([fetchMonthTemp(m0),fetchMonthTemp(m1),fetchMonthSys(m0),fetchMonthSys(m1)]);
+    buildCompareCard(MC_TEMP, t0, t1);
+    buildCompareCard(MC_CPU,  s0.cpu, s1.cpu);
+    buildCompareCard(MC_RAM,  s0.ram, s1.ram);
+    buildCompareCard(MC_DISK, s0.disk, s1.disk);
   }catch(e){ console.error('month compare',e); }
 }
 
@@ -553,9 +579,11 @@ async function loadMonthly(){
     makeBarChart('mTempChart', temp.labels, temp.data, tempColor, '°C', 3);
     makeBarChart('mCpuChart',  sys.labels,  sys.cpu,   v=>sysColor(v)||C.info, '%');
     makeBarChart('mRamChart',  sys.labels,  sys.ram,   v=>sysColor(v)||C.purple, '%');
+    makeBarChart('mDiskChart', sys.labels,  sys.disk,  v=>sysColor(v)||C.warn, '%');
     document.getElementById('mTempSum').innerHTML = summaryHtml(temp.data,'°C');
     document.getElementById('mCpuSum').innerHTML  = summaryHtml(sys.cpu,'%');
     document.getElementById('mRamSum').innerHTML  = summaryHtml(sys.ram,'%');
+    document.getElementById('mDiskSum').innerHTML = summaryHtml(sys.disk,'%');
   } catch(e){ console.error('monthly error',e); }
 }
 

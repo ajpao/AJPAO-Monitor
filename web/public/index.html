@@ -666,18 +666,48 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div id="panel-system" class="s-panel">
     <div class="chart-card">
       <div class="cc-head">
-        <div class="cc-title"><i data-lucide="gauge"></i>CPU วันนี้ vs เมื่อวาน</div>
+        <div class="cc-title"><i data-lucide="cpu"></i>CPU วันนี้ vs เมื่อวาน</div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <div class="legend-row">
             <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>วันนี้</span>
             <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เมื่อวาน</span>
           </div>
-          <span class="delta-chip" id="usageDelta">-- vs --</span>
+          <span class="delta-chip" id="uCpuDelta">-- vs --</span>
         </div>
       </div>
-      <div class="chart-wrap" style="height:200px"><canvas id="usageCmpChart"></canvas></div>
-      <div class="cmp-stats" id="usageCmpStats"></div>
-      <div class="cmp-insight" id="usageCmpInsight"></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="uCpuChart"></canvas></div>
+      <div class="cmp-stats" id="uCpuStats"></div>
+      <div class="cmp-insight" id="uCpuInsight"></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="memory-stick"></i>RAM วันนี้ vs เมื่อวาน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>วันนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เมื่อวาน</span>
+          </div>
+          <span class="delta-chip" id="uRamDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="uRamChart"></canvas></div>
+      <div class="cmp-stats" id="uRamStats"></div>
+      <div class="cmp-insight" id="uRamInsight"></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="hard-drive"></i>DISK วันนี้ vs เมื่อวาน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>วันนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เมื่อวาน</span>
+          </div>
+          <span class="delta-chip" id="uDiskDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="uDiskChart"></canvas></div>
+      <div class="cmp-stats" id="uDiskStats"></div>
+      <div class="cmp-insight" id="uDiskInsight"></div>
     </div>
     <div class="date-toolbar">
       <button class="date-quick active" id="tq-today-system" onclick="quickDate('system','today')">วันนี้</button>
@@ -716,12 +746,57 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
             <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>เดือนนี้</span>
             <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เดือนก่อน</span>
           </div>
-          <span class="delta-chip" id="monthDelta">-- vs --</span>
+          <span class="delta-chip" id="mcTempDelta">-- vs --</span>
         </div>
       </div>
-      <div class="chart-wrap" style="height:220px"><canvas id="monthCmpChart"></canvas></div>
-      <div class="cmp-stats" id="monthCmpStats"></div>
-      <div class="cmp-insight" id="monthCmpInsight"></div>
+      <div class="chart-wrap" style="height:220px"><canvas id="mcTempChart"></canvas></div>
+      <div class="cmp-stats" id="mcTempStats"></div>
+      <div class="cmp-insight" id="mcTempInsight"></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="cpu"></i>CPU เดือนนี้ vs เดือนก่อน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>เดือนนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เดือนก่อน</span>
+          </div>
+          <span class="delta-chip" id="mcCpuDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="mcCpuChart"></canvas></div>
+      <div class="cmp-stats" id="mcCpuStats"></div>
+      <div class="cmp-insight" id="mcCpuInsight"></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="memory-stick"></i>RAM เดือนนี้ vs เดือนก่อน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>เดือนนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เดือนก่อน</span>
+          </div>
+          <span class="delta-chip" id="mcRamDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="mcRamChart"></canvas></div>
+      <div class="cmp-stats" id="mcRamStats"></div>
+      <div class="cmp-insight" id="mcRamInsight"></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="hard-drive"></i>DISK เดือนนี้ vs เดือนก่อน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>เดือนนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เดือนก่อน</span>
+          </div>
+          <span class="delta-chip" id="mcDiskDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="mcDiskChart"></canvas></div>
+      <div class="cmp-stats" id="mcDiskStats"></div>
+      <div class="cmp-insight" id="mcDiskInsight"></div>
     </div>
     <div class="chart-card">
       <div class="cc-head">
@@ -737,6 +812,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="memory-stick"></i>RAM % รายวัน</div><div class="sum-mini" id="mRamSum"></div></div>
       <div class="chart-wrap" style="height:200px"><canvas id="mRamChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="hard-drive"></i>DISK % รายวัน</div><div class="sum-mini" id="mDiskSum"></div></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="mDiskChart"></canvas></div>
     </div>
   </div>
 

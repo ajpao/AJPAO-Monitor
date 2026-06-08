@@ -905,16 +905,20 @@ def api_system_today():
 @flask_app.route("/api/system_monthly")
 @require_auth
 def api_system_monthly():
-    month = datetime.now().strftime("%Y-%m")
+    month = request.args.get("month") or datetime.now().strftime("%Y-%m")   # รับ ?month=YYYY-MM ได้
     rows = query("SELECT timestamp, cpu_pct, ram_pct, disk_pct FROM temperature "
                  "WHERE timestamp LIKE ? AND cpu_pct IS NOT NULL ORDER BY timestamp", (f"{month}%",))
     keys, b, avg = _system_buckets(rows, by_day=True)
+    try:
+        month_name = datetime.strptime(month + "-01", "%Y-%m-%d").strftime("%B %Y")
+    except Exception:
+        month_name = month
     return jsonify({
         "labels": [str(k.day) for k in keys],
         "cpu": [avg(b["cpu"], k) for k in keys],
         "ram": [avg(b["ram"], k) for k in keys],
         "disk": [avg(b["disk"], k) for k in keys],
-        "month": datetime.now().strftime("%B %Y"),
+        "month": month_name,
     })
 
 
