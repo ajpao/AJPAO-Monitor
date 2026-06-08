@@ -681,16 +681,31 @@ function fmtFileTime(sec){
 let notesData=[], notesEditing=null, notesUnsub=null, notesSort='new', notesSearch='';
 
 function notesDoSearch(v){ notesSearch=v||''; drawNotes(); }
-function notesToggleSort(){
-  notesSort = notesSort==='new' ? 'old' : 'new';
-  const btn=document.getElementById('notesSortBtn');
-  btn.innerHTML = notesSort==='new'
-    ? '<i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด'
-    : '<i data-lucide="arrow-up-wide-narrow"></i>เก่าสุด';
-  if(window.lucide) lucide.createIcons();
-  drawNotes();
-}
 const noteCreated = n => n.created || n.updated || 0;
+
+// notesSort: 'new' | 'old' | 'az' | 'za'
+function notesToggleDate(){
+  notesSort = notesSort==='new' ? 'old' : notesSort==='old' ? 'new' : 'new';
+  updateSortBtns(); drawNotes();
+}
+function notesToggleTitle(){
+  notesSort = notesSort==='az' ? 'za' : notesSort==='za' ? 'az' : 'az';
+  updateSortBtns(); drawNotes();
+}
+function updateSortBtns(){
+  const db=document.getElementById('notesSortBtn'), tb=document.getElementById('notesSortTitleBtn');
+  if(!db||!tb) return;
+  const dateMode = (notesSort==='new'||notesSort==='old');
+  db.classList.toggle('active', dateMode);
+  tb.classList.toggle('active', !dateMode);
+  db.innerHTML = notesSort==='old'
+    ? '<i data-lucide="arrow-up-wide-narrow"></i>เก่าสุด'
+    : '<i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด';
+  tb.innerHTML = notesSort==='za'
+    ? '<i data-lucide="arrow-up-z-a"></i>Z→A'
+    : '<i data-lucide="arrow-down-a-z"></i>A→Z';
+  if(window.lucide) lucide.createIcons();
+}
 
 function setupNotes(){
   const ta=document.getElementById('noteNew');
@@ -724,7 +739,17 @@ function drawNotes(){
   const list=document.getElementById('notesList');
   const q=notesSearch.trim().toLowerCase();
   let arr=notesData.filter(n=> !q || (n.title||'').toLowerCase().includes(q) || (n.text||'').toLowerCase().includes(q));
-  arr.sort((a,b)=> notesSort==='old' ? noteCreated(a)-noteCreated(b) : noteCreated(b)-noteCreated(a));
+  if(notesSort==='az' || notesSort==='za'){
+    arr.sort((a,b)=>{
+      const ta=(a.title||'').trim(), tb=(b.title||'').trim();
+      if(!ta && !tb) return noteCreated(b)-noteCreated(a);
+      if(!ta) return 1;  if(!tb) return -1;            // โน้ตไม่มีหัวข้อ → ไว้ล่างสุด
+      const c=ta.localeCompare(tb,'th');
+      return notesSort==='za' ? -c : c;
+    });
+  } else {
+    arr.sort((a,b)=> notesSort==='old' ? noteCreated(a)-noteCreated(b) : noteCreated(b)-noteCreated(a));
+  }
   setText('notesNote', q ? `${arr.length} / ${notesData.length} notes` : `${notesData.length} notes`);
   if(!notesData.length){ list.innerHTML='<div class="note-empty">ยังไม่มีโน้ต — เขียนหรือแปะลิงก์ด้านบนได้เลย</div>'; return; }
   if(!arr.length){ list.innerHTML='<div class="note-empty">ไม่พบโน้ตที่ค้นหา</div>'; return; }

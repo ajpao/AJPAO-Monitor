@@ -355,6 +355,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   letter-spacing:1px;text-transform:uppercase;padding:8px 13px;border:1px solid var(--border);background:var(--panel2);
   color:var(--dim);border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
 .note-sort:hover{color:var(--accent);border-color:var(--accent)}
+.note-sort.active{color:var(--accent);border-color:var(--accent);
+  background:linear-gradient(rgba(255,107,0,.12),rgba(255,107,0,.12)),var(--panel2)}
 .note-sort svg{width:1.1em;height:1.1em}
 .notes-list{display:flex;flex-direction:column;gap:12px;margin-top:14px}
 .note-card{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);
@@ -788,7 +790,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
           <i data-lucide="search"></i>
           <input id="notesSearch" placeholder="ค้นหาโน้ต (หัวข้อ / เนื้อหา)…" oninput="notesDoSearch(this.value)">
         </div>
-        <button class="note-sort" id="notesSortBtn" onclick="notesToggleSort()"><i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด</button>
+        <button class="note-sort active" id="notesSortBtn" onclick="notesToggleDate()"><i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด</button>
+        <button class="note-sort" id="notesSortTitleBtn" onclick="notesToggleTitle()"><i data-lucide="arrow-down-a-z"></i>A→Z</button>
       </div>
       <div id="notesList" class="notes-list"></div>
     </div>
