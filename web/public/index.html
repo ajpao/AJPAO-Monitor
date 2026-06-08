@@ -660,6 +660,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <!-- Panel: System -->
   <div id="panel-system" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="gauge"></i>CPU วันนี้ vs เมื่อวาน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>วันนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เมื่อวาน</span>
+          </div>
+          <span class="delta-chip" id="usageDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:200px"><canvas id="usageCmpChart"></canvas></div>
+      <div class="cmp-stats" id="usageCmpStats"></div>
+      <div class="cmp-insight" id="usageCmpInsight"></div>
+    </div>
     <div class="date-toolbar">
       <button class="date-quick active" id="tq-today-system" onclick="quickDate('system','today')">วันนี้</button>
       <button class="date-quick" id="tq-yest-system" onclick="quickDate('system','yesterday')">เมื่อวาน</button>
@@ -689,6 +704,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <!-- Panel: Monthly -->
   <div id="panel-monthly" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="thermometer-sun"></i>อุณหภูมิ เดือนนี้ vs เดือนก่อน</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="legend-row">
+            <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>เดือนนี้</span>
+            <span><span class="leg-dot" style="background:rgba(123,140,174,.4);border:1px dashed #7b8cae"></span>เดือนก่อน</span>
+          </div>
+          <span class="delta-chip" id="monthDelta">-- vs --</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="monthCmpChart"></canvas></div>
+      <div class="cmp-stats" id="monthCmpStats"></div>
+      <div class="cmp-insight" id="monthCmpInsight"></div>
+    </div>
     <div class="chart-card">
       <div class="cc-head">
         <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิรายวัน — <span id="mTempTitle">--</span></div>

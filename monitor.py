@@ -856,17 +856,21 @@ def api_history():
 @flask_app.route("/api/monthly")
 @require_auth
 def api_monthly():
-    month = datetime.now().strftime("%Y-%m")
+    month = request.args.get("month") or datetime.now().strftime("%Y-%m")   # รับ ?month=YYYY-MM ได้
     rows = query("SELECT timestamp, temp_c FROM temperature WHERE timestamp LIKE ? ORDER BY timestamp", (f"{month}%",))
     buckets = {}
     for ts, temp in rows:
         day = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").date()
         buckets.setdefault(day, []).append(temp)
     days = sorted(buckets)
+    try:
+        month_name = datetime.strptime(month + "-01", "%Y-%m-%d").strftime("%B %Y")
+    except Exception:
+        month_name = month
     return jsonify({
         "labels": [str(d.day) for d in days],
         "data":   [round(sum(buckets[d]) / len(buckets[d]), 1) for d in days],
-        "month":  datetime.now().strftime("%B %Y"),
+        "month":  month_name,
     })
 
 

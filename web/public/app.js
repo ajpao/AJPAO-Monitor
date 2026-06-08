@@ -43,8 +43,8 @@ function applyThemeIcon(){
 function rerenderCharts(){
   syncChartColors();
   loadCompare();
-  if(currentPanel==='system') loadDatePanel('system');
-  else if(currentPanel==='monthly') loadMonthly();
+  if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); }
+  else if(currentPanel==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
   else loadDatePanel('temp');
 }
 function toggleTheme(){
@@ -261,6 +261,133 @@ function tempInsight(todayByHour, yestByHour){
   else              L.push(['circle-check','ok',        `อุณหภูมิอยู่ใน<b>เกณฑ์ปกติ</b>ดี`]);
 
   return L.map(([i,c,t])=>`<div class="ci-line ${c}"><i data-lucide="${i}"></i><span>${t}</span></div>`).join('');
+}
+
+// ─── generic compare card (ใช้กับ USAGE + MONTHLY) ───────────────────────────────
+
+function buildCompareCard(cfg, todayBy, yestBy){
+  destroyChart(cfg.canvas);
+  const el=document.getElementById(cfg.canvas); if(!el) return;
+  const todayData=cfg.idx.map(i=> todayBy[i] ?? null);
+  const yestData =cfg.idx.map(i=> yestBy[i]  ?? null);
+  const tv=todayData.filter(v=>v!=null), yv=yestData.filter(v=>v!=null);
+  const all=[...tv,...yv];
+  const statsEl=document.getElementById(cfg.statsId), insEl=document.getElementById(cfg.insightId), deltaEl=document.getElementById(cfg.deltaId);
+  if(!all.length){ if(statsEl)statsEl.innerHTML=''; if(insEl)insEl.innerHTML=''; if(deltaEl)deltaEl.textContent='— vs —'; return; }
+  const mn=Math.min(...all), mx=Math.max(...all);
+  charts[cfg.canvas]=new Chart(el,{type:'bar',data:{labels:cfg.labels,datasets:[
+    {type:'bar',label:cfg.todayLabel,data:todayData,order:2,borderRadius:3,borderSkipped:false,
+      backgroundColor:todayData.map(v=>v==null?'transparent':cfg.barColor(v))},
+    {type:'line',label:cfg.yestLabel,data:yestData,order:1,borderColor:'rgba(123,140,174,.55)',backgroundColor:'transparent',
+      borderWidth:1.5,borderDash:[4,4],pointRadius:2,pointBackgroundColor:'rgba(123,140,174,.55)',spanGaps:true,tension:0.3,fill:false},
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},
+      tooltip:{backgroundColor:'rgba(12,20,36,.95)',borderColor:'rgba(29,47,80,.8)',borderWidth:1,titleColor:C.dim,bodyColor:C.text,padding:10,
+        callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+cfg.unit:'--'}`}},
+      datalabels:{display:false}},
+    layout:{padding:{top:8}},
+    scales:{x:{ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},maxRotation:0,maxTicksLimit:12},grid:{color:C.grid}},
+      y:{min:Math.max(0,mn-5),max:mx+6,ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},callback:v=>v+cfg.axis},grid:{color:C.grid}}}}});
+  if(deltaEl && tv.length && yv.length){
+    const tAvg=tv.reduce((a,b)=>a+b,0)/tv.length, yAvg=yv.reduce((a,b)=>a+b,0)/yv.length, diff=tAvg-yAvg;
+    deltaEl.textContent=`${tAvg.toFixed(1)}${cfg.axis} vs ${yAvg.toFixed(1)}${cfg.axis} (${diff>=0?'+':''}${diff.toFixed(1)}${cfg.axis})`;
+    deltaEl.className='delta-chip '+(diff>0.5?'up':diff<-0.5?'down':'');
+  }
+  if(statsEl && tv.length){
+    const tAvg=tv.reduce((a,b)=>a+b,0)/tv.length, yAvg=yv.length?yv.reduce((a,b)=>a+b,0)/yv.length:null;
+    statsEl.innerHTML=`
+      <div class="cs-item"><span class="cs-lbl"><i data-lucide="bar-chart-2"></i>${cfg.todayWord} AVG</span><span class="cs-val">${tAvg.toFixed(1)}${cfg.unit}</span></div>
+      ${yAvg!=null?`<div class="cs-item"><span class="cs-lbl"><i data-lucide="history"></i>${cfg.yestWord} AVG</span><span class="cs-val">${yAvg.toFixed(1)}${cfg.unit}</span></div>`:''}
+      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-down"></i>${cfg.todayWord} MIN</span><span class="cs-val ok">${Math.min(...tv).toFixed(1)}${cfg.unit}</span></div>
+      <div class="cs-item"><span class="cs-lbl"><i data-lucide="arrow-up"></i>${cfg.todayWord} MAX</span><span class="cs-val danger">${Math.max(...tv).toFixed(1)}${cfg.unit}</span></div>`;
+  }
+  if(insEl){ insEl.innerHTML=compareInsight(cfg, todayBy, yestBy); if(window.lucide) lucide.createIcons(); }
+}
+
+function compareInsight(cfg, todayBy, yestBy){
+  const ci=cfg.ins;
+  const tk=Object.keys(todayBy).map(Number).filter(k=>todayBy[k]!=null).sort((a,b)=>a-b);
+  if(!tk.length) return '';
+  const tVals=tk.map(k=>todayBy[k]); const tAvg=tVals.reduce((a,b)=>a+b,0)/tVals.length;
+  const yVals=Object.values(yestBy).filter(v=>v!=null); const yAvg=yVals.length?yVals.reduce((a,b)=>a+b,0)/yVals.length:null;
+  let maxK=tk[0],maxV=todayBy[maxK]; tk.forEach(k=>{ if(todayBy[k]>maxV){maxV=todayBy[k];maxK=k;} });
+  const lastK=tk[tk.length-1], lastV=todayBy[lastK];
+  const refK=tk.find(k=>k>=lastK-3)??tk[0]; const slope=lastV-todayBy[refK]; const span=Math.max(1,lastK-refK);
+  const L=[];
+  if(yAvg!=null){
+    const diff=tAvg-yAvg, a=Math.abs(diff);
+    if(a<0.5)       L.push(['minus','',`${cfg.todayWord}เฉลี่ย <b>${tAvg.toFixed(1)}${ci.unit}</b> — พอๆ กับ${cfg.yestWord}`]);
+    else if(diff<0) L.push(['trending-down',ci.lowerCls,`${cfg.todayWord}เฉลี่ย <b>${tAvg.toFixed(1)}${ci.unit}</b> ${ci.lowerWord}${cfg.yestWord} <b>${a.toFixed(1)}${ci.unit}</b>`]);
+    else            L.push(['trending-up',ci.higherCls,`${cfg.todayWord}เฉลี่ย <b>${tAvg.toFixed(1)}${ci.unit}</b> ${ci.higherWord}${cfg.yestWord} <b>${a.toFixed(1)}${ci.unit}</b>`]);
+  } else {
+    L.push([ci.avgIcon,'',`${cfg.todayWord}เฉลี่ย <b>${tAvg.toFixed(1)}${ci.unit}</b> (ยังไม่มีข้อมูล${cfg.yestWord}ให้เทียบ)`]);
+  }
+  L.push([ci.peakIcon,'',`${ci.peakWord} <b>${maxV.toFixed(1)}${ci.unit}</b> ${ci.xFmt(maxK)}`]);
+  if(tk.length>=2 && Math.abs(slope)>=0.4){
+    if(slope<0) L.push(['arrow-down-right',ci.lowerCls,`ช่วงท้ายกำลัง<b>${ci.downWord}</b> (${slope.toFixed(1)}${ci.unit} ใน ~${span} ${ci.trendUnit})`]);
+    else        L.push(['arrow-up-right',ci.higherCls,`ช่วงท้ายกำลัง<b>${ci.upWord}</b> (+${slope.toFixed(1)}${ci.unit} ใน ~${span} ${ci.trendUnit})`]);
+  } else if(tk.length>=2){
+    L.push(['minus','',`ค่อนข้าง<b>ทรงตัว</b>`]);
+  }
+  L.push(ci.assess(maxV));
+  return L.map(([i,c,t])=>`<div class="ci-line ${c}"><i data-lucide="${i}"></i><span>${t}</span></div>`).join('');
+}
+
+const USAGE_CFG = {
+  canvas:'usageCmpChart', deltaId:'usageDelta', statsId:'usageCmpStats', insightId:'usageCmpInsight',
+  idx:Array.from({length:24},(_,i)=>i), labels:Array.from({length:24},(_,i)=>`${pad(i)}:00`),
+  unit:'%', axis:'%', barColor:v=>(v>=80?C.danger:v>=50?C.accent:C.info)+'cc',
+  todayLabel:'วันนี้', yestLabel:'เมื่อวาน', todayWord:'วันนี้', yestWord:'เมื่อวาน',
+  ins:{ unit:'%', lowerWord:'ต่ำกว่า', higherWord:'สูงกว่า', lowerCls:'ok', higherCls:'warn',
+    avgIcon:'cpu', peakWord:'ใช้งานสูงสุด', peakIcon:'activity', xFmt:k=>`ตอน <b>${pad(k)}:00</b>`,
+    upWord:'สูงขึ้น', downWord:'ลดลง', trendUnit:'ชม.',
+    assess:mx=> mx>=90?['alert-triangle','danger','เคยพีคเกือบ<b>เต็ม</b> ระวังงานหนัก']
+              : mx>=60?['alert-circle','warn','เคยขึ้นระดับ<b>ใช้งานสูง</b> แต่ยังโอเค']
+              : ['circle-check','ok','การใช้งานอยู่ใน<b>เกณฑ์ปกติ</b>'] },
+};
+
+const MONTH_CFG = {
+  canvas:'monthCmpChart', deltaId:'monthDelta', statsId:'monthCmpStats', insightId:'monthCmpInsight',
+  idx:Array.from({length:31},(_,i)=>i+1), labels:Array.from({length:31},(_,i)=>String(i+1)),
+  unit:'°C', axis:'°', barColor:v=>tempColor(v)+'cc',
+  todayLabel:'เดือนนี้', yestLabel:'เดือนก่อน', todayWord:'เดือนนี้', yestWord:'เดือนก่อน',
+  ins:{ unit:'°', lowerWord:'เย็นกว่า', higherWord:'ร้อนกว่า', lowerCls:'ok', higherCls:'warn',
+    avgIcon:'thermometer', peakWord:'ร้อนสุด', peakIcon:'flame', xFmt:k=>`วันที่ <b>${k}</b>`,
+    upWord:'ร้อนขึ้น', downWord:'เย็นลง', trendUnit:'วัน',
+    assess:mx=> mx>=60?['alert-triangle','danger','เคยแตะ<b>ร้อนมาก</b> ควรเช็คระบายความร้อน']
+              : mx>=52?['alert-circle','warn','เคยขึ้นระดับ<b>อุ่น</b> แต่ยังรับได้']
+              : ['circle-check','ok','อุณหภูมิอยู่ใน<b>เกณฑ์ปกติ</b>'] },
+};
+
+// month helpers
+function ymStr(offset){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+async function fetchMonthTemp(m){ return MODE==='local' ? localFetchMonthTemp(m) : cloudFetchMonthTemp(m); }
+async function localFetchMonthTemp(m){
+  const d=await fetch(`/api/monthly?month=${m}`).then(r=>r.json());
+  const by={}; (d.labels||[]).forEach((lbl,i)=>{ by[parseInt(lbl)]=d.data[i]; }); return by;
+}
+async function cloudFetchMonthTemp(m){
+  const start=new Date(m+'-01T00:00:00'); const end=new Date(start); end.setMonth(end.getMonth()+1);
+  const snap=await db.collection('readings').where('ts','>=',start).where('ts','<',end).orderBy('ts').get();
+  const byDay={};
+  snap.forEach(doc=>{ const x=doc.data(); if(x.temp_c!=null){ const day=x.ts.toDate().getDate(); (byDay[day]=byDay[day]||[]).push(x.temp_c); } });
+  const by={}; Object.keys(byDay).forEach(day=>{ const a=byDay[day]; by[day]=Math.round(a.reduce((p,q)=>p+q,0)/a.length*10)/10; }); return by;
+}
+
+async function loadUsageCompare(){
+  try{
+    const [td,yd]=await Promise.all([fetchDate(todayStr()),fetchDate(yesterdayStr())]);
+    const tMap={},yMap={};
+    td.labels.forEach((l,i)=>{ const h=parseInt(l); if(!isNaN(h)) tMap[h]=td.cpu[i]; });
+    yd.labels.forEach((l,i)=>{ const h=parseInt(l); if(!isNaN(h)) yMap[h]=yd.cpu[i]; });
+    buildCompareCard(USAGE_CFG, tMap, yMap);
+  }catch(e){ console.error('usage compare',e); }
+}
+async function loadMonthlyCompare(){
+  try{
+    const [tBy,yBy]=await Promise.all([fetchMonthTemp(ymStr(0)),fetchMonthTemp(ymStr(-1))]);
+    buildCompareCard(MONTH_CFG, tBy, yBy);
+  }catch(e){ console.error('month compare',e); }
 }
 
 // ─── LOCAL helpers ────────────────────────────────────────────────────────────
@@ -963,8 +1090,8 @@ function switchPanel(name, btn){
   if(!panelLoaded[name]){
     panelLoaded[name]=true;
     if(name==='temp') loadDatePanel('temp');
-    else if(name==='system') loadDatePanel('system');
-    else if(name==='monthly') loadMonthly();
+    else if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
+    else if(name==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
     else if(name==='device'){ loadDevice(); loadServices(); }
     else if(name==='terminal') setupTerminal();
     else if(name==='files') setupFiles();
