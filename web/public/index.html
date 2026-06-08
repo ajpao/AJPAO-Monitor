@@ -12,12 +12,16 @@
   if(s.theme==='light') r.setAttribute('data-theme','light');
   if(s.scale) r.style.fontSize=s.scale+'px';
   if(s.accent) r.style.setProperty('--accent',s.accent);
-  var F={inter:"'Inter',ui-sans-serif,sans-serif",jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",space:"'Space Grotesk',ui-sans-serif,sans-serif"};
+  var F={jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",oxanium:"'Oxanium',ui-monospace,monospace",chakra:"'Chakra Petch','Noto Sans Thai',monospace",rajdhani:"'Rajdhani','Noto Sans Thai',sans-serif",teko:"'Teko','Noto Sans Thai',sans-serif",plexmono:"'IBM Plex Mono',ui-monospace,monospace",space:"'Space Grotesk','Noto Sans Thai',sans-serif",inter:"'Inter','Noto Sans Thai',sans-serif"};
+  var S={inter:"'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif",plexsans:"'IBM Plex Sans','Noto Sans Thai',ui-sans-serif,sans-serif",roboto:"'Roboto','Noto Sans Thai',ui-sans-serif,sans-serif",poppins:"'Poppins','Noto Sans Thai',ui-sans-serif,sans-serif",manrope:"'Manrope','Noto Sans Thai',ui-sans-serif,sans-serif",outfit:"'Outfit','Noto Sans Thai',ui-sans-serif,sans-serif",system:"ui-sans-serif,system-ui,'Noto Sans Thai',sans-serif"};
   if(s.numFont&&F[s.numFont]) r.style.setProperty('--font-display',F[s.numFont]);
+  if(s.uiFont&&S[s.uiFont]) r.style.setProperty('--font-sans',S[s.uiFont]);
+  if(s.bgFx===false) r.classList.add('no-bg');
+  if(s.anim===false) r.classList.add('no-anim');
 }catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Orbitron:wght@500;700;800&family=Space+Grotesk:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600;700&family=Orbitron:wght@500;700;800&family=Oxanium:wght@500;700;800&family=Chakra+Petch:wght@500;600;700&family=Rajdhani:wght@500;600;700&family=Teko:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -52,6 +56,8 @@
              radial-gradient(ellipse 50% 50% at 15% 85%,rgba(15,157,107,.05),transparent 65%),
              radial-gradient(ellipse 45% 45% at 88% 72%,rgba(37,99,235,.06),transparent 68%)}
 *{box-sizing:border-box;margin:0;padding:0}
+html.no-bg body::before,html.no-bg body::after{display:none!important}
+html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!important;transition:none!important}
 html{scroll-behavior:smooth;font-size:23.5px}
 body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6;overflow-x:hidden}
 
@@ -254,7 +260,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
 
 /* settings modal */
-.settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px}
+.settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px;max-height:86vh;overflow-y:auto}
+.set-row-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.set-hint{font-size:.82em;color:var(--dim);font-weight:400}
 .set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .set-head .cc-title{font-size:.82rem}
 .set-row{margin-bottom:18px}
@@ -623,15 +631,46 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="set-lbl">ฟอนต์ตัวเลข (Dashboard / AdGuard)</div>
       <div class="set-opts set-fonts" id="setFont">
         <button data-v="jetbrains" style="font-family:'JetBrains Mono',monospace" onclick="setUI('numFont','jetbrains')">JetBrains 123</button>
+        <button data-v="plexmono" style="font-family:'IBM Plex Mono',monospace" onclick="setUI('numFont','plexmono')">Plex Mono 123</button>
         <button data-v="sharetech" style="font-family:'Share Tech Mono',monospace" onclick="setUI('numFont','sharetech')">Share Tech 123</button>
         <button data-v="orbitron" style="font-family:'Orbitron',monospace" onclick="setUI('numFont','orbitron')">Orbitron 123</button>
+        <button data-v="oxanium" style="font-family:'Oxanium',monospace" onclick="setUI('numFont','oxanium')">Oxanium 123</button>
+        <button data-v="chakra" style="font-family:'Chakra Petch',sans-serif" onclick="setUI('numFont','chakra')">Chakra 123</button>
+        <button data-v="rajdhani" style="font-family:'Rajdhani',sans-serif" onclick="setUI('numFont','rajdhani')">Rajdhani 123</button>
+        <button data-v="teko" style="font-family:'Teko',sans-serif" onclick="setUI('numFont','teko')">Teko 123</button>
         <button data-v="space" style="font-family:'Space Grotesk',sans-serif" onclick="setUI('numFont','space')">Space 123</button>
         <button data-v="inter" style="font-family:'Inter',sans-serif" onclick="setUI('numFont','inter')">Inter 123</button>
       </div>
     </div>
     <div class="set-row">
+      <div class="set-lbl">ฟอนต์อังกฤษ — ทั้งหน้า <span class="set-hint">(ไทยใช้ Noto Sans Thai เสมอ)</span></div>
+      <div class="set-opts set-fonts" id="setUiFont">
+        <button data-v="inter" style="font-family:'Inter',sans-serif" onclick="setUI('uiFont','inter')">Inter Aa</button>
+        <button data-v="plexsans" style="font-family:'IBM Plex Sans',sans-serif" onclick="setUI('uiFont','plexsans')">Plex Sans Aa</button>
+        <button data-v="roboto" style="font-family:'Roboto',sans-serif" onclick="setUI('uiFont','roboto')">Roboto Aa</button>
+        <button data-v="poppins" style="font-family:'Poppins',sans-serif" onclick="setUI('uiFont','poppins')">Poppins Aa</button>
+        <button data-v="manrope" style="font-family:'Manrope',sans-serif" onclick="setUI('uiFont','manrope')">Manrope Aa</button>
+        <button data-v="outfit" style="font-family:'Outfit',sans-serif" onclick="setUI('uiFont','outfit')">Outfit Aa</button>
+        <button data-v="system" onclick="setUI('uiFont','system')">System Aa</button>
+      </div>
+    </div>
+    <div class="set-row">
       <div class="set-lbl">สีหลัก (Accent)</div>
       <div class="set-swatches" id="setAccent"></div>
+    </div>
+    <div class="set-row set-row-inline">
+      <div class="set-lbl" style="margin:0">เอฟเฟกต์พื้นหลัง (grid + แสง)</div>
+      <div class="set-opts" id="setBgFx">
+        <button data-v="on" onclick="setUI('bgFx',true)">เปิด</button>
+        <button data-v="off" onclick="setUI('bgFx',false)">ปิด</button>
+      </div>
+    </div>
+    <div class="set-row set-row-inline">
+      <div class="set-lbl" style="margin:0">อนิเมชัน (จุดกระพริบ / transition)</div>
+      <div class="set-opts" id="setAnim">
+        <button data-v="on" onclick="setUI('anim',true)">เปิด</button>
+        <button data-v="off" onclick="setUI('anim',false)">ปิด</button>
+      </div>
     </div>
     <div class="set-foot">
       <button class="set-reset" onclick="resetSettings()"><i data-lucide="rotate-ccw"></i>รีเซ็ตค่าเริ่มต้น</button>

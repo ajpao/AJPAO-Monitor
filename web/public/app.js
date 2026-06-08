@@ -28,13 +28,27 @@ let cloudStatus = null, deviceTimer = null;
 
 const NUM_FONTS = {
   jetbrains:"'JetBrains Mono',ui-monospace,monospace",
+  plexmono: "'IBM Plex Mono',ui-monospace,monospace",
   sharetech:"'Share Tech Mono',ui-monospace,monospace",
   orbitron: "'Orbitron',ui-monospace,monospace",
-  space:    "'Space Grotesk','Noto Sans Thai',ui-sans-serif,sans-serif",
-  inter:    "'Inter','Noto Sans Thai',ui-sans-serif,sans-serif",
+  oxanium:  "'Oxanium',ui-monospace,monospace",
+  chakra:   "'Chakra Petch','Noto Sans Thai',monospace",
+  rajdhani: "'Rajdhani','Noto Sans Thai',sans-serif",
+  teko:     "'Teko','Noto Sans Thai',sans-serif",
+  space:    "'Space Grotesk','Noto Sans Thai',sans-serif",
+  inter:    "'Inter','Noto Sans Thai',sans-serif",
+};
+const UI_FONTS = {
+  inter:   "'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif",
+  plexsans:"'IBM Plex Sans','Noto Sans Thai',ui-sans-serif,sans-serif",
+  roboto:  "'Roboto','Noto Sans Thai',ui-sans-serif,sans-serif",
+  poppins: "'Poppins','Noto Sans Thai',ui-sans-serif,sans-serif",
+  manrope: "'Manrope','Noto Sans Thai',ui-sans-serif,sans-serif",
+  outfit:  "'Outfit','Noto Sans Thai',ui-sans-serif,sans-serif",
+  system:  "ui-sans-serif,system-ui,'Noto Sans Thai',sans-serif",
 };
 const ACCENTS = ['#ff6b00','#3399ff','#00c170','#a855f7','#ec4899','#ff3355','#14b8a6','#eab308'];
-const UI_DEFAULT = { theme:'dark', scale:23.5, numFont:'jetbrains', accent:'#ff6b00' };
+const UI_DEFAULT = { theme:'dark', scale:23.5, numFont:'jetbrains', accent:'#ff6b00', uiFont:'inter', bgFx:true, anim:true };
 let UI = loadLocalSettings();
 
 function loadLocalSettings(){
@@ -48,7 +62,10 @@ function applySettings(){
   if(UI.theme==='light') r.setAttribute('data-theme','light'); else r.removeAttribute('data-theme');
   r.style.fontSize=(UI.scale||23.5)+'px';
   r.style.setProperty('--font-display', NUM_FONTS[UI.numFont]||NUM_FONTS.jetbrains);
+  r.style.setProperty('--font-sans', UI_FONTS[UI.uiFont]||UI_FONTS.inter);
   r.style.setProperty('--accent', UI.accent||'#ff6b00');
+  r.classList.toggle('no-bg', UI.bgFx===false);
+  r.classList.toggle('no-anim', UI.anim===false);
 }
 
 function syncChartColors(){
@@ -86,6 +103,9 @@ function closeSettings(){ document.getElementById('settingsModal').classList.rem
 function renderSettingsControls(){
   document.querySelectorAll('#setTheme button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.theme));
   document.querySelectorAll('#setFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.numFont));
+  document.querySelectorAll('#setUiFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.uiFont));
+  document.querySelectorAll('#setBgFx button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.bgFx!==false)));
+  document.querySelectorAll('#setAnim button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.anim!==false)));
   const sc=document.getElementById('setScale'); if(sc){ sc.value=UI.scale; document.getElementById('setScaleVal').textContent=UI.scale+'px'; }
   const sw=document.getElementById('setAccent');
   if(sw){ sw.innerHTML=ACCENTS.map(c=>`<div class="set-sw${c===UI.accent?' on':''}" style="background:${c}" onclick="setUI('accent','${c}')"></div>`).join('')
