@@ -89,15 +89,15 @@ const commonOpts = (unit,yMin,yMax) => ({
       backgroundColor:'rgba(12,20,36,.95)',borderColor:'rgba(29,47,80,.8)',borderWidth:1,
       titleColor:C.dim,bodyColor:C.text,padding:10},
     datalabels:{anchor:'end',align:'end',offset:1,color:C.dim,
-      font:{size:11,weight:'bold',family:'Share Tech Mono'},
+      font:{size:11,weight:'bold',family:'Inter'},
       formatter:v=>v==null?'':v.toFixed(1)},
   },
   layout:{padding:{top:18}},
   scales:{
-    x:{ticks:{color:C.dim,font:{size:13,family:'Share Tech Mono'},maxRotation:0},
+    x:{ticks:{color:C.dim,font:{size:13,family:'Inter'},maxRotation:0},
        grid:{color:C.grid}},
     y:{min:yMin,max:yMax,
-       ticks:{color:C.dim,font:{size:13,family:'Share Tech Mono'},callback:v=>v.toFixed(0)+unit},
+       ticks:{color:C.dim,font:{size:13,family:'Inter'},callback:v=>v.toFixed(0)+unit},
        grid:{color:C.grid}},
   },
 });
@@ -178,10 +178,10 @@ function makeCompareChart(todayByHour, yestByHour){
       },
       layout:{padding:{top:8}},
       scales:{
-        x:{ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},maxRotation:0,maxTicksLimit:12},
+        x:{ticks:{color:C.dim,font:{size:15,family:'Inter'},maxRotation:0,maxTicksLimit:12},
            grid:{color:C.grid}},
         y:{min:Math.max(0,mn-5), max:mx+6,
-           ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},callback:v=>v+'°'},
+           ticks:{color:C.dim,font:{size:15,family:'Inter'},callback:v=>v+'°'},
            grid:{color:C.grid}},
       },
     },
@@ -286,8 +286,8 @@ function buildCompareCard(cfg, todayBy, yestBy){
         callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+cfg.unit:'--'}`}},
       datalabels:{display:false}},
     layout:{padding:{top:8}},
-    scales:{x:{ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},maxRotation:0,maxTicksLimit:12},grid:{color:C.grid}},
-      y:{min:Math.max(0,mn-5),max:mx+6,ticks:{color:C.dim,font:{size:15,family:'Share Tech Mono'},callback:v=>v+cfg.axis},grid:{color:C.grid}}}}});
+    scales:{x:{ticks:{color:C.dim,font:{size:15,family:'Inter'},maxRotation:0,maxTicksLimit:12},grid:{color:C.grid}},
+      y:{min:Math.max(0,mn-5),max:mx+6,ticks:{color:C.dim,font:{size:15,family:'Inter'},callback:v=>v+cfg.axis},grid:{color:C.grid}}}}});
   if(deltaEl && tv.length && yv.length){
     const tAvg=tv.reduce((a,b)=>a+b,0)/tv.length, yAvg=yv.reduce((a,b)=>a+b,0)/yv.length, diff=tAvg-yAvg;
     deltaEl.textContent=`${tAvg.toFixed(1)}${cfg.axis} vs ${yAvg.toFixed(1)}${cfg.axis} (${diff>=0?'+':''}${diff.toFixed(1)}${cfg.axis})`;
@@ -716,7 +716,7 @@ function setupTerminal(){
     return;
   }
   termInit=true;
-  term=new Terminal({fontFamily:"'Share Tech Mono', monospace", fontSize:13, cursorBlink:true,
+  term=new Terminal({fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:13, cursorBlink:true,
     theme:{background:'#05080f', foreground:'#c8d6f0', cursor:'#ff6b00', selectionBackground:'#1d2f50'}});
   fitAddon=new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
