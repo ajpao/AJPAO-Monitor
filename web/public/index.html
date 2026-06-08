@@ -560,6 +560,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <div class="page">
 <div class="container">
 
+  <!-- Toolsbar (tabs) — บนสุดของหน้า -->
+  <div class="section-nav">
+    <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
+    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
+    <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
+    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
+    <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
+    <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
+    <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
+  </div>
+
+  <!-- Dashboard head (stat cards + compare + Pi info) — โชว์เฉพาะแท็บ อุณหภูมิ -->
+  <div id="dashHead">
+
   <!-- Stat Cards -->
   <div class="stat-grid">
     <div class="stat-card sc-temp">
@@ -620,16 +634,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- Section Nav -->
-  <div class="section-nav">
-    <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="thermometer"></i>อุณหภูมิ</button>
-    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
-    <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
-    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
-    <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
-    <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
-    <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
-  </div>
+  </div><!-- /dashHead -->
 
   <!-- Panel: Temperature -->
   <div id="panel-temp" class="s-panel active">

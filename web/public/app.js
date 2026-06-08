@@ -929,6 +929,8 @@ function switchPanel(name, btn){
   document.getElementById('panel-'+name).classList.add('active');
 
   currentPanel = name;
+  const dh=document.getElementById('dashHead');
+  if(dh) dh.style.display = (name==='temp') ? '' : 'none';   // dashboard head โชว์เฉพาะแท็บ "อุณหภูมิ"
   applyAdguardVisibility();   // โชว์ AdGuard เฉพาะแท็บ "อุณหภูมิ"
 
   if(deviceTimer){ clearInterval(deviceTimer); deviceTimer=null; }
