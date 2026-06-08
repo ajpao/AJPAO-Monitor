@@ -166,8 +166,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .cmp-stats{display:flex;gap:20px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 @media(max-width:600px){.cmp-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}}
 .cmp-insight{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
-  display:grid;grid-template-columns:1fr 1fr;gap:8px 18px}
-@media(max-width:600px){.cmp-insight{grid-template-columns:1fr}}
+  display:grid;grid-template-columns:max-content max-content;gap:8px 30px;justify-content:start}
+@media(max-width:600px){.cmp-insight{grid-template-columns:1fr;justify-content:stretch}}
 .ci-line{display:flex;align-items:center;gap:7px;font-size:.66rem;color:var(--text);line-height:1.35}
 .ci-line svg{width:1.05em;height:1.05em;flex-shrink:0;color:var(--dim)}
 .ci-line b{font-weight:700}
