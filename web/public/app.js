@@ -61,8 +61,10 @@ function applySettings(){
   const r=document.documentElement;
   if(UI.theme==='light') r.setAttribute('data-theme','light'); else r.removeAttribute('data-theme');
   r.style.fontSize=(UI.scale||23.5)+'px';
+  const uiF = UI_FONTS[UI.uiFont]||UI_FONTS.inter;
   r.style.setProperty('--font-display', NUM_FONTS[UI.numFont]||NUM_FONTS.jetbrains);
-  r.style.setProperty('--font-sans', UI_FONTS[UI.uiFont]||UI_FONTS.inter);
+  r.style.setProperty('--font-sans', uiF);
+  r.style.setProperty('--font-mono', uiF);   // ฟอนต์อังกฤษคุมทั้ง label/ค่า (ที่ใช้ --font-mono) ด้วย
   r.style.setProperty('--accent', UI.accent||'#ff6b00');
   r.classList.toggle('no-bg', UI.bgFx===false);
   r.classList.toggle('no-anim', UI.anim===false);

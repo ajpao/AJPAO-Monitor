@@ -15,7 +15,7 @@
   var F={jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",oxanium:"'Oxanium',ui-monospace,monospace",chakra:"'Chakra Petch','Noto Sans Thai',monospace",rajdhani:"'Rajdhani','Noto Sans Thai',sans-serif",teko:"'Teko','Noto Sans Thai',sans-serif",plexmono:"'IBM Plex Mono',ui-monospace,monospace",space:"'Space Grotesk','Noto Sans Thai',sans-serif",inter:"'Inter','Noto Sans Thai',sans-serif"};
   var S={inter:"'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif",plexsans:"'IBM Plex Sans','Noto Sans Thai',ui-sans-serif,sans-serif",roboto:"'Roboto','Noto Sans Thai',ui-sans-serif,sans-serif",poppins:"'Poppins','Noto Sans Thai',ui-sans-serif,sans-serif",manrope:"'Manrope','Noto Sans Thai',ui-sans-serif,sans-serif",outfit:"'Outfit','Noto Sans Thai',ui-sans-serif,sans-serif",system:"ui-sans-serif,system-ui,'Noto Sans Thai',sans-serif"};
   if(s.numFont&&F[s.numFont]) r.style.setProperty('--font-display',F[s.numFont]);
-  if(s.uiFont&&S[s.uiFont]) r.style.setProperty('--font-sans',S[s.uiFont]);
+  if(s.uiFont&&S[s.uiFont]){ r.style.setProperty('--font-sans',S[s.uiFont]); r.style.setProperty('--font-mono',S[s.uiFont]); }
   if(s.bgFx===false) r.classList.add('no-bg');
   if(s.anim===false) r.classList.add('no-anim');
 }catch(e){}})();</script>
@@ -177,7 +177,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .cs-item{display:flex;flex-direction:column;gap:2px}
 .cs-lbl{font-family:var(--font-mono);font-size:.58rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px}
 .cs-lbl svg{width:1.15em;height:1.15em;flex-shrink:0}
-.cs-val{font-family:var(--font-mono);font-size:.82rem;font-weight:700;color:var(--text)}
+.cs-val{font-family:var(--font-display);font-size:.82rem;font-weight:700;color:var(--text)}
 .cs-val.ok{color:var(--ok)} .cs-val.danger{color:var(--danger)} .cs-val.warn{color:var(--warn)}
 
 /* chart card */
@@ -194,7 +194,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-cpu .sc-label svg{color:var(--info)}
 .sc-ram .sc-label svg{color:var(--purple)}
 .sc-disk .sc-label svg{color:var(--warn)}
-.delta-chip{font-family:var(--font-mono);font-size:.68rem;padding:2px 10px;border-radius:20px;
+.delta-chip{font-family:var(--font-display);font-size:.68rem;padding:2px 10px;border-radius:20px;
   border:1px solid var(--border);color:var(--dim)}
 .delta-chip.up{color:var(--danger);border-color:rgba(255,51,85,.4);background:rgba(255,51,85,.07)}
 .delta-chip.down{color:var(--ok);border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.07)}
@@ -237,7 +237,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 /* summary mini */
 .sum-mini{display:flex;gap:14px;flex-wrap:wrap}
-.sm-item{font-family:var(--font-mono);font-size:.65rem}
+.sm-item{font-family:var(--font-display);font-size:.65rem}
 .sm-lbl{color:var(--dim);margin-right:3px;font-size:.58rem}
 .sm-min{color:var(--ok)} .sm-avg{color:var(--text)} .sm-max{color:var(--danger)}
 
