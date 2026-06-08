@@ -1107,7 +1107,8 @@ def api_notes_list():
             out = []
             for d in db_fs.collection("notes").stream():
                 x = d.to_dict()
-                out.append({"id": d.id, "text": x.get("text", ""), "updated": int(x.get("updated", 0))})
+                out.append({"id": d.id, "title": x.get("title", ""),
+                            "text": x.get("text", ""), "updated": int(x.get("updated", 0))})
             out.sort(key=lambda n: n["updated"], reverse=True)
             return jsonify({"notes": out})
         except Exception as e:
@@ -1118,15 +1119,17 @@ def api_notes_list():
 @flask_app.route("/api/notes", methods=["POST"])
 @require_auth
 def api_notes_add():
-    text = ((request.get_json(silent=True) or {}).get("text") or "").strip()
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    text  = (data.get("text") or "").strip()
     now = int(time.time())
     if db_fs:
         ref = db_fs.collection("notes").document()
-        ref.set({"text": text, "updated": now, "created": now})
+        ref.set({"title": title, "text": text, "updated": now, "created": now})
         return jsonify({"ok": True, "id": ref.id})
     notes = _notes_local_load()
     nid = str(now * 1000)
-    notes.insert(0, {"id": nid, "text": text, "updated": now})
+    notes.insert(0, {"id": nid, "title": title, "text": text, "updated": now})
     _notes_local_save(notes)
     return jsonify({"ok": True, "id": nid})
 
@@ -1134,15 +1137,17 @@ def api_notes_add():
 @flask_app.route("/api/notes/<nid>", methods=["POST"])
 @require_auth
 def api_notes_update(nid):
-    text = ((request.get_json(silent=True) or {}).get("text") or "").strip()
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    text  = (data.get("text") or "").strip()
     now = int(time.time())
     if db_fs:
-        db_fs.collection("notes").document(nid).set({"text": text, "updated": now}, merge=True)
+        db_fs.collection("notes").document(nid).set({"title": title, "text": text, "updated": now}, merge=True)
         return jsonify({"ok": True})
     notes = _notes_local_load()
     for n in notes:
         if n["id"] == nid:
-            n["text"], n["updated"] = text, now
+            n["title"], n["text"], n["updated"] = title, text, now
     _notes_local_save(notes)
     return jsonify({"ok": True})
 

@@ -686,7 +686,7 @@ function setupNotes(){
   if(MODE==='local'){ loadNotes(); }
   else if(!notesUnsub){                    // cloud: realtime onSnapshot
     notesUnsub = db.collection('notes').onSnapshot(snap=>{
-      const arr=[]; snap.forEach(d=>{ const x=d.data(); arr.push({id:d.id,text:x.text||'',updated:x.updated||0}); });
+      const arr=[]; snap.forEach(d=>{ const x=d.data(); arr.push({id:d.id,title:x.title||'',text:x.text||'',updated:x.updated||0}); });
       arr.sort((a,b)=>b.updated-a.updated); renderNotes(arr);
     }, err=>console.error('notes snapshot',err));
   }
@@ -714,6 +714,7 @@ function drawNotes(){
   list.innerHTML=notesData.map(n=>{
     if(n.id===notesEditing){
       return `<div class="note-card">
+        <input class="note-title-input" id="noteEditTitle-${n.id}" value="${agEsc(n.title||'')}" placeholder="หัวข้อ (ไม่ใส่ก็ได้)">
         <textarea class="note-input" id="noteEdit-${n.id}" style="width:100%">${agEsc(n.text)}</textarea>
         <div class="note-foot"><span class="note-time">กำลังแก้ไข</span>
           <div class="note-acts">
@@ -721,7 +722,9 @@ function drawNotes(){
             <button class="note-btn" onclick="noteCancelEdit()"><i data-lucide="x"></i></button>
           </div></div></div>`;
     }
+    const titleHtml = n.title ? `<div class="note-title"><i data-lucide="bookmark"></i>${agEsc(n.title)}</div>` : '';
     return `<div class="note-card">
+      ${titleHtml}
       <div class="note-text">${noteLinkify(n.text)}</div>
       <div class="note-foot"><span class="note-time">${noteTime(n.updated)}</span>
         <div class="note-acts">
@@ -737,17 +740,19 @@ function noteCancelEdit(){ notesEditing=null; drawNotes(); }
 
 async function noteAdd(){
   const ta=document.getElementById('noteNew'); const text=ta.value.trim();
-  if(!text) return;
-  ta.value='';
-  if(MODE==='local'){ await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); loadNotes(); }
-  else { const t=Math.floor(Date.now()/1000); await db.collection('notes').add({text,updated:t,created:t}); }
+  const ti=document.getElementById('noteNewTitle'); const title=ti.value.trim();
+  if(!text && !title) return;
+  ta.value=''; ti.value='';
+  if(MODE==='local'){ await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,text})}); loadNotes(); }
+  else { const t=Math.floor(Date.now()/1000); await db.collection('notes').add({title,text,updated:t,created:t}); }
 }
 
 async function noteSave(id){
-  const ta=document.getElementById('noteEdit-'+id); const text=ta.value.trim();
+  const text=document.getElementById('noteEdit-'+id).value.trim();
+  const title=(document.getElementById('noteEditTitle-'+id)?.value||'').trim();
   notesEditing=null;
-  if(MODE==='local'){ await fetch('/api/notes/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); loadNotes(); }
-  else { await db.collection('notes').doc(id).set({text,updated:Math.floor(Date.now()/1000)},{merge:true}); }
+  if(MODE==='local'){ await fetch('/api/notes/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,text})}); loadNotes(); }
+  else { await db.collection('notes').doc(id).set({title,text,updated:Math.floor(Date.now()/1000)},{merge:true}); }
 }
 
 async function noteDelete(id){

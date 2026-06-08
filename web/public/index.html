@@ -325,7 +325,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-offline svg{width:20px;height:20px}
 
 /* notes */
-.note-compose{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.note-compose{display:flex;flex-direction:column;gap:8px}
+.note-add{align-self:flex-start}
+.note-title-input{font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.82rem;font-weight:600;
+  background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;
+  padding:9px 13px;outline:none;width:100%}
+.note-title-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.12)}
+.note-title{font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.92rem;font-weight:700;color:var(--accent);
+  display:flex;align-items:center;gap:7px}
+.note-title svg{width:1em;height:1em;flex-shrink:0}
 .note-input{flex:1;min-width:200px;min-height:64px;resize:vertical;
   font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.82rem;line-height:1.5;
   background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;
@@ -755,6 +763,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="sticky-note"></i>Notes</div><span class="data-count" id="notesNote"></span></div>
       <div class="note-compose">
+        <input id="noteNewTitle" class="note-title-input" placeholder="หัวข้อ (ไม่ใส่ก็ได้)">
         <textarea id="noteNew" class="note-input" placeholder="เขียนโน้ต หรือ วางลิงก์ที่นี่… (กด Ctrl+Enter เพื่อบันทึก)"></textarea>
         <button class="note-add" onclick="noteAdd()"><i data-lucide="plus"></i>เพิ่มโน้ต</button>
       </div>
