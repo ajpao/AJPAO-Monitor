@@ -842,6 +842,19 @@ function sendResize(){
     termSock.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
 }
 
+// คำสั่งด่วน — ส่งคำสั่ง + Enter เข้า PTY ทันที
+function termSendCmd(cmd){
+  if(MODE!=='local'){ alert('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN'); return; }
+  const fire=()=>{
+    if(termSock && termSock.readyState===1){
+      termSock.send(JSON.stringify({type:'input', data:cmd+'\r'}));   // \r = กด Enter
+      if(term) term.focus();
+    }
+  };
+  if(termSock && termSock.readyState===1){ fire(); }
+  else { setupTerminal(); setTimeout(fire, 450); }   // ยังไม่เชื่อม → เชื่อมก่อนแล้วค่อยส่ง
+}
+
 // ─── file transfer / dropzone (HTTP — LAN only) ──────────────────────────────────
 
 let filesInit=false;

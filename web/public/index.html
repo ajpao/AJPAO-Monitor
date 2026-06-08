@@ -458,6 +458,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ft-btn.del:hover{color:var(--danger);border-color:var(--danger)}
 @media(max-width:600px){.files-table .hide-sm{display:none}}
 
+/* terminal quick commands */
+.term-quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.term-quick button{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.5px;
+  padding:6px 12px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
+  border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.term-quick button:hover{color:var(--accent);border-color:var(--accent);
+  background:linear-gradient(rgba(255,107,0,.1),rgba(255,107,0,.1)),var(--panel2)}
+.term-quick button svg{width:1.05em;height:1.05em}
+
 /* xterm terminal */
 .xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
   padding:8px;overflow:hidden}
@@ -984,6 +993,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="cc-head">
         <div class="cc-title"><i data-lucide="terminal"></i>Web Terminal (PTY)</div>
         <span class="data-count" id="termNote">LAN only · interactive shell</span>
+      </div>
+      <div class="term-quick" id="termQuick">
+        <button onclick="termSendCmd('sudo apt update && sudo apt upgrade -y')"><i data-lucide="arrow-up-circle"></i>Update &amp; Upgrade</button>
+        <button onclick="termSendCmd('df -h')"><i data-lucide="hard-drive"></i>Disk</button>
+        <button onclick="termSendCmd('free -h')"><i data-lucide="memory-stick"></i>RAM</button>
+        <button onclick="termSendCmd('vcgencmd measure_temp')"><i data-lucide="thermometer"></i>Temp</button>
+        <button onclick="termSendCmd('uptime')"><i data-lucide="clock"></i>Uptime</button>
+        <button onclick="termSendCmd('htop')"><i data-lucide="activity"></i>htop</button>
+        <button onclick="termSendCmd('systemctl status ajpao-monitor --no-pager')"><i data-lucide="server"></i>Service</button>
+        <button onclick="termSendCmd('sudo journalctl -u ajpao-monitor -n 40 --no-pager')"><i data-lucide="scroll-text"></i>Logs</button>
+        <button onclick="termSendCmd('clear')"><i data-lucide="eraser"></i>Clear</button>
       </div>
       <div id="xterm" class="xterm-wrap"></div>
     </div>
