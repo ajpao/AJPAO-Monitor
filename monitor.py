@@ -63,7 +63,7 @@ EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal
 
 # ─── File Transfer / DropZone ───
 FILES_DIR          = os.getenv("FILES_DIR", os.path.join(BASE_DIR, "files"))   # โฟลเดอร์ปลายทาง
-FILES_MAX_MB       = int(os.getenv("FILES_MAX_MB", "512"))        # ขนาดอัปโหลดสูงสุดต่อ request (MB)
+FILES_MAX_MB       = int(os.getenv("FILES_MAX_MB", "51200"))      # ขนาดอัปโหลดสูงสุดต่อ request (MB) — default 50GB
 os.makedirs(FILES_DIR, exist_ok=True)
 
 NOTES_FILE         = os.path.join(BASE_DIR, "notes.json")         # fallback ถ้าไม่มี Firestore
