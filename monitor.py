@@ -1108,7 +1108,8 @@ def api_notes_list():
             for d in db_fs.collection("notes").stream():
                 x = d.to_dict()
                 out.append({"id": d.id, "title": x.get("title", ""),
-                            "text": x.get("text", ""), "updated": int(x.get("updated", 0))})
+                            "text": x.get("text", ""), "updated": int(x.get("updated", 0)),
+                            "created": int(x.get("created", x.get("updated", 0)))})
             out.sort(key=lambda n: n["updated"], reverse=True)
             return jsonify({"notes": out})
         except Exception as e:

@@ -678,7 +678,19 @@ function fmtFileTime(sec){
 
 // ─── notes (เขียนโน้ต / แปะลิงก์) — LAN ผ่าน API / Cloud ผ่าน Firestore realtime ──
 
-let notesData=[], notesEditing=null, notesUnsub=null;
+let notesData=[], notesEditing=null, notesUnsub=null, notesSort='new', notesSearch='';
+
+function notesDoSearch(v){ notesSearch=v||''; drawNotes(); }
+function notesToggleSort(){
+  notesSort = notesSort==='new' ? 'old' : 'new';
+  const btn=document.getElementById('notesSortBtn');
+  btn.innerHTML = notesSort==='new'
+    ? '<i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด'
+    : '<i data-lucide="arrow-up-wide-narrow"></i>เก่าสุด';
+  if(window.lucide) lucide.createIcons();
+  drawNotes();
+}
+const noteCreated = n => n.created || n.updated || 0;
 
 function setupNotes(){
   const ta=document.getElementById('noteNew');
@@ -686,8 +698,9 @@ function setupNotes(){
   if(MODE==='local'){ loadNotes(); }
   else if(!notesUnsub){                    // cloud: realtime onSnapshot
     notesUnsub = db.collection('notes').onSnapshot(snap=>{
-      const arr=[]; snap.forEach(d=>{ const x=d.data(); arr.push({id:d.id,title:x.title||'',text:x.text||'',updated:x.updated||0}); });
-      arr.sort((a,b)=>b.updated-a.updated); renderNotes(arr);
+      const arr=[]; snap.forEach(d=>{ const x=d.data();
+        arr.push({id:d.id,title:x.title||'',text:x.text||'',updated:x.updated||0,created:x.created||x.updated||0}); });
+      renderNotes(arr);
     }, err=>console.error('notes snapshot',err));
   }
 }
@@ -709,9 +722,13 @@ function noteTime(sec){ if(!sec) return ''; const d=new Date(sec*1000);
 
 function drawNotes(){
   const list=document.getElementById('notesList');
-  setText('notesNote', notesData.length+' notes');
+  const q=notesSearch.trim().toLowerCase();
+  let arr=notesData.filter(n=> !q || (n.title||'').toLowerCase().includes(q) || (n.text||'').toLowerCase().includes(q));
+  arr.sort((a,b)=> notesSort==='old' ? noteCreated(a)-noteCreated(b) : noteCreated(b)-noteCreated(a));
+  setText('notesNote', q ? `${arr.length} / ${notesData.length} notes` : `${notesData.length} notes`);
   if(!notesData.length){ list.innerHTML='<div class="note-empty">ยังไม่มีโน้ต — เขียนหรือแปะลิงก์ด้านบนได้เลย</div>'; return; }
-  list.innerHTML=notesData.map(n=>{
+  if(!arr.length){ list.innerHTML='<div class="note-empty">ไม่พบโน้ตที่ค้นหา</div>'; return; }
+  list.innerHTML=arr.map(n=>{
     if(n.id===notesEditing){
       return `<div class="note-card">
         <input class="note-title-input" id="noteEditTitle-${n.id}" value="${agEsc(n.title||'')}" placeholder="หัวข้อ (ไม่ใส่ก็ได้)">

@@ -344,8 +344,19 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   color:#fff;background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);transition:.2s;white-space:nowrap}
 .note-add:hover{box-shadow:0 0 16px rgba(255,107,0,.3)}
 .note-add svg{width:1.1em;height:1.1em}
-.notes-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
-@media(max-width:760px){.notes-list{grid-template-columns:1fr}}
+.notes-toolbar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.notes-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:7px 11px}
+.notes-search:focus-within{border-color:var(--accent)}
+.notes-search svg{width:1.05em;height:1.05em;color:var(--dim);flex-shrink:0}
+.notes-search input{flex:1;background:transparent;border:none;outline:none;color:var(--text);
+  font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.78rem}
+.note-sort{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:.6rem;
+  letter-spacing:1px;text-transform:uppercase;padding:8px 13px;border:1px solid var(--border);background:var(--panel2);
+  color:var(--dim);border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
+.note-sort:hover{color:var(--accent);border-color:var(--accent)}
+.note-sort svg{width:1.1em;height:1.1em}
+.notes-list{display:flex;flex-direction:column;gap:12px;margin-top:14px}
 .note-card{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);
   border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .note-text{font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.8rem;line-height:1.55;
@@ -766,6 +777,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <input id="noteNewTitle" class="note-title-input" placeholder="หัวข้อ (ไม่ใส่ก็ได้)">
         <textarea id="noteNew" class="note-input" placeholder="เขียนโน้ต หรือ วางลิงก์ที่นี่… (กด Ctrl+Enter เพื่อบันทึก)"></textarea>
         <button class="note-add" onclick="noteAdd()"><i data-lucide="plus"></i>เพิ่มโน้ต</button>
+      </div>
+      <div class="notes-toolbar">
+        <div class="notes-search">
+          <i data-lucide="search"></i>
+          <input id="notesSearch" placeholder="ค้นหาโน้ต (หัวข้อ / เนื้อหา)…" oninput="notesDoSearch(this.value)">
+        </div>
+        <button class="note-sort" id="notesSortBtn" onclick="notesToggleSort()"><i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด</button>
       </div>
       <div id="notesList" class="notes-list"></div>
     </div>
