@@ -66,6 +66,8 @@ FILES_DIR          = os.getenv("FILES_DIR", os.path.join(BASE_DIR, "files"))   #
 FILES_MAX_MB       = int(os.getenv("FILES_MAX_MB", "512"))        # ขนาดอัปโหลดสูงสุดต่อ request (MB)
 os.makedirs(FILES_DIR, exist_ok=True)
 
+NOTES_FILE         = os.path.join(BASE_DIR, "notes.json")         # fallback ถ้าไม่มี Firestore
+
 # ─── AdGuard Home (ดึงสถิติ DNS) — ปล่อย ADGUARD_IP ว่าง = ปิดฟีเจอร์นี้ ───
 ADGUARD_IP         = (os.getenv("ADGUARD_IP") or "").strip()       # เช่น 127.0.0.1 (เครื่องเดียวกัน) หรือ IP ในวง LAN
 ADGUARD_PORT       = (os.getenv("ADGUARD_PORT") or "80").strip()   # พอร์ต web UI / control API ของ AdGuard
@@ -1078,6 +1080,80 @@ def api_files_delete():
     if not p or not os.path.isfile(p):
         return jsonify({"ok": False, "error": "not found"}), 404
     os.remove(p)
+    return jsonify({"ok": True})
+
+
+# ─── notes (เขียนโน้ต / แปะลิงก์) — sync ผ่าน Firestore, fallback ไฟล์ ───────────────
+
+def _notes_local_load():
+    try:
+        return json.load(open(NOTES_FILE, encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _notes_local_save(notes):
+    try:
+        json.dump(notes, open(NOTES_FILE, "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception as e:
+        print(f"[notes] save error: {e}")
+
+
+@flask_app.route("/api/notes")
+@require_auth
+def api_notes_list():
+    if db_fs:
+        try:
+            out = []
+            for d in db_fs.collection("notes").stream():
+                x = d.to_dict()
+                out.append({"id": d.id, "text": x.get("text", ""), "updated": int(x.get("updated", 0))})
+            out.sort(key=lambda n: n["updated"], reverse=True)
+            return jsonify({"notes": out})
+        except Exception as e:
+            print(f"[notes] fs list error: {e}")
+    return jsonify({"notes": _notes_local_load()})
+
+
+@flask_app.route("/api/notes", methods=["POST"])
+@require_auth
+def api_notes_add():
+    text = ((request.get_json(silent=True) or {}).get("text") or "").strip()
+    now = int(time.time())
+    if db_fs:
+        ref = db_fs.collection("notes").document()
+        ref.set({"text": text, "updated": now, "created": now})
+        return jsonify({"ok": True, "id": ref.id})
+    notes = _notes_local_load()
+    nid = str(now * 1000)
+    notes.insert(0, {"id": nid, "text": text, "updated": now})
+    _notes_local_save(notes)
+    return jsonify({"ok": True, "id": nid})
+
+
+@flask_app.route("/api/notes/<nid>", methods=["POST"])
+@require_auth
+def api_notes_update(nid):
+    text = ((request.get_json(silent=True) or {}).get("text") or "").strip()
+    now = int(time.time())
+    if db_fs:
+        db_fs.collection("notes").document(nid).set({"text": text, "updated": now}, merge=True)
+        return jsonify({"ok": True})
+    notes = _notes_local_load()
+    for n in notes:
+        if n["id"] == nid:
+            n["text"], n["updated"] = text, now
+    _notes_local_save(notes)
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/notes/<nid>/delete", methods=["POST"])
+@require_auth
+def api_notes_delete(nid):
+    if db_fs:
+        db_fs.collection("notes").document(nid).delete()
+        return jsonify({"ok": True})
+    _notes_local_save([n for n in _notes_local_load() if n["id"] != nid])
     return jsonify({"ok": True})
 
 

@@ -324,6 +324,39 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   animation:softPulse 1.6s ease-in-out infinite}
 .ag-offline svg{width:20px;height:20px}
 
+/* notes */
+.note-compose{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.note-input{flex:1;min-width:200px;min-height:64px;resize:vertical;
+  font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.82rem;line-height:1.5;
+  background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;
+  padding:11px 13px;outline:none}
+.note-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.12)}
+.note-add{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:.66rem;
+  letter-spacing:1px;text-transform:uppercase;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;
+  color:#fff;background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);transition:.2s;white-space:nowrap}
+.note-add:hover{box-shadow:0 0 16px rgba(255,107,0,.3)}
+.note-add svg{width:1.1em;height:1.1em}
+.notes-list{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:16px}
+@media(max-width:760px){.notes-list{grid-template-columns:1fr}}
+.note-card{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.note-text{font-family:'Noto Sans Thai',ui-sans-serif,sans-serif;font-size:.8rem;line-height:1.55;
+  color:var(--text);white-space:pre-wrap;word-break:break-word}
+.note-text a{color:var(--info);text-decoration:underline;word-break:break-all}
+.note-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  border-top:1px solid rgba(120,140,175,.12);padding-top:7px}
+.note-time{font-family:'Share Tech Mono',monospace;font-size:.56rem;color:var(--dim);letter-spacing:1px}
+.note-acts{display:flex;gap:6px}
+.note-btn{display:inline-flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:.56rem;
+  letter-spacing:1px;text-transform:uppercase;padding:4px 9px;border:1px solid var(--border);background:transparent;
+  color:var(--dim);border-radius:6px;cursor:pointer;transition:.15s}
+.note-btn svg{width:1.05em;height:1.05em}
+.note-btn.edit:hover{color:var(--info);border-color:var(--info)}
+.note-btn.del:hover{color:var(--danger);border-color:var(--danger)}
+.note-btn.save:hover{color:var(--ok);border-color:var(--ok)}
+.note-empty{grid-column:1/-1;text-align:center;color:var(--dim);font-family:'Share Tech Mono',monospace;
+  font-size:.7rem;padding:24px}
+
 /* dropzone / file transfer */
 .dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
   padding:30px 20px;border:2px dashed var(--border);border-radius:12px;background:var(--panel2);
@@ -576,6 +609,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
     <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
+    <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
   </div>
 
   <!-- Panel: Temperature -->
@@ -713,6 +747,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <thead><tr><th>ชื่อไฟล์</th><th class="num">ขนาด</th><th class="hide-sm">แก้ไขล่าสุด</th><th></th></tr></thead>
         <tbody id="filesBody"><tr><td colspan="4" class="proc-empty">—</td></tr></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Panel: Notes -->
+  <div id="panel-notes" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="sticky-note"></i>Notes</div><span class="data-count" id="notesNote"></span></div>
+      <div class="note-compose">
+        <textarea id="noteNew" class="note-input" placeholder="เขียนโน้ต หรือ วางลิงก์ที่นี่… (กด Ctrl+Enter เพื่อบันทึก)"></textarea>
+        <button class="note-add" onclick="noteAdd()"><i data-lucide="plus"></i>เพิ่มโน้ต</button>
+      </div>
+      <div id="notesList" class="notes-list"></div>
     </div>
   </div>
 

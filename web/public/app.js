@@ -676,6 +676,86 @@ function fmtFileTime(sec){
   return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// ─── notes (เขียนโน้ต / แปะลิงก์) — LAN ผ่าน API / Cloud ผ่าน Firestore realtime ──
+
+let notesData=[], notesEditing=null, notesUnsub=null;
+
+function setupNotes(){
+  const ta=document.getElementById('noteNew');
+  if(ta && !ta._bound){ ta._bound=true; ta.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter') noteAdd(); }); }
+  if(MODE==='local'){ loadNotes(); }
+  else if(!notesUnsub){                    // cloud: realtime onSnapshot
+    notesUnsub = db.collection('notes').onSnapshot(snap=>{
+      const arr=[]; snap.forEach(d=>{ const x=d.data(); arr.push({id:d.id,text:x.text||'',updated:x.updated||0}); });
+      arr.sort((a,b)=>b.updated-a.updated); renderNotes(arr);
+    }, err=>console.error('notes snapshot',err));
+  }
+}
+
+async function loadNotes(){
+  try{ renderNotes((await fetch('/api/notes').then(r=>r.json())).notes||[]); }
+  catch(e){ document.getElementById('notesList').innerHTML='<div class="note-empty">โหลดไม่สำเร็จ</div>'; }
+}
+
+function renderNotes(arr){ notesData=arr; drawNotes(); }
+
+function noteLinkify(text){
+  return agEsc(text)
+    .replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n/g,'<br>');
+}
+function noteTime(sec){ if(!sec) return ''; const d=new Date(sec*1000);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+function drawNotes(){
+  const list=document.getElementById('notesList');
+  setText('notesNote', notesData.length+' notes');
+  if(!notesData.length){ list.innerHTML='<div class="note-empty">ยังไม่มีโน้ต — เขียนหรือแปะลิงก์ด้านบนได้เลย</div>'; return; }
+  list.innerHTML=notesData.map(n=>{
+    if(n.id===notesEditing){
+      return `<div class="note-card">
+        <textarea class="note-input" id="noteEdit-${n.id}" style="width:100%">${agEsc(n.text)}</textarea>
+        <div class="note-foot"><span class="note-time">กำลังแก้ไข</span>
+          <div class="note-acts">
+            <button class="note-btn save" onclick="noteSave('${n.id}')"><i data-lucide="check"></i>บันทึก</button>
+            <button class="note-btn" onclick="noteCancelEdit()"><i data-lucide="x"></i></button>
+          </div></div></div>`;
+    }
+    return `<div class="note-card">
+      <div class="note-text">${noteLinkify(n.text)}</div>
+      <div class="note-foot"><span class="note-time">${noteTime(n.updated)}</span>
+        <div class="note-acts">
+          <button class="note-btn edit" onclick="noteEdit('${n.id}')"><i data-lucide="pencil"></i>แก้ไข</button>
+          <button class="note-btn del" onclick="noteDelete('${n.id}')"><i data-lucide="trash-2"></i></button>
+        </div></div></div>`;
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+}
+
+function noteEdit(id){ notesEditing=id; drawNotes(); }
+function noteCancelEdit(){ notesEditing=null; drawNotes(); }
+
+async function noteAdd(){
+  const ta=document.getElementById('noteNew'); const text=ta.value.trim();
+  if(!text) return;
+  ta.value='';
+  if(MODE==='local'){ await fetch('/api/notes',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); loadNotes(); }
+  else { const t=Math.floor(Date.now()/1000); await db.collection('notes').add({text,updated:t,created:t}); }
+}
+
+async function noteSave(id){
+  const ta=document.getElementById('noteEdit-'+id); const text=ta.value.trim();
+  notesEditing=null;
+  if(MODE==='local'){ await fetch('/api/notes/'+id,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); loadNotes(); }
+  else { await db.collection('notes').doc(id).set({text,updated:Math.floor(Date.now()/1000)},{merge:true}); }
+}
+
+async function noteDelete(id){
+  if(!confirm('ลบโน้ตนี้?')) return;
+  if(MODE==='local'){ await fetch('/api/notes/'+id+'/delete',{method:'POST'}); loadNotes(); }
+  else { await db.collection('notes').doc(id).delete(); }
+}
+
 // ─── status cards ─────────────────────────────────────────────────────────────
 
 function updateCards(d){
@@ -839,10 +919,13 @@ function switchPanel(name, btn){
     else if(name==='device'){ loadDevice(); loadServices(); }
     else if(name==='terminal') setupTerminal();
     else if(name==='files') setupFiles();
+    else if(name==='notes') setupNotes();
   } else if(name==='device'){
     loadDevice(); loadServices();
   } else if(name==='files'){
     setupFiles();
+  } else if(name==='notes'){
+    setupNotes();
   }
 
   if(name==='device' && MODE==='local'){
