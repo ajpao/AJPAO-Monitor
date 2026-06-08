@@ -3,6 +3,9 @@
 serviceAccountKey.json
 .flask_secret
 
+# ─── ไฟล์ที่อัปโหลดผ่าน DropZone ───
+files/
+
 # ─── ฐานข้อมูล local ───
 *.db
 *.db-journal

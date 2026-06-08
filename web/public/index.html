@@ -324,6 +324,35 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   animation:softPulse 1.6s ease-in-out infinite}
 .ag-offline svg{width:20px;height:20px}
 
+/* dropzone / file transfer */
+.dropzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:30px 20px;border:2px dashed var(--border);border-radius:12px;background:var(--panel2);
+  cursor:pointer;transition:.2s;text-align:center}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:linear-gradient(rgba(255,107,0,.06),rgba(255,107,0,.06)),var(--panel2)}
+.dropzone svg{width:34px;height:34px;color:var(--accent)}
+.dz-text{font-size:.82rem;color:var(--text)}
+.dz-link{color:var(--accent);text-decoration:underline}
+.dz-sub{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:var(--dim);letter-spacing:1px}
+.up-bar{height:6px;background:var(--panel2);border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-top:12px}
+.up-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);transition:width .15s}
+.files-table{width:100%;border-collapse:collapse;margin-top:14px;
+  font-family:'Share Tech Mono','Noto Sans Thai',ui-monospace,monospace}
+.files-table th{font-size:.58rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;
+  text-align:left;padding:7px 10px;border-bottom:1px solid var(--border)}
+.files-table th.num,.files-table td.num{text-align:right}
+.files-table td{font-size:.7rem;color:var(--text);padding:8px 10px;border-bottom:1px solid rgba(120,140,175,.12);
+  word-break:break-all}
+.files-table tbody tr:hover{background:rgba(51,153,255,.05)}
+.files-table .ft-time{color:var(--dim)}
+.ft-act{display:flex;gap:6px;justify-content:flex-end}
+.ft-btn{display:inline-flex;align-items:center;gap:4px;font-family:'Share Tech Mono',monospace;font-size:.56rem;
+  letter-spacing:1px;text-transform:uppercase;padding:4px 9px;border:1px solid var(--border);background:var(--panel2);
+  color:var(--dim);border-radius:6px;cursor:pointer;transition:.15s;white-space:nowrap}
+.ft-btn svg{width:1.1em;height:1.1em}
+.ft-btn.dl:hover{color:var(--info);border-color:var(--info)}
+.ft-btn.del:hover{color:var(--danger);border-color:var(--danger)}
+@media(max-width:600px){.files-table .hide-sm{display:none}}
+
 /* xterm terminal */
 .xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
   padding:8px;overflow:hidden}
@@ -546,6 +575,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
     <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
+    <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
   </div>
 
   <!-- Panel: Temperature -->
@@ -665,6 +695,24 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <span class="data-count" id="termNote">LAN only · interactive shell</span>
       </div>
       <div id="xterm" class="xterm-wrap"></div>
+    </div>
+  </div>
+
+  <!-- Panel: Files (DropZone / File Transfer) -->
+  <div id="panel-files" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="folder"></i>File Transfer</div><span class="data-count" id="filesNote"></span></div>
+      <div id="dropZone" class="dropzone">
+        <i data-lucide="upload-cloud"></i>
+        <div class="dz-text">ลากไฟล์มาวางที่นี่ หรือ <span class="dz-link">คลิกเพื่อเลือกไฟล์</span></div>
+        <div class="dz-sub">อัปโหลดได้หลายไฟล์พร้อมกัน</div>
+        <input type="file" id="fileInput" multiple hidden>
+      </div>
+      <div id="upBar" class="up-bar" style="display:none"><div id="upBarFill" class="up-bar-fill"></div></div>
+      <table class="files-table">
+        <thead><tr><th>ชื่อไฟล์</th><th class="num">ขนาด</th><th class="hide-sm">แก้ไขล่าสุด</th><th></th></tr></thead>
+        <tbody id="filesBody"><tr><td colspan="4" class="proc-empty">—</td></tr></tbody>
+      </table>
     </div>
   </div>
 

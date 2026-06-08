@@ -61,6 +61,11 @@ MANAGED_SERVICES   = [s.strip() for s in (os.getenv("MANAGED_SERVICES")
                        or "AdGuardHome,plexmediaserver,transmission-daemon,ssh").split(",") if s.strip()]
 EXEC_TIMEOUT       = int(os.getenv("EXEC_TIMEOUT", "30"))         # web terminal: timeout ต่อคำสั่ง (วินาที)
 
+# ─── File Transfer / DropZone ───
+FILES_DIR          = os.getenv("FILES_DIR", os.path.join(BASE_DIR, "files"))   # โฟลเดอร์ปลายทาง
+FILES_MAX_MB       = int(os.getenv("FILES_MAX_MB", "512"))        # ขนาดอัปโหลดสูงสุดต่อ request (MB)
+os.makedirs(FILES_DIR, exist_ok=True)
+
 # ─── AdGuard Home (ดึงสถิติ DNS) — ปล่อย ADGUARD_IP ว่าง = ปิดฟีเจอร์นี้ ───
 ADGUARD_IP         = (os.getenv("ADGUARD_IP") or "").strip()       # เช่น 127.0.0.1 (เครื่องเดียวกัน) หรือ IP ในวง LAN
 ADGUARD_PORT       = (os.getenv("ADGUARD_PORT") or "80").strip()   # พอร์ต web UI / control API ของ AdGuard
@@ -719,6 +724,7 @@ BOT_COMMANDS = {
 # ─── Flask web (LAN dashboard + /api) ───────────────────────────────────────────
 
 flask_app = Flask(__name__, static_folder=WEB_DIR, static_url_path="")
+flask_app.config["MAX_CONTENT_LENGTH"] = FILES_MAX_MB * 1024 * 1024   # จำกัดขนาดอัปโหลด
 
 
 def _load_secret():
@@ -1012,6 +1018,67 @@ def api_exec():
         return jsonify({"ok": False, "error": f"⏱ timeout ({EXEC_TIMEOUT}s) — คำสั่งใช้เวลานานเกินไป"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
+
+
+# ─── file transfer / dropzone (HTTP ล้วน — ต้อง login) ───────────────────────────
+
+def _files_safe(name):
+    """กัน path traversal — คืน absolute path ที่อยู่ใน FILES_DIR เท่านั้น (ไม่งั้น None)"""
+    name = os.path.basename(name or "").strip()
+    if not name or name in (".", ".."):
+        return None
+    p = os.path.realpath(os.path.join(FILES_DIR, name))
+    if os.path.dirname(p) != os.path.realpath(FILES_DIR):
+        return None
+    return p
+
+
+@flask_app.route("/api/files")
+@require_auth
+def api_files_list():
+    out = []
+    for n in sorted(os.listdir(FILES_DIR)):
+        fp = os.path.join(FILES_DIR, n)
+        if os.path.isfile(fp):
+            st = os.stat(fp)
+            out.append({"name": n, "size": st.st_size, "mtime": int(st.st_mtime)})
+    return jsonify({"files": out})
+
+
+@flask_app.route("/api/files/upload", methods=["POST"])
+@require_auth
+def api_files_upload():
+    saved, skipped = [], []
+    for f in request.files.getlist("files"):          # รองรับหลายไฟล์
+        if not f or not f.filename:
+            continue
+        p = _files_safe(f.filename)                   # เก็บชื่อเดิม (แค่ตัด path ทิ้ง)
+        if not p:
+            skipped.append(f.filename)
+            continue
+        f.save(p)
+        saved.append(os.path.basename(p))
+    return jsonify({"ok": True, "saved": saved, "skipped": skipped})
+
+
+@flask_app.route("/api/files/download/<path:name>")
+@require_auth
+def api_files_download(name):
+    p = _files_safe(name)
+    if not p or not os.path.isfile(p):
+        return jsonify({"error": "not found"}), 404
+    return send_from_directory(FILES_DIR, os.path.basename(p), as_attachment=True)
+
+
+@flask_app.route("/api/files/delete", methods=["POST"])
+@require_auth
+def api_files_delete():
+    data = request.get_json(silent=True) or {}
+    p = _files_safe(data.get("name"))
+    if not p or not os.path.isfile(p):
+        return jsonify({"ok": False, "error": "not found"}), 404
+    os.remove(p)
+    return jsonify({"ok": True})
 
 
 @sock.route("/ws/terminal")

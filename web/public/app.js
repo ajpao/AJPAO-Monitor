@@ -589,6 +589,93 @@ function sendResize(){
     termSock.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
 }
 
+// ─── file transfer / dropzone (HTTP — LAN only) ──────────────────────────────────
+
+let filesInit=false;
+
+function setupFiles(){
+  const note=document.getElementById('filesNote');
+  const dz=document.getElementById('dropZone');
+  if(MODE!=='local'){
+    note.textContent='⚠ LAN only';
+    dz.style.opacity='.5'; dz.style.pointerEvents='none';
+    document.getElementById('filesBody').innerHTML='<tr><td colspan="4" class="proc-empty">รับ-ส่งไฟล์ได้เฉพาะตอนเปิดใน LAN</td></tr>';
+    return;
+  }
+  if(!filesInit){ filesInit=true; bindDropzone(); }
+  loadFiles();
+}
+
+function bindDropzone(){
+  const dz=document.getElementById('dropZone'), inp=document.getElementById('fileInput');
+  dz.addEventListener('click',()=>inp.click());
+  inp.addEventListener('change',()=>{ if(inp.files.length) uploadFiles(inp.files); inp.value=''; });
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','dragend'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{ e.preventDefault(); dz.classList.remove('drag');
+    if(e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+}
+
+function uploadFiles(fileList){
+  const fd=new FormData();
+  [...fileList].forEach(f=>fd.append('files',f));      // หลายไฟล์ ชื่อ field = "files"
+  const bar=document.getElementById('upBar'), fill=document.getElementById('upBarFill');
+  bar.style.display=''; fill.style.width='0';
+  const xhr=new XMLHttpRequest();
+  xhr.open('POST','/api/files/upload');
+  xhr.upload.onprogress=e=>{ if(e.lengthComputable) fill.style.width=(e.loaded/e.total*100)+'%'; };
+  xhr.onload=()=>{ fill.style.width='100%'; setTimeout(()=>bar.style.display='none',500);
+    if(xhr.status===200) loadFiles(); else alert('อัปโหลดไม่สำเร็จ ('+xhr.status+')'); };
+  xhr.onerror=()=>{ bar.style.display='none'; alert('อัปโหลดไม่สำเร็จ — เชื่อมต่อไม่ได้'); };
+  xhr.send(fd);
+}
+
+async function loadFiles(){
+  try{ renderFiles((await fetch('/api/files').then(r=>r.json())).files||[]); }
+  catch(e){ document.getElementById('filesBody').innerHTML='<tr><td colspan="4" class="proc-empty">โหลดรายการไม่สำเร็จ</td></tr>'; }
+}
+
+function renderFiles(files){
+  setText('filesNote', files.length+' files');
+  const body=document.getElementById('filesBody');
+  if(!files.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ยังไม่มีไฟล์</td></tr>'; return; }
+  body.innerHTML=files.map(f=>{
+    const enc=encodeURIComponent(f.name);
+    return `<tr>
+      <td>${agEsc(f.name)}</td>
+      <td class="num">${fmtFileSize(f.size)}</td>
+      <td class="ft-time hide-sm">${fmtFileTime(f.mtime)}</td>
+      <td><div class="ft-act">
+        <button class="ft-btn dl" onclick="downloadFile('${enc}')"><i data-lucide="download"></i>โหลด</button>
+        <button class="ft-btn del" onclick="deleteFile('${enc}')"><i data-lucide="trash-2"></i></button>
+      </div></td></tr>`;
+  }).join('');
+  if(window.lucide) lucide.createIcons();
+}
+
+function downloadFile(enc){ window.location.href='/api/files/download/'+enc; }   // cookie ติดไปเอง
+
+async function deleteFile(enc){
+  const name=decodeURIComponent(enc);
+  if(!confirm('ลบไฟล์ "'+name+'" ?')) return;
+  try{
+    const d=await fetch('/api/files/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name})}).then(r=>r.json());
+    if(d.ok) loadFiles(); else alert('ลบไม่สำเร็จ');
+  }catch(e){ alert('ลบไม่สำเร็จ'); }
+}
+
+function fmtFileSize(b){
+  if(b>=1073741824) return (b/1073741824).toFixed(1)+' GB';
+  if(b>=1048576)    return (b/1048576).toFixed(1)+' MB';
+  if(b>=1024)       return (b/1024).toFixed(1)+' KB';
+  return b+' B';
+}
+function fmtFileTime(sec){
+  const d=new Date(sec*1000);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ─── status cards ─────────────────────────────────────────────────────────────
 
 function updateCards(d){
@@ -751,8 +838,11 @@ function switchPanel(name, btn){
     else if(name==='monthly') loadMonthly();
     else if(name==='device'){ loadDevice(); loadServices(); }
     else if(name==='terminal') setupTerminal();
+    else if(name==='files') setupFiles();
   } else if(name==='device'){
     loadDevice(); loadServices();
+  } else if(name==='files'){
+    setupFiles();
   }
 
   if(name==='device' && MODE==='local'){
