@@ -815,7 +815,13 @@ function setupTerminal(){
   }
   termInit=true;
   term=new Terminal({fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:13, cursorBlink:true,
-    theme:{background:'#05080f', foreground:'#c8d6f0', cursor:'#ff6b00', selectionBackground:'#1d2f50'}});
+    theme:{
+      background:'#05080f', foreground:'#cdd9f0', cursor:'#ff6b00', selectionBackground:'#27406e',
+      black:'#2a3548', red:'#ff7a7a', green:'#6fe0a8', yellow:'#ffd479', blue:'#74b3ff',
+      magenta:'#c792ea', cyan:'#6fe0e8', white:'#cdd9f0',
+      brightBlack:'#6b7a99', brightRed:'#ff9b9b', brightGreen:'#92ecc1', brightYellow:'#ffe2a3',
+      brightBlue:'#9bc8ff', brightMagenta:'#dcb4ff', brightCyan:'#9bedf3', brightWhite:'#ffffff'
+    }});
   fitAddon=new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.open(document.getElementById('xterm'));
