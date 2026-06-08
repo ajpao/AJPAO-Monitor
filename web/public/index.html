@@ -8,7 +8,7 @@
 (function(){try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -26,6 +26,7 @@
   --topbar-bg:rgba(6,10,20,.92);
   --font-sans:'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;
   --font-mono:'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;
+  --font-display:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 /* ── Light theme ── */
 :root[data-theme="light"]{
@@ -116,8 +117,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-bar{position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
 .sc-label{font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;
   color:var(--dim);text-transform:uppercase;margin-bottom:8px}
-.sc-value{font-family:var(--font-mono);font-size:clamp(1.6rem,4vw,2.2rem);
-  font-weight:700;line-height:1;margin-bottom:6px}
+.sc-value{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.2rem);
+  font-weight:800;line-height:1;margin-bottom:6px;letter-spacing:-.5px}
 .sc-sub{font-family:var(--font-mono);font-size:.65rem;color:var(--dim)}
 .sc-temp .sc-bar{background:var(--info)}  .sc-temp .sc-value{color:var(--info)}
 .sc-cpu .sc-bar{background:var(--info)}   .sc-cpu .sc-value{color:var(--info)}
@@ -128,11 +129,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .dual-row{display:grid;grid-template-columns:1fr 300px;gap:12px;margin-bottom:16px}
 @media(max-width:900px){.dual-row{grid-template-columns:1fr}}
 .info-card .info-row{display:flex;justify-content:space-between;align-items:center;
-  padding:8px 0;border-bottom:1px solid rgba(29,47,80,.6);gap:8px}
+  padding:6px 0;border-bottom:1px solid rgba(29,47,80,.6);gap:8px}
 .info-card .info-row:last-child{border-bottom:none}
-.ir-label{font-family:var(--font-mono);font-size:.6rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;flex-shrink:0;display:inline-flex;align-items:center;gap:6px}
-.ir-label svg{width:1.15em;height:1.15em;color:var(--accent);flex-shrink:0}
-.ir-val{font-family:var(--font-mono);font-size:.75rem;color:var(--text);text-align:right;word-break:break-all}
+.ir-label{font-family:var(--font-mono);font-size:.52rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase;flex-shrink:0;display:inline-flex;align-items:center;gap:6px}
+.ir-label svg{width:1.2em;height:1.2em;color:var(--accent);flex-shrink:0}
+.ir-val{font-family:var(--font-mono);font-size:.66rem;color:var(--text);text-align:right;word-break:break-all}
 .ir-val.online{color:var(--ok);display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .ir-val.offline{color:var(--danger);display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);
@@ -271,7 +272,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-ico.blocked{background:rgba(255,51,85,.12)}  .ag-ico.blocked svg{color:var(--danger)}
 .ag-ico.rate{background:rgba(255,107,0,.12)}     .ag-ico.rate svg{color:var(--accent)}
 .ag-meta{min-width:0}
-.ag-val{font-family:var(--font-mono);font-size:1.5rem;font-weight:700;line-height:1.1;color:var(--text)}
+.ag-val{font-family:var(--font-display);font-size:1.5rem;font-weight:800;line-height:1.1;color:var(--text);letter-spacing:-.5px}
 .ag-val.ag-blocked{color:var(--danger)} .ag-val.ag-rate{color:var(--accent)}
 .ag-lbl{font-family:var(--font-mono);font-size:.6rem;letter-spacing:1.5px;
   color:var(--dim);text-transform:uppercase;margin-top:3px}
