@@ -6,8 +6,9 @@ serviceAccountKey.json
 # ─── ไฟล์ที่อัปโหลดผ่าน DropZone ───
 files/
 
-# ─── notes (fallback local store) ───
+# ─── notes / settings (fallback local store) ───
 notes.json
+ui_settings.json
 
 # ─── ฐานข้อมูล local ───
 *.db

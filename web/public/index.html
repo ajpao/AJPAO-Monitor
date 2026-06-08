@@ -4,11 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AJPAO-Monitor</title>
-<script>/* ตั้งธีมก่อน render กันหน้ากระพริบ — default = dark */
-(function(){try{if(localStorage.getItem('theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+<script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = dark */
+(function(){try{
+  var s=JSON.parse(localStorage.getItem('ui_settings')||'null');
+  if(!s){ var t=localStorage.getItem('theme'); s=t?{theme:t}:{}; }
+  var r=document.documentElement;
+  if(s.theme==='light') r.setAttribute('data-theme','light');
+  if(s.scale) r.style.fontSize=s.scale+'px';
+  if(s.accent) r.style.setProperty('--accent',s.accent);
+  var F={inter:"'Inter',ui-sans-serif,sans-serif",jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",space:"'Space Grotesk',ui-sans-serif,sans-serif"};
+  if(s.numFont&&F[s.numFont]) r.style.setProperty('--font-display',F[s.numFont]);
+}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Orbitron:wght@500;700;800&family=Space+Grotesk:wght@500;600;700&family=Share+Tech+Mono&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -134,8 +143,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ir-label{font-family:var(--font-mono);font-size:.52rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase;flex-shrink:0;display:inline-flex;align-items:center;gap:6px}
 .ir-label svg{width:1.2em;height:1.2em;color:var(--accent);flex-shrink:0}
 .ir-val{font-family:var(--font-mono);font-size:.66rem;color:var(--text);text-align:right;word-break:break-all}
-.ir-val.online{color:var(--ok);display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
-.ir-val.offline{color:var(--danger);display:inline-flex;align-items:center;gap:8px;justify-content:flex-end}
+.ir-val.online{color:var(--ok);display:inline-flex;align-items:center;gap:7px;justify-content:flex-end;line-height:1}
+.ir-val.offline{color:var(--danger);display:inline-flex;align-items:center;gap:7px;justify-content:flex-end;line-height:1}
+.ir-val.online .live-dot,.ir-val.offline .live-dot{margin-top:.5px}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);
   position:relative;flex-shrink:0;animation:liveGlow 1.6s ease-in-out infinite}
 .live-dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--ok);
@@ -241,6 +251,32 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .modal-cancel{padding:10px 28px;background:transparent;border:1px solid var(--border);color:var(--dim);
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:var(--font-sans);transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
+
+/* settings modal */
+.settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px}
+.set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+.set-head .cc-title{font-size:.82rem}
+.set-row{margin-bottom:18px}
+.set-lbl{font-size:.7rem;color:var(--dim);margin-bottom:9px;font-weight:600}
+.set-opts{display:flex;gap:8px;flex-wrap:wrap}
+.set-opts button{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-sans);font-size:.72rem;
+  padding:8px 14px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);border-radius:9px;cursor:pointer;transition:.15s}
+.set-opts button svg{width:1.05em;height:1.05em}
+.set-opts button:hover{color:var(--text);border-color:var(--text)}
+.set-opts button.on{color:var(--accent);border-color:var(--accent);
+  background:linear-gradient(rgba(255,107,0,.14),rgba(255,107,0,.14)),var(--panel2)}
+.set-fonts button{font-size:.8rem}
+.set-range{width:100%;accent-color:var(--accent);cursor:pointer}
+.set-swatches{display:flex;gap:10px;flex-wrap:wrap}
+.set-sw{width:30px;height:30px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s;position:relative}
+.set-sw:hover{transform:scale(1.1)}
+.set-sw.on{border-color:var(--text);box-shadow:0 0 0 2px var(--panel),0 0 10px rgba(0,0,0,.4)}
+.set-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;padding-top:14px;border-top:1px solid var(--border)}
+.set-reset{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-sans);font-size:.66rem;
+  padding:7px 12px;border:1px solid var(--border);background:transparent;color:var(--dim);border-radius:8px;cursor:pointer;transition:.15s}
+.set-reset:hover{color:var(--danger);border-color:var(--danger)}
+.set-reset svg{width:1.05em;height:1.05em}
+.set-note{font-size:.6rem;color:var(--dim)}
 
 /* AdGuard widget */
 .adguard-card{margin-bottom:16px}
@@ -545,6 +581,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
   <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด"><i data-lucide="moon"></i></button>
+  <button class="icon-btn" id="settingsBtn" onclick="openSettings()" title="ตั้งค่าหน้าตา"><i data-lucide="settings"></i></button>
   <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
   <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i><span class="btn-label">REBOOT</span></button>
   <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i><span class="btn-label">SHUTDOWN</span></button>
@@ -559,6 +596,45 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="modal-btns">
       <button class="modal-confirm" id="modalConfirm" onclick="doPower()">ยืนยัน</button>
       <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal-box settings-box">
+    <div class="set-head">
+      <div class="cc-title"><i data-lucide="sliders-horizontal"></i>ตั้งค่าหน้าตา</div>
+      <button class="icon-btn" onclick="closeSettings()"><i data-lucide="x"></i></button>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl">ธีม</div>
+      <div class="set-opts" id="setTheme">
+        <button data-v="dark" onclick="setUI('theme','dark')"><i data-lucide="moon"></i>Dark</button>
+        <button data-v="light" onclick="setUI('theme','light')"><i data-lucide="sun"></i>Light</button>
+      </div>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl">ขนาดตัวอักษร · <span id="setScaleVal">23.5px</span></div>
+      <input type="range" id="setScale" class="set-range" min="19" max="28" step="0.5" oninput="setUI('scale',parseFloat(this.value))">
+    </div>
+    <div class="set-row">
+      <div class="set-lbl">ฟอนต์ตัวเลข (Dashboard / AdGuard)</div>
+      <div class="set-opts set-fonts" id="setFont">
+        <button data-v="jetbrains" style="font-family:'JetBrains Mono',monospace" onclick="setUI('numFont','jetbrains')">JetBrains 123</button>
+        <button data-v="sharetech" style="font-family:'Share Tech Mono',monospace" onclick="setUI('numFont','sharetech')">Share Tech 123</button>
+        <button data-v="orbitron" style="font-family:'Orbitron',monospace" onclick="setUI('numFont','orbitron')">Orbitron 123</button>
+        <button data-v="space" style="font-family:'Space Grotesk',sans-serif" onclick="setUI('numFont','space')">Space 123</button>
+        <button data-v="inter" style="font-family:'Inter',sans-serif" onclick="setUI('numFont','inter')">Inter 123</button>
+      </div>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl">สีหลัก (Accent)</div>
+      <div class="set-swatches" id="setAccent"></div>
+    </div>
+    <div class="set-foot">
+      <button class="set-reset" onclick="resetSettings()"><i data-lucide="rotate-ccw"></i>รีเซ็ตค่าเริ่มต้น</button>
+      <span class="set-note" id="setSyncNote"></span>
     </div>
   </div>
 </div>

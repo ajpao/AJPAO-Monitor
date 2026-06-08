@@ -1171,6 +1171,43 @@ def api_notes_delete(nid):
     return jsonify({"ok": True})
 
 
+# ─── UI settings (theme/สี/ฟอนต์) — sync ผ่าน Firestore, fallback ไฟล์ ───────────────
+
+SETTINGS_FILE = os.path.join(BASE_DIR, "ui_settings.json")
+
+
+@flask_app.route("/api/settings")
+@require_auth
+def api_settings_get():
+    if db_fs:
+        try:
+            doc = db_fs.collection("settings").document("ui").get()
+            return jsonify({"settings": doc.to_dict() if doc.exists else None})
+        except Exception as e:
+            print(f"[settings] fs read error: {e}")
+    try:
+        return jsonify({"settings": json.load(open(SETTINGS_FILE, encoding="utf-8"))})
+    except Exception:
+        return jsonify({"settings": None})
+
+
+@flask_app.route("/api/settings", methods=["POST"])
+@require_auth
+def api_settings_save():
+    data = request.get_json(silent=True) or {}
+    if db_fs:
+        try:
+            db_fs.collection("settings").document("ui").set(data, merge=True)
+            return jsonify({"ok": True})
+        except Exception as e:
+            print(f"[settings] fs save error: {e}")
+    try:
+        json.dump(data, open(SETTINGS_FILE, "w", encoding="utf-8"), ensure_ascii=False)
+    except Exception as e:
+        print(f"[settings] file save error: {e}")
+    return jsonify({"ok": True})
+
+
 @sock.route("/ws/terminal")
 def ws_terminal(ws):
     """Full PTY terminal ผ่าน WebSocket (ไม่มี timeout) — ต้อง login ก่อน

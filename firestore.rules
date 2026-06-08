@@ -30,5 +30,9 @@ service cloud.firestore {
     match /notes/{doc} {
       allow read, write: if request.auth != null;
     }
+
+    match /settings/{doc} {
+      allow read, write: if request.auth != null;
+    }
   }
 }

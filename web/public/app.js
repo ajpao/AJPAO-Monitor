@@ -24,7 +24,32 @@ const charts = {};
 let MODE = null, db = null, auth = null;
 let cloudStatus = null, deviceTimer = null;
 
-// ─── theme (dark / light) ──────────────────────────────────────────────────────
+// ─── UI settings (theme / สี / ฟอนต์ / ขนาด) ─────────────────────────────────────
+
+const NUM_FONTS = {
+  jetbrains:"'JetBrains Mono',ui-monospace,monospace",
+  sharetech:"'Share Tech Mono',ui-monospace,monospace",
+  orbitron: "'Orbitron',ui-monospace,monospace",
+  space:    "'Space Grotesk','Noto Sans Thai',ui-sans-serif,sans-serif",
+  inter:    "'Inter','Noto Sans Thai',ui-sans-serif,sans-serif",
+};
+const ACCENTS = ['#ff6b00','#3399ff','#00c170','#a855f7','#ec4899','#ff3355','#14b8a6','#eab308'];
+const UI_DEFAULT = { theme:'dark', scale:23.5, numFont:'jetbrains', accent:'#ff6b00' };
+let UI = loadLocalSettings();
+
+function loadLocalSettings(){
+  try{ const s=JSON.parse(localStorage.getItem('ui_settings')||'null'); if(s) return Object.assign({},UI_DEFAULT,s); }catch(e){}
+  const t=localStorage.getItem('theme'); return Object.assign({},UI_DEFAULT, t?{theme:t}:{});
+}
+function saveLocalSettings(){ try{ localStorage.setItem('ui_settings', JSON.stringify(UI)); }catch(e){} }
+
+function applySettings(){
+  const r=document.documentElement;
+  if(UI.theme==='light') r.setAttribute('data-theme','light'); else r.removeAttribute('data-theme');
+  r.style.fontSize=(UI.scale||23.5)+'px';
+  r.style.setProperty('--font-display', NUM_FONTS[UI.numFont]||NUM_FONTS.jetbrains);
+  r.style.setProperty('--accent', UI.accent||'#ff6b00');
+}
 
 function syncChartColors(){
   const cs = getComputedStyle(document.documentElement);
@@ -36,25 +61,61 @@ function syncChartColors(){
     ? 'rgba(120,140,175,.28)' : 'rgba(29,47,80,.5)';
 }
 function applyThemeIcon(){
-  const light = document.documentElement.getAttribute('data-theme')==='light';
+  const light = UI.theme==='light';
   const btn = document.getElementById('themeBtn');
   if(btn){ btn.innerHTML = `<i data-lucide="${light?'sun':'moon'}"></i>`; if(window.lucide) lucide.createIcons(); }
 }
 function rerenderCharts(){
   syncChartColors();
-  loadCompare();
+  if(typeof loadCompare==='function') loadCompare();
   if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); }
   else if(currentPanel==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
-  else loadDatePanel('temp');
+  else if(currentPanel==='temp') loadDatePanel('temp');
 }
-function toggleTheme(){
-  const light = document.documentElement.getAttribute('data-theme')==='light';
-  if(light){ document.documentElement.removeAttribute('data-theme'); }
-  else      { document.documentElement.setAttribute('data-theme','light'); }
-  try{ localStorage.setItem('theme', light?'dark':'light'); }catch(e){}
-  applyThemeIcon();
-  rerenderCharts();
+
+// เรียกเมื่อ settings เปลี่ยน — apply + บันทึก (local + cloud) + วาดกราฟใหม่
+function commitSettings(){ applySettings(); applyThemeIcon(); saveLocalSettings(); syncChartColors(); rerenderCharts(); saveCloudSettings(); }
+
+function toggleTheme(){ UI.theme = (UI.theme==='light'?'dark':'light'); commitSettings(); renderSettingsControls(); }
+function setUI(key, val){ UI[key]=val; if(key==='scale') document.getElementById('setScaleVal').textContent=val+'px'; commitSettings(); renderSettingsControls(); }
+function resetSettings(){ UI=Object.assign({},UI_DEFAULT); commitSettings(); renderSettingsControls(); }
+
+function openSettings(){ renderSettingsControls(); document.getElementById('settingsModal').classList.add('open'); }
+function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
+
+function renderSettingsControls(){
+  document.querySelectorAll('#setTheme button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.theme));
+  document.querySelectorAll('#setFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.numFont));
+  const sc=document.getElementById('setScale'); if(sc){ sc.value=UI.scale; document.getElementById('setScaleVal').textContent=UI.scale+'px'; }
+  const sw=document.getElementById('setAccent');
+  if(sw){ sw.innerHTML=ACCENTS.map(c=>`<div class="set-sw${c===UI.accent?' on':''}" style="background:${c}" onclick="setUI('accent','${c}')"></div>`).join('')
+    + `<label class="set-sw" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red);display:inline-flex;align-items:center;justify-content:center" title="เลือกเอง"><input type="color" value="${UI.accent}" style="opacity:0;width:100%;height:100%;cursor:pointer" oninput="setUI('accent',this.value)"></label>`; }
+  const note=document.getElementById('setSyncNote'); if(note) note.textContent = (MODE==='cloud'?'sync: cloud':'sync: LAN→cloud');
 }
+
+// cloud sync (เหมือน notes)
+async function fetchCloudSettings(){
+  try{
+    if(MODE==='local') return (await fetch('/api/settings').then(r=>r.json())).settings||null;
+    if(db){ const d=await db.collection('settings').doc('ui').get(); return d.exists?d.data():null; }
+  }catch(e){}
+  return null;
+}
+async function saveCloudSettings(){
+  try{
+    if(MODE==='local') await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(UI)});
+    else if(db) await db.collection('settings').doc('ui').set(UI,{merge:true});
+  }catch(e){}
+}
+async function syncCloudSettings(){
+  const cs=await fetchCloudSettings();
+  if(cs && Object.keys(cs).length){
+    UI=Object.assign({},UI_DEFAULT,cs);
+    applySettings(); applyThemeIcon(); saveLocalSettings(); syncChartColors(); rerenderCharts(); renderSettingsControls();
+  }
+}
+
+applySettings();   // ใช้ค่าจาก localStorage ทันที (เผื่อ head script พลาด)
 
 // ─── date helpers ────────────────────────────────────────────────────────────
 
@@ -80,7 +141,18 @@ function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[i
 function tempColor(v){ return v>=70?C.danger:v>=55?C.accent:v>=50?C.warn:C.info; }
 function sysColor(v){ return v>=80?C.danger:v>=50?C.accent:null; }
 
-const commonOpts = (unit,yMin,yMax) => ({
+// จัดแกน Y ให้ min/max หาร step ลงตัว → เส้น grid ห่างเท่ากันทุกช่อง
+function niceY(mn, mx, pad){
+  let lo=Math.max(0, mn-pad), hi=mx+pad;
+  if(hi-lo<1) hi=lo+1;
+  const step=[1,2,5,10,20,25,50,100].find(s=> (hi-lo)/s <= 5) || 100;
+  lo=Math.floor(lo/step)*step;
+  hi=Math.ceil(hi/step)*step;
+  if(hi<=lo) hi=lo+step;
+  return {min:lo, max:hi, step};
+}
+
+const commonOpts = (unit,ny) => ({
   responsive:true, maintainAspectRatio:false,
   interaction:{mode:'index',intersect:false},
   plugins:{
@@ -96,8 +168,8 @@ const commonOpts = (unit,yMin,yMax) => ({
   scales:{
     x:{ticks:{color:C.dim,font:{size:13,family:'Inter'},maxRotation:0},
        grid:{color:C.grid}},
-    y:{min:Math.floor(yMin),max:Math.ceil(yMax),
-       ticks:{color:C.dim,font:{size:13,family:'Inter'},precision:0,maxTicksLimit:6,callback:v=>Math.round(v)+unit},
+    y:{min:ny.min,max:ny.max,
+       ticks:{color:C.dim,font:{size:13,family:'Inter'},stepSize:ny.step,callback:v=>Math.round(v)+unit},
        grid:{color:C.grid}},
   },
 });
@@ -110,7 +182,7 @@ function makeBarChart(id, labels, data, colorFn, unit, yPad=5){
   const vals = data.filter(v=>v!=null);
   if(!vals.length) return;
   const mn=Math.min(...vals), mx=Math.max(...vals);
-  const opts = commonOpts(unit, Math.max(0,mn-yPad), mx+yPad+2);
+  const opts = commonOpts(unit, niceY(mn, mx, yPad));
   charts[id] = new Chart(el, {
     type:'bar',
     data:{labels,datasets:[{
@@ -180,8 +252,8 @@ function makeCompareChart(todayByHour, yestByHour){
       scales:{
         x:{ticks:{color:C.dim,font:{size:15,family:'Inter'},maxRotation:0,maxTicksLimit:12},
            grid:{color:C.grid}},
-        y:{min:Math.floor(Math.max(0,mn-3)), max:Math.ceil(mx+3),
-           ticks:{color:C.dim,font:{size:15,family:'Inter'},precision:0,maxTicksLimit:6,callback:v=>Math.round(v)+'°'},
+        y:{...niceY(mn,mx,3),
+           ticks:{color:C.dim,font:{size:15,family:'Inter'},stepSize:niceY(mn,mx,3).step,callback:v=>Math.round(v)+'°'},
            grid:{color:C.grid}},
       },
     },
@@ -254,6 +326,8 @@ function tempInsight(todayByHour, yestByHour){
     else        L.push(['arrow-up-right','warn',  `ช่วงนี้กำลัง<b>ร้อนขึ้น</b> (+${slope.toFixed(1)}° ใน ~${span} ชม.)`]);
   } else if(tHours.length>=2){
     L.push(['minus','', `อุณหภูมิ<b>ทรงตัว</b>ในช่วงไม่กี่ชั่วโมงนี้`]);
+  } else {
+    L.push(['minus','', `ข้อมูลวันนี้ยัง<b>มีน้อย</b> รอเก็บเพิ่ม`]);
   }
   // 4) ประเมินภาพรวม (จากจุดสูงสุด)
   if(maxV>=60)      L.push(['alert-triangle','danger', `เคยแตะจุด<b>ร้อนมาก</b> ควรเช็คการระบายความร้อน`]);
@@ -287,7 +361,7 @@ function buildCompareCard(cfg, todayBy, yestBy){
       datalabels:{display:false}},
     layout:{padding:{top:8}},
     scales:{x:{ticks:{color:C.dim,font:{size:15,family:'Inter'},maxRotation:0,maxTicksLimit:12},grid:{color:C.grid}},
-      y:{min:Math.floor(Math.max(0,mn-3)),max:Math.ceil(mx+3),ticks:{color:C.dim,font:{size:15,family:'Inter'},precision:0,maxTicksLimit:6,callback:v=>Math.round(v)+cfg.axis},grid:{color:C.grid}}}}});
+      y:{...niceY(mn,mx,3),ticks:{color:C.dim,font:{size:15,family:'Inter'},stepSize:niceY(mn,mx,3).step,callback:v=>Math.round(v)+cfg.axis},grid:{color:C.grid}}}}});
   if(deltaEl && tv.length && yv.length){
     const tAvg=tv.reduce((a,b)=>a+b,0)/tv.length, yAvg=yv.reduce((a,b)=>a+b,0)/yv.length, diff=tAvg-yAvg;
     deltaEl.textContent=`${tAvg.toFixed(1)}${cfg.axis} vs ${yAvg.toFixed(1)}${cfg.axis} (${diff>=0?'+':''}${diff.toFixed(1)}${cfg.axis})`;
@@ -328,6 +402,8 @@ function compareInsight(cfg, todayBy, yestBy){
     else        L.push(['arrow-up-right',ci.higherCls,`ช่วงท้ายกำลัง<b>${ci.upWord}</b> (+${slope.toFixed(1)}${ci.unit} ใน ~${span} ${ci.trendUnit})`]);
   } else if(tk.length>=2){
     L.push(['minus','',`ค่อนข้าง<b>ทรงตัว</b>`]);
+  } else {
+    L.push(['minus','',`ข้อมูลยัง<b>มีน้อย</b> รอเก็บเพิ่ม`]);
   }
   L.push(ci.assess(maxV));
   return L.map(([i,c,t])=>`<div class="ci-line ${c}"><i data-lucide="${i}"></i><span>${t}</span></div>`).join('');
@@ -1168,6 +1244,7 @@ function confirmPower(action){
 }
 function closeModal(){ document.getElementById('rebootModal').classList.remove('open'); }
 document.getElementById('rebootModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+document.getElementById('settingsModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeSettings(); });
 
 async function doPower(){
   closeModal();
@@ -1263,6 +1340,7 @@ function startLocal(){
   pollStatus();
   setInterval(pollStatus, 10000);
   startDashboard();
+  syncCloudSettings();
 }
 
 let cloudStarted = false;
@@ -1297,6 +1375,7 @@ function startCloudData(){
       renderDeviceCloud();
   });
   startDashboard();
+  syncCloudSettings();
 }
 
 function startDashboard(){
