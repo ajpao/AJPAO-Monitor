@@ -1012,9 +1012,10 @@ async function loadFiles(){
   catch(e){ document.getElementById('filesBody').innerHTML='<tr><td colspan="4" class="proc-empty">โหลดรายการไม่สำเร็จ</td></tr>'; }
 }
 
+let filesData=[], filesSearch='', filesSort='new';
+
 function renderFiles(data){
-  const files=(data&&data.files)||[];
-  setText('filesNote', files.length+' files');
+  filesData=(data&&data.files)||[];
   const u=document.getElementById('filesUsage');
   if(u){
     if(data && data.used!=null){
@@ -1024,11 +1025,46 @@ function renderFiles(data){
       if(window.lucide) lucide.createIcons();
     } else u.style.display='none';
   }
+  drawFiles();
+}
+
+function filesDoSearch(v){ filesSearch=v||''; drawFiles(); }
+function filesToggleSort(group){
+  if(group==='date')      filesSort = filesSort==='new' ? 'old' : 'new';
+  else if(group==='name') filesSort = filesSort==='az'  ? 'za'  : 'az';
+  else if(group==='size') filesSort = filesSort==='big' ? 'small': 'big';
+  updateFilesSortBtns(); drawFiles();
+}
+function updateFilesSortBtns(){
+  const d=document.getElementById('filesSortDate'), n=document.getElementById('filesSortName'), s=document.getElementById('filesSortSize');
+  if(!d) return;
+  d.classList.toggle('active', filesSort==='new'||filesSort==='old');
+  n.classList.toggle('active', filesSort==='az'||filesSort==='za');
+  s.classList.toggle('active', filesSort==='big'||filesSort==='small');
+  d.innerHTML = filesSort==='old'  ? '<i data-lucide="arrow-up-wide-narrow"></i>เก่าสุด'  : '<i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด';
+  n.innerHTML = filesSort==='za'   ? '<i data-lucide="arrow-up-z-a"></i>Z→A'             : '<i data-lucide="arrow-down-a-z"></i>A→Z';
+  s.innerHTML = filesSort==='small'? '<i data-lucide="arrow-up-narrow-wide"></i>เล็กสุด' : '<i data-lucide="arrow-down-wide-narrow"></i>ใหญ่สุด';
+  if(window.lucide) lucide.createIcons();
+}
+
+function drawFiles(){
+  const q=filesSearch.trim().toLowerCase();
+  let arr=filesData.filter(f=> !q || f.name.toLowerCase().includes(q));
+  arr.sort((a,b)=>{
+    if(filesSort==='old')   return a.mtime-b.mtime;
+    if(filesSort==='az')    return a.name.localeCompare(b.name,'th');
+    if(filesSort==='za')    return b.name.localeCompare(a.name,'th');
+    if(filesSort==='big')   return b.size-a.size;
+    if(filesSort==='small') return a.size-b.size;
+    return b.mtime-a.mtime;   // new
+  });
+  setText('filesNote', q ? `${arr.length} / ${filesData.length} files` : `${filesData.length} files`);
   const body=document.getElementById('filesBody');
-  if(!files.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ยังไม่มีไฟล์</td></tr>'; return; }
-  body.innerHTML=files.map(f=>{
+  if(!filesData.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ยังไม่มีไฟล์</td></tr>'; return; }
+  if(!arr.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ไม่พบไฟล์ที่ค้นหา</td></tr>'; return; }
+  body.innerHTML=arr.map(f=>{
     const enc=encodeURIComponent(f.name);
-    const isText=/\.(txt|log|md|markdown|csv|tsv|json|conf|cfg|ini|ya?ml|sh|bash|py|js|ts|css|html?|xml|env|service|list|service|properties)$/i.test(f.name);
+    const isText=/\.(txt|log|md|markdown|csv|tsv|json|conf|cfg|ini|ya?ml|sh|bash|py|js|ts|css|html?|xml|env|service|list|properties)$/i.test(f.name);
     return `<tr>
       <td>${agEsc(f.name)}</td>
       <td class="num">${fmtFileSize(f.size)}</td>
