@@ -858,11 +858,11 @@ function setupTerminal(){
   termInit=true;
   term=new Terminal({fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:13, cursorBlink:true,
     theme:{
-      background:'#05080f', foreground:'#cdd9f0', cursor:'#ff6b00', selectionBackground:'#27406e',
-      black:'#2a3548', red:'#ff7a7a', green:'#6fe0a8', yellow:'#ffd479', blue:'#74b3ff',
-      magenta:'#c792ea', cyan:'#6fe0e8', white:'#cdd9f0',
-      brightBlack:'#6b7a99', brightRed:'#ff9b9b', brightGreen:'#92ecc1', brightYellow:'#ffe2a3',
-      brightBlue:'#9bc8ff', brightMagenta:'#dcb4ff', brightCyan:'#9bedf3', brightWhite:'#ffffff'
+      background:'#01010b', foreground:'#bfc7d5', cursor:'#3ad900', cursorAccent:'#01010b', selectionBackground:'#274b73',
+      black:'#0c0c1c', red:'#e35d5d', green:'#3ad900', yellow:'#d8b53a', blue:'#3b8eea',
+      magenta:'#c75ddb', cyan:'#2fc0cf', white:'#bfc7d5',
+      brightBlack:'#586176', brightRed:'#ff6b6b', brightGreen:'#62e84a', brightYellow:'#f0d35a',
+      brightBlue:'#5aa9ff', brightMagenta:'#e08bf0', brightCyan:'#5fe0ea', brightWhite:'#ffffff'
     }});
   fitAddon=new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
