@@ -1109,7 +1109,7 @@ document.getElementById('previewModal').addEventListener('click',e=>{ if(e.targe
 
 async function renameFile(enc){
   const oldName=decodeURIComponent(enc);
-  const newName=await showPrompt({title:'เปลี่ยนชื่อไฟล์', icon:'✏️', value:oldName, confirmText:'เปลี่ยนชื่อ'});
+  const newName=await showPrompt({title:'เปลี่ยนชื่อไฟล์', icon:'✏️', msg:'ตั้งชื่อไฟล์ใหม่:', value:oldName, confirmText:'เปลี่ยนชื่อ'});
   if(!newName || newName===oldName) return;
   try{
     const d=await fetch('/api/files/rename',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -1120,7 +1120,9 @@ async function renameFile(enc){
 
 async function deleteFile(enc){
   const name=decodeURIComponent(enc);
-  if(!(await showConfirm({title:'ลบไฟล์?', msg:`ลบไฟล์ <b>${agEsc(name)}</b> ?`, confirmText:'ลบ', danger:true}))) return;
+  if(!(await showConfirm({title:'ลบไฟล์?', icon:'🗑️', wide:true,
+    msg:`ต้องการลบไฟล์นี้ถาวร?<div class="dup-name">${agEsc(name)}</div>`,
+    confirmText:'ลบไฟล์', danger:true}))) return;
   try{
     const d=await fetch('/api/files/delete',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name})}).then(r=>r.json());
