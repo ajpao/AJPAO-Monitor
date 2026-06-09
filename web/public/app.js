@@ -942,10 +942,17 @@ function uploadFiles(fileList){
   [...fileList].forEach(f=>fd.append('files',f));      // หลายไฟล์ ชื่อ field = "files"
   const bar=document.getElementById('upBar'), fill=document.getElementById('upBarFill');
   bar.style.display=''; fill.style.width='0';
+  const pct=document.getElementById('upPct'), meta=document.getElementById('upMeta');
+  pct.textContent='0%'; meta.textContent='';
   const xhr=new XMLHttpRequest();
   xhr.open('POST','/api/files/upload');
-  xhr.upload.onprogress=e=>{ if(e.lengthComputable) fill.style.width=(e.loaded/e.total*100)+'%'; };
-  xhr.onload=()=>{ fill.style.width='100%'; setTimeout(()=>bar.style.display='none',500);
+  xhr.upload.onprogress=e=>{ if(e.lengthComputable){
+    const p=e.loaded/e.total*100;
+    fill.style.width=p+'%';
+    pct.textContent=p.toFixed(0)+'%';
+    meta.textContent=fmtFileSize(e.loaded)+' / '+fmtFileSize(e.total);
+  } };
+  xhr.onload=()=>{ fill.style.width='100%'; pct.textContent='100%'; setTimeout(()=>bar.style.display='none',700);
     if(xhr.status===200){ loadFiles(); toast('อัปโหลดสำเร็จ','ok'); } else toast('อัปโหลดไม่สำเร็จ ('+xhr.status+')','error'); };
   xhr.onerror=()=>{ bar.style.display='none'; toast('อัปโหลดไม่สำเร็จ — เชื่อมต่อไม่ได้','error'); };
   xhr.send(fd);
