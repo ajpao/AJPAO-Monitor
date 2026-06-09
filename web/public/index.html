@@ -87,9 +87,9 @@
 :root[data-theme="obsidian"]{--bg:#0f0f0f;--panel:#181715;--panel2:#201e1a;--border:#3a342a;--border-strong:#5c5340;
   --accent:#d4af37;--ok:#b7c98a;--info:#9fb4cf;--warn:#e0b94a;--danger:#cf6b5e;--text:#ece6d8;--dim:#9b9486;--purple:#c8a2d8;
   --topbar-bg:rgba(15,15,15,.94);--radius:8px;--btn-radius:8px;--card-shadow:0 4px 18px rgba(0,0,0,.5),0 0 0 1px rgba(212,175,55,.08)}
-:root[data-theme="superblack"]{--bg:#000000;--panel:#070707;--panel2:#0d0d0d;--border:#1a1a1a;--border-strong:#2a2a2a;
-  --accent:#0a84ff;--ok:#30d158;--info:#64d2ff;--warn:#ffd60a;--danger:#ff453a;--text:#f5f5f7;--dim:#86868b;--purple:#bf5af2;
-  --topbar-bg:rgba(0,0,0,.96);--radius:12px;--btn-radius:10px;--card-shadow:0 0 0 1px rgba(255,255,255,.04)}
+:root[data-theme="superblack"]{--bg:#0a0a0a;--panel:#171717;--panel2:#1f1f1f;--border:#2b2b2b;--border-strong:#3a3a3a;
+  --accent:#0a84ff;--ok:#30d158;--info:#64d2ff;--warn:#ffd60a;--danger:#ff453a;--text:#f5f5f7;--dim:#8e8e93;--purple:#bf5af2;
+  --topbar-bg:rgba(10,10,10,.96);--radius:12px;--btn-radius:10px;--card-shadow:0 2px 12px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.05)}
 *{box-sizing:border-box;margin:0;padding:0}
 html.no-bg body::before,html.no-bg body::after{display:none!important}
 /* per-theme glow on active nav + stat numbers (cyber/matrix) */
@@ -102,7 +102,7 @@ html.no-bg body::before,html.no-bg body::after{display:none!important}
 :root[data-theme="clean"] body::after,:root[data-theme="minimal"] body::after,:root[data-theme="solarized"] body::after,:root[data-theme="nordic"] body::after{background:none}
 /* super black (OLED): พื้นดำสนิท ตัด texture/glow กันพิกเซลติด + เรืองนีออนนุ่มที่ nav/ตัวเลข */
 :root[data-theme="superblack"]{background:#000}
-:root[data-theme="superblack"] body::before{background-image:none}
+:root[data-theme="superblack"] body::before{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)}
 :root[data-theme="superblack"] body::after{background:none}
 :root[data-theme="superblack"] .sn-btn.active{box-shadow:0 0 16px color-mix(in srgb,var(--accent) 50%,transparent)}
 :root[data-theme="superblack"] .sc-value{text-shadow:0 0 16px color-mix(in srgb,currentColor 40%,transparent)}
