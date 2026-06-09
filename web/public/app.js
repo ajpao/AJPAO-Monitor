@@ -60,6 +60,7 @@ const THEMES = [
   { id:'glass',     name:'Glassmorphism',   bg:'#241b46', ac:'#a78bfa', tx:'#f3f0ff' },
   { id:'ocean',     name:'Deep Ocean',      bg:'#0c2840', ac:'#ff7e5f', tx:'#e8f4ff' },
   { id:'obsidian',  name:'Luxury Obsidian', bg:'#181715', ac:'#d4af37', tx:'#ece6d8' },
+  { id:'superblack',name:'Super Black OLED', bg:'#000000', ac:'#0a84ff', tx:'#f5f5f7' },
 ];
 const THEME_IDS = THEMES.map(t=>t.id);
 const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic']);
