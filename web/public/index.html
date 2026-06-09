@@ -282,6 +282,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @keyframes toastOut{to{opacity:0;transform:translateY(10px)}}
 
+/* file preview modal */
+.preview-box{max-width:820px;width:92vw;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.45);
+  padding:18px 20px;max-height:88vh;display:flex;flex-direction:column}
+.pv-content{flex:1;min-height:120px;max-height:64vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;line-height:1.55;color:#cdd9f0;
+  background:#0a0e17;border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0}
+.pv-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pv-foot .modal-confirm{display:inline-flex;align-items:center;gap:6px}
+.pv-foot .modal-confirm svg{width:1.05em;height:1.05em}
+
 /* settings modal */
 .settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px;max-height:86vh;overflow-y:auto}
 .set-row-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -485,6 +495,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   letter-spacing:1px;text-transform:uppercase;padding:4px 9px;border:1px solid var(--border);background:var(--panel2);
   color:var(--dim);border-radius:6px;cursor:pointer;transition:.15s;white-space:nowrap}
 .ft-btn svg{width:1.1em;height:1.1em}
+.ft-btn.pv:hover{color:var(--ok);border-color:var(--ok)}
 .ft-btn.dl:hover{color:var(--info);border-color:var(--info)}
 .ft-btn.rn:hover{color:var(--accent);border-color:var(--accent)}
 .ft-btn.del:hover{color:var(--danger);border-color:var(--danger)}
@@ -733,6 +744,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="modal-sub" id="uiModalMsg"></div>
     <input id="uiModalInput" class="modal-input" style="display:none" autocomplete="off" spellcheck="false">
     <div class="modal-btns" id="uiModalBtns"></div>
+  </div>
+</div>
+
+<!-- File preview modal -->
+<div class="modal-bg" id="previewModal">
+  <div class="modal-box preview-box">
+    <div class="set-head">
+      <div class="cc-title"><i data-lucide="file-text"></i><span id="pvTitle" style="word-break:break-all"></span></div>
+      <button class="icon-btn" onclick="closePreview()"><i data-lucide="x"></i></button>
+    </div>
+    <pre class="pv-content" id="pvContent"></pre>
+    <div class="pv-foot">
+      <span class="set-note" id="pvNote"></span>
+      <button class="modal-confirm accent" onclick="copyPreview()"><i data-lucide="copy"></i>คัดลอกทั้งหมด</button>
+    </div>
   </div>
 </div>
 

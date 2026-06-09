@@ -1093,6 +1093,22 @@ def api_files_delete():
     return jsonify({"ok": True})
 
 
+@flask_app.route("/api/files/view/<path:name>")
+@require_auth
+def api_files_view(name):
+    p = _files_safe(name)
+    if not p or not os.path.isfile(p):
+        return jsonify({"error": "not found"}), 404
+    MAX = 1024 * 1024   # อ่านมากสุด 1MB
+    size = os.path.getsize(p)
+    try:
+        with open(p, "r", encoding="utf-8", errors="replace") as f:
+            text = f.read(MAX)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    return jsonify({"text": text, "truncated": size > MAX, "size": size})
+
+
 @flask_app.route("/api/files/rename", methods=["POST"])
 @require_auth
 def api_files_rename():
