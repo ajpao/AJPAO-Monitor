@@ -159,7 +159,10 @@ function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false
       modal.classList.remove('open'); modal.onclick=inp.onkeydown=null; document.removeEventListener('keydown',onKey);
       resolve(val==='__ok' ? (input?inp.value:true) : val==='__cancel' ? (input?null:false) : val);
     };
-    buttons.forEach(b=>{ const el=document.createElement('button'); el.className=b.cls||'modal-cancel'; el.textContent=b.label; el.onclick=()=>finish(b.val); wrap.appendChild(el); });
+    buttons.forEach(b=>{ const el=document.createElement('button'); el.className=b.cls||'modal-cancel';
+      el.innerHTML=(b.icon?`<i data-lucide="${b.icon}"></i>`:'')+`<span>${b.label}</span>`;
+      el.onclick=()=>finish(b.val); wrap.appendChild(el); });
+    if(window.lucide) lucide.createIcons();
     const onKey=e=>{ if(e.key==='Escape') finish('__cancel'); };
     modal.classList.add('open');
     if(input) setTimeout(()=>{ inp.focus(); inp.select(); },60);
@@ -955,9 +958,9 @@ async function uploadFiles(fileList){
       let c=await showChoice({ title:'ไฟล์ซ้ำ', icon:'⚠️',
         msg:`มีไฟล์ <b>${agEsc(name)}</b> อยู่แล้ว — ต้องการทำอย่างไร?`,
         buttons:[
-          {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm'},
-          {label:'เปลี่ยนชื่อ',  val:'rename',    cls:'modal-confirm accent'},
-          {label:'ข้าม',         val:'skip',      cls:'modal-cancel'},
+          {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm', icon:'refresh-cw'},
+          {label:'เปลี่ยนชื่อ',  val:'rename',    cls:'modal-confirm accent', icon:'pencil'},
+          {label:'ข้าม',         val:'skip',      cls:'modal-cancel', icon:'skip-forward'},
         ]});
       if(c==='rename'){
         // วน prompt จนได้ชื่อที่ไม่ซ้ำ หรือผู้ใช้เลือกทับ/ข้าม
@@ -968,9 +971,9 @@ async function uploadFiles(fileList){
           const c2=await showChoice({ title:'ยังซ้ำอยู่', icon:'⚠️',
             msg:`ชื่อ <b>${agEsc(nn)}</b> ก็มีอยู่แล้ว`,
             buttons:[
-              {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm'},
-              {label:'เปลี่ยนชื่อใหม่', val:'rename', cls:'modal-confirm accent'},
-              {label:'ข้าม',         val:'skip',      cls:'modal-cancel'},
+              {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm', icon:'refresh-cw'},
+              {label:'เปลี่ยนชื่อใหม่', val:'rename', cls:'modal-confirm accent', icon:'pencil'},
+              {label:'ข้าม',         val:'skip',      cls:'modal-cancel', icon:'skip-forward'},
             ]});
           if(c2==='overwrite'){ name=nn; c='ok'; break; }
           if(c2!=='rename'){ c='skip'; break; }
