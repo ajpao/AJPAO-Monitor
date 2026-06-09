@@ -493,10 +493,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(rgba(255,51,85,.12),rgba(255,51,85,.12)),var(--panel2)}
 
 /* xterm terminal */
-.xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
+.term-frame{height:448px;background:#05080f;border:1px solid var(--border);border-radius:8px;
   padding:10px 12px;overflow:hidden}
-.xterm-wrap .xterm-viewport{background:transparent!important}
-@media(max-width:600px){.xterm-wrap{height:340px}}
+.term-frame #xterm{width:100%;height:100%}   /* element ที่ xterm ใช้ — สะอาด ไม่มี padding/border (FitAddon วัดถูก) */
+.term-frame .xterm-viewport{background:transparent!important}
+@media(max-width:600px){.term-frame{height:348px}}
 
 /* login gate */
 .login-gate{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);
@@ -1047,7 +1048,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button onclick="termSendCmd('sudo journalctl -u ajpao-monitor -n 40 --no-pager')"><i data-lucide="scroll-text"></i>Logs</button>
         <button onclick="termSendCmd('clear')"><i data-lucide="eraser"></i>Clear</button>
       </div>
-      <div id="xterm" class="xterm-wrap"></div>
+      <div class="term-frame"><div id="xterm"></div></div>
     </div>
   </div>
 
