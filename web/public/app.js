@@ -64,7 +64,7 @@ const THEMES = [
 ];
 const THEME_IDS = THEMES.map(t=>t.id);
 const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic']);
-const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true };
+const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true, gfPage:true };
 
 // แปลงค่าเก่า (dark/light) → ชื่อธีมใหม่
 function migrateTheme(s){
@@ -94,6 +94,8 @@ function applySettings(){
   if(UI.accent) r.style.setProperty('--accent', UI.accent); else r.style.removeProperty('--accent');
   r.classList.toggle('no-bg', UI.bgFx===false);
   r.classList.toggle('no-anim', UI.anim===false);
+  const nav=document.getElementById('navGrafana');
+  if(nav) nav.style.display = (UI.gfPage===false) ? 'none' : '';
 }
 
 function syncChartColors(){
@@ -133,6 +135,9 @@ function setUI(key, val){
   UI[key]=val;
   if(key==='theme'){ UI.accent=''; if(LIGHT_THEMES.has(val)) _lastLight=val; else _lastDark=val; }
   if(key==='scale') document.getElementById('setScaleVal').textContent=val+'px';
+  if(key==='gfPage' && val===false && currentPanel==='grafana'){
+    const btn=document.querySelector('.sn-btn[onclick*="\'temp\'"]'); if(btn) switchPanel('temp', btn);
+  }
   commitSettings(); renderSettingsControls();
 }
 function resetSettings(){ UI=Object.assign({},UI_DEFAULT); commitSettings(); renderSettingsControls(); }
@@ -151,6 +156,7 @@ function renderSettingsControls(){
   document.querySelectorAll('#setUiFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.uiFont));
   document.querySelectorAll('#setBgFx button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.bgFx!==false)));
   document.querySelectorAll('#setAnim button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.anim!==false)));
+  document.querySelectorAll('#setGfPage button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.gfPage!==false)));
   const sc=document.getElementById('setScale'); if(sc){ sc.value=UI.scale; document.getElementById('setScaleVal').textContent=UI.scale+'px'; }
   const sw=document.getElementById('setAccent');
   if(sw){ sw.innerHTML=

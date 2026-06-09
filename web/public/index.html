@@ -845,6 +845,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button data-v="off" onclick="setUI('anim',false)">ปิด</button>
       </div>
     </div>
+    <div class="set-row set-row-inline">
+      <div class="set-lbl" style="margin:0">หน้า Grafana (เมนู Page 2)</div>
+      <div class="set-opts" id="setGfPage">
+        <button data-v="on" onclick="setUI('gfPage',true)">เปิด</button>
+        <button data-v="off" onclick="setUI('gfPage',false)">ปิด</button>
+      </div>
+    </div>
     <div class="set-foot">
       <button class="set-reset" onclick="resetSettings()"><i data-lucide="rotate-ccw"></i>รีเซ็ตค่าเริ่มต้น</button>
       <span class="set-note" id="setSyncNote"></span>
@@ -887,7 +894,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <!-- Toolsbar (tabs) — บนสุดของหน้า -->
   <div class="section-nav">
     <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="layout-dashboard"></i>Dashboard</button>
-    <button class="sn-btn" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
+    <button class="sn-btn" id="navGrafana" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
     <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
     <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
