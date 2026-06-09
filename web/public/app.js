@@ -926,6 +926,7 @@ function renderFiles(files){
       <td class="ft-time hide-sm">${fmtFileTime(f.mtime)}</td>
       <td><div class="ft-act">
         <button class="ft-btn dl" onclick="downloadFile('${enc}')"><i data-lucide="download"></i>โหลด</button>
+        <button class="ft-btn rn" onclick="renameFile('${enc}')" title="เปลี่ยนชื่อ"><i data-lucide="pencil"></i></button>
         <button class="ft-btn del" onclick="deleteFile('${enc}')"><i data-lucide="trash-2"></i></button>
       </div></td></tr>`;
   }).join('');
@@ -933,6 +934,17 @@ function renderFiles(files){
 }
 
 function downloadFile(enc){ window.location.href='/api/files/download/'+enc; }   // cookie ติดไปเอง
+
+async function renameFile(enc){
+  const oldName=decodeURIComponent(enc);
+  const newName=(prompt('เปลี่ยนชื่อไฟล์เป็น:', oldName)||'').trim();
+  if(!newName || newName===oldName) return;
+  try{
+    const d=await fetch('/api/files/rename',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({old:oldName, new:newName})}).then(r=>r.json());
+    if(d.ok) loadFiles(); else alert('เปลี่ยนชื่อไม่สำเร็จ: '+(d.error||''));
+  }catch(e){ alert('เปลี่ยนชื่อไม่สำเร็จ'); }
+}
 
 async function deleteFile(enc){
   const name=decodeURIComponent(enc);

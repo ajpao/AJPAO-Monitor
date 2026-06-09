@@ -1091,6 +1091,22 @@ def api_files_delete():
     return jsonify({"ok": True})
 
 
+@flask_app.route("/api/files/rename", methods=["POST"])
+@require_auth
+def api_files_rename():
+    data = request.get_json(silent=True) or {}
+    src = _files_safe(data.get("old"))
+    dst = _files_safe(data.get("new"))
+    if not src or not os.path.isfile(src):
+        return jsonify({"ok": False, "error": "ไม่พบไฟล์ต้นทาง"}), 404
+    if not dst:
+        return jsonify({"ok": False, "error": "ชื่อใหม่ไม่ถูกต้อง"}), 400
+    if os.path.exists(dst):
+        return jsonify({"ok": False, "error": "มีไฟล์ชื่อนี้อยู่แล้ว"}), 409
+    os.rename(src, dst)
+    return jsonify({"ok": True})
+
+
 # ─── notes (เขียนโน้ต / แปะลิงก์) — sync ผ่าน Firestore, fallback ไฟล์ ───────────────
 
 def _notes_local_load():
