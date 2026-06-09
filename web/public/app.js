@@ -48,24 +48,49 @@ const UI_FONTS = {
   system:  "ui-sans-serif,system-ui,'Noto Sans Thai',sans-serif",
 };
 const ACCENTS = ['#ff6b00','#3399ff','#00c170','#a855f7','#ec4899','#ff3355','#14b8a6','#eab308'];
-const UI_DEFAULT = { theme:'dark', scale:23.5, numFont:'jetbrains', accent:'#ff6b00', uiFont:'inter', bgFx:true, anim:true };
+// ── 10 ธีม (id ตรงกับ [data-theme="…"] ใน CSS) — bg/ac/tx ใช้วาด preview ในหน้า settings ──
+const THEMES = [
+  { id:'cyber',     name:'Cyber Tech',      bg:'#0b1422', ac:'#00e5ff', tx:'#d8f1ff' },
+  { id:'clean',     name:'Clean Modern',    bg:'#ffffff', ac:'#6366f1', tx:'#1f2937' },
+  { id:'minimal',   name:'Minimalist',      bg:'#ffffff', ac:'#111111', tx:'#141414' },
+  { id:'matrix',    name:'Midnight Matrix', bg:'#040904', ac:'#00ff66', tx:'#5cff8f' },
+  { id:'solarized', name:'Solarized',       bg:'#fdf6e3', ac:'#268bd2', tx:'#586e75' },
+  { id:'retro',     name:'Retro Arcade',    bg:'#270f45', ac:'#ff2e88', tx:'#ffe600' },
+  { id:'nordic',    name:'Nordic Frost',    bg:'#ffffff', ac:'#5e81ac', tx:'#2e3440' },
+  { id:'glass',     name:'Glassmorphism',   bg:'#241b46', ac:'#a78bfa', tx:'#f3f0ff' },
+  { id:'ocean',     name:'Deep Ocean',      bg:'#0c2840', ac:'#ff7e5f', tx:'#e8f4ff' },
+  { id:'obsidian',  name:'Luxury Obsidian', bg:'#181715', ac:'#d4af37', tx:'#ece6d8' },
+];
+const THEME_IDS = THEMES.map(t=>t.id);
+const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic']);
+const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true };
+
+// แปลงค่าเก่า (dark/light) → ชื่อธีมใหม่
+function migrateTheme(s){
+  if(!s) return s;
+  if(s.theme==='dark'){ s.theme='cyber'; if(s.accent==='#ff6b00') s.accent=''; }
+  else if(s.theme==='light'){ s.theme='clean'; if(s.accent==='#ff6b00') s.accent=''; }
+  else if(s.theme && !THEME_IDS.includes(s.theme)) s.theme='cyber';
+  return s;
+}
 let UI = loadLocalSettings();
 
 function loadLocalSettings(){
-  try{ const s=JSON.parse(localStorage.getItem('ui_settings')||'null'); if(s) return Object.assign({},UI_DEFAULT,s); }catch(e){}
-  const t=localStorage.getItem('theme'); return Object.assign({},UI_DEFAULT, t?{theme:t}:{});
+  try{ const s=JSON.parse(localStorage.getItem('ui_settings')||'null'); if(s) return Object.assign({},UI_DEFAULT,migrateTheme(s)); }catch(e){}
+  const t=localStorage.getItem('theme'); return Object.assign({},UI_DEFAULT, migrateTheme(t?{theme:t}:{}));
 }
 function saveLocalSettings(){ try{ localStorage.setItem('ui_settings', JSON.stringify(UI)); }catch(e){} }
 
 function applySettings(){
   const r=document.documentElement;
-  if(UI.theme==='light') r.setAttribute('data-theme','light'); else r.removeAttribute('data-theme');
+  r.setAttribute('data-theme', THEME_IDS.includes(UI.theme)?UI.theme:'cyber');
   r.style.fontSize=(UI.scale||23.5)+'px';
   const uiF = UI_FONTS[UI.uiFont]||UI_FONTS.inter;
   r.style.setProperty('--font-display', NUM_FONTS[UI.numFont]||NUM_FONTS.jetbrains);
   r.style.setProperty('--font-sans', uiF);
   r.style.setProperty('--font-mono', uiF);   // ฟอนต์อังกฤษคุมทั้ง label/ค่า (ที่ใช้ --font-mono) ด้วย
-  r.style.setProperty('--accent', UI.accent||'#ff6b00');
+  // accent ว่าง = ใช้สี accent ประจำธีม (CSS), ถ้าผู้ใช้เลือกเอง = override
+  if(UI.accent) r.style.setProperty('--accent', UI.accent); else r.style.removeProperty('--accent');
   r.classList.toggle('no-bg', UI.bgFx===false);
   r.classList.toggle('no-anim', UI.anim===false);
 }
@@ -76,11 +101,10 @@ function syncChartColors(){
   C.text=g('--text'); C.dim=g('--dim'); C.ok=g('--ok'); C.info=g('--info');
   C.warn=g('--warn'); C.danger=g('--danger'); C.accent=g('--accent'); C.purple=g('--purple');
   C.panel=g('--panel');
-  C.grid = (document.documentElement.getAttribute('data-theme')==='light')
-    ? 'rgba(120,140,175,.28)' : 'rgba(29,47,80,.5)';
+  C.grid = LIGHT_THEMES.has(UI.theme) ? 'rgba(120,140,175,.28)' : 'rgba(255,255,255,.06)';
 }
 function applyThemeIcon(){
-  const light = UI.theme==='light';
+  const light = LIGHT_THEMES.has(UI.theme);
   const btn = document.getElementById('themeBtn');
   if(btn){ btn.innerHTML = `<i data-lucide="${light?'sun':'moon'}"></i>`; if(window.lucide) lucide.createIcons(); }
 }
@@ -95,23 +119,42 @@ function rerenderCharts(){
 // เรียกเมื่อ settings เปลี่ยน — apply + บันทึก (local + cloud) + วาดกราฟใหม่
 function commitSettings(){ applySettings(); applyThemeIcon(); saveLocalSettings(); syncChartColors(); rerenderCharts(); saveCloudSettings(); }
 
-function toggleTheme(){ UI.theme = (UI.theme==='light'?'dark':'light'); commitSettings(); renderSettingsControls(); }
-function setUI(key, val){ UI[key]=val; if(key==='scale') document.getElementById('setScaleVal').textContent=val+'px'; commitSettings(); renderSettingsControls(); }
+// ปุ่ม sun/moon บน topbar — สลับเร็วระหว่างธีมสว่าง/มืด (เก็บธีมล่าสุดแต่ละโหมด)
+let _lastDark = LIGHT_THEMES.has(UI.theme)?'cyber':UI.theme;
+let _lastLight = LIGHT_THEMES.has(UI.theme)?UI.theme:'clean';
+function toggleTheme(){
+  if(LIGHT_THEMES.has(UI.theme)){ _lastLight=UI.theme; UI.theme=_lastDark; }
+  else { _lastDark=UI.theme; UI.theme=_lastLight; }
+  UI.accent=''; commitSettings(); renderSettingsControls();
+}
+function setUI(key, val){
+  UI[key]=val;
+  if(key==='theme'){ UI.accent=''; if(LIGHT_THEMES.has(val)) _lastLight=val; else _lastDark=val; }
+  if(key==='scale') document.getElementById('setScaleVal').textContent=val+'px';
+  commitSettings(); renderSettingsControls();
+}
 function resetSettings(){ UI=Object.assign({},UI_DEFAULT); commitSettings(); renderSettingsControls(); }
 
 function openSettings(){ renderSettingsControls(); document.getElementById('settingsModal').classList.add('open'); }
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
 
 function renderSettingsControls(){
-  document.querySelectorAll('#setTheme button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.theme));
+  const tg=document.getElementById('setTheme');
+  if(tg){ tg.innerHTML = THEMES.map(t=>
+    `<div class="theme-sw${t.id===UI.theme?' on':''}" title="${t.name}" onclick="setUI('theme','${t.id}')">
+       <div class="theme-prev" style="background:${t.bg}"><i style="background:${t.ac}"></i><i style="background:${t.tx}"></i></div>
+       <div class="theme-name">${t.name}</div>
+     </div>`).join(''); }
   document.querySelectorAll('#setFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.numFont));
   document.querySelectorAll('#setUiFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.uiFont));
   document.querySelectorAll('#setBgFx button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.bgFx!==false)));
   document.querySelectorAll('#setAnim button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.anim!==false)));
   const sc=document.getElementById('setScale'); if(sc){ sc.value=UI.scale; document.getElementById('setScaleVal').textContent=UI.scale+'px'; }
   const sw=document.getElementById('setAccent');
-  if(sw){ sw.innerHTML=ACCENTS.map(c=>`<div class="set-sw${c===UI.accent?' on':''}" style="background:${c}" onclick="setUI('accent','${c}')"></div>`).join('')
-    + `<label class="set-sw" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red);display:inline-flex;align-items:center;justify-content:center" title="เลือกเอง"><input type="color" value="${UI.accent}" style="opacity:0;width:100%;height:100%;cursor:pointer" oninput="setUI('accent',this.value)"></label>`; }
+  if(sw){ sw.innerHTML=
+      `<div class="set-sw${!UI.accent?' on':''}" style="background:conic-gradient(#00e5ff,#6366f1,#00ff66,#ff2e88,#ff7e5f,#d4af37,#00e5ff);outline:1px dashed var(--dim);outline-offset:-3px" title="สี accent ของธีม" onclick="setUI('accent','')"></div>`
+    + ACCENTS.map(c=>`<div class="set-sw${c===UI.accent?' on':''}" style="background:${c}" onclick="setUI('accent','${c}')"></div>`).join('')
+    + `<label class="set-sw" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red);display:inline-flex;align-items:center;justify-content:center" title="เลือกเอง"><input type="color" value="${UI.accent||'#ff6b00'}" style="opacity:0;width:100%;height:100%;cursor:pointer" oninput="setUI('accent',this.value)"></label>`; }
   const note=document.getElementById('setSyncNote'); if(note) note.textContent = (MODE==='cloud'?'sync: cloud':'sync: LAN→cloud');
 }
 

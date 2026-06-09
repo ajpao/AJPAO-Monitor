@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AJPAO-Monitor</title>
-<script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = dark */
+<script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = cyber */
 (function(){try{
   var s=JSON.parse(localStorage.getItem('ui_settings')||'null');
   if(!s){ var t=localStorage.getItem('theme'); s=t?{theme:t}:{}; }
   var r=document.documentElement;
-  if(s.theme==='light') r.setAttribute('data-theme','light');
+  var TH=['cyber','clean','minimal','matrix','solarized','retro','nordic','glass','ocean','obsidian'];
+  var th=s.theme; if(th==='dark')th='cyber'; else if(th==='light')th='clean'; else if(TH.indexOf(th)<0)th='cyber';
+  r.setAttribute('data-theme',th);
   if(s.scale) r.style.fontSize=s.scale+'px';
   if(s.accent) r.style.setProperty('--accent',s.accent);
   var F={jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",oxanium:"'Oxanium',ui-monospace,monospace",chakra:"'Chakra Petch','Noto Sans Thai',monospace",rajdhani:"'Rajdhani','Noto Sans Thai',sans-serif",teko:"'Teko','Noto Sans Thai',sans-serif",plexmono:"'IBM Plex Mono',ui-monospace,monospace",space:"'Space Grotesk','Noto Sans Thai',sans-serif",inter:"'Inter','Noto Sans Thai',sans-serif"};
@@ -40,23 +42,64 @@
   --font-sans:'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;
   --font-mono:'Inter','Noto Sans Thai',ui-sans-serif,system-ui,sans-serif;
   --font-display:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* character vars (ปรับตามธีม) */
+  --radius:10px; --btn-radius:12px; --card-shadow:none; --glow:none;
+  --panel-blur:none; --border-strong:var(--border);
 }
-/* ── Light theme ── */
-:root[data-theme="light"]{
-  --bg:#eef2f8; --panel:#ffffff; --panel2:#f4f7fb; --border:#d6deea;
-  --accent:#e35d00; --ok:#0f9d6b; --info:#2563eb; --warn:#b9820a;
-  --danger:#e11d48; --text:#1c2535; --dim:#5d6b85; --purple:#8b3fd6;
-  --topbar-bg:rgba(255,255,255,.9);
-}
-:root[data-theme="light"] body::before{
-  background-image:linear-gradient(rgba(120,140,175,.16) 1px,transparent 1px),
-                   linear-gradient(90deg,rgba(120,140,175,.16) 1px,transparent 1px)}
-:root[data-theme="light"] body::after{
-  background:radial-gradient(ellipse 70% 50% at 50% 20%,rgba(227,93,0,.05),transparent 65%),
-             radial-gradient(ellipse 50% 50% at 15% 85%,rgba(15,157,107,.05),transparent 65%),
-             radial-gradient(ellipse 45% 45% at 88% 72%,rgba(37,99,235,.06),transparent 68%)}
+/* ════════ 10 THEMES ════════ */
+/* 1) Cyber Tech */
+:root[data-theme="cyber"]{--bg:#050a12;--panel:#0b1422;--panel2:#0f1c30;--border:#16395c;--border-strong:#1f5e8c;
+  --accent:#00e5ff;--ok:#00e5a0;--info:#36a3ff;--warn:#ffcc00;--danger:#ff3b5c;--text:#d8f1ff;--dim:#5f86a8;--purple:#b06bff;
+  --topbar-bg:rgba(5,10,18,.92);--radius:8px;--btn-radius:8px;--glow:0 0 14px;--card-shadow:0 0 0 1px rgba(0,229,255,.04)}
+/* 2) Clean Modern */
+:root[data-theme="clean"]{--bg:#f3f5fa;--panel:#ffffff;--panel2:#f6f8fc;--border:#e7ebf3;--border-strong:#d6dded;
+  --accent:#6366f1;--ok:#10b981;--info:#3b82f6;--warn:#f59e0b;--danger:#ef4444;--text:#1f2937;--dim:#6b7280;--purple:#8b5cf6;
+  --topbar-bg:rgba(255,255,255,.85);--radius:18px;--btn-radius:14px;--card-shadow:0 8px 24px rgba(20,30,60,.07)}
+/* 3) Ultra Minimalist */
+:root[data-theme="minimal"]{--bg:#ffffff;--panel:#ffffff;--panel2:#fafafa;--border:#e6e6e6;--border-strong:#cfcfcf;
+  --accent:#111111;--ok:#2f9e44;--info:#1971c2;--warn:#e8a200;--danger:#e03131;--text:#141414;--dim:#8a8a8a;--purple:#7048e8;
+  --topbar-bg:rgba(255,255,255,.9);--radius:6px;--btn-radius:6px;--card-shadow:none}
+/* 4) Midnight Matrix */
+:root[data-theme="matrix"]{--bg:#000000;--panel:#040904;--panel2:#071107;--border:#0f3d1f;--border-strong:#1c6b35;
+  --accent:#00ff66;--ok:#00ff66;--info:#39d98a;--warn:#c8ff00;--danger:#ff4d4d;--text:#5cff8f;--dim:#2f8f55;--purple:#74f0c0;
+  --topbar-bg:rgba(0,0,0,.92);--radius:4px;--btn-radius:4px;--glow:0 0 12px;--card-shadow:0 0 0 1px rgba(0,255,102,.05)}
+/* 5) Solarized Light */
+:root[data-theme="solarized"]{--bg:#fdf6e3;--panel:#fbf3df;--panel2:#f5ecd2;--border:#e7debf;--border-strong:#d8cba0;
+  --accent:#268bd2;--ok:#859900;--info:#2aa198;--warn:#b58900;--danger:#dc322f;--text:#586e75;--dim:#93a1a1;--purple:#6c71c4;
+  --topbar-bg:rgba(253,246,227,.88);--radius:10px;--btn-radius:10px;--card-shadow:0 2px 8px rgba(101,123,131,.1)}
+/* 6) Retro Arcade */
+:root[data-theme="retro"]{--bg:#190a2e;--panel:#270f45;--panel2:#341359;--border:#ff2e88;--border-strong:#ff2e88;
+  --accent:#ff2e88;--ok:#37ffb0;--info:#36c5ff;--warn:#ffe600;--danger:#ff4d4d;--text:#ffe600;--dim:#b58ce6;--purple:#b86bff;
+  --topbar-bg:rgba(25,10,46,.94);--radius:0px;--btn-radius:0px;--card-shadow:4px 4px 0 #ff2e88;--border-strong:#ffe600}
+/* 7) Nordic Frost */
+:root[data-theme="nordic"]{--bg:#eceff4;--panel:#ffffff;--panel2:#f4f6fa;--border:#dde3ec;--border-strong:#c8d2e0;
+  --accent:#5e81ac;--ok:#a3be8c;--info:#81a1c1;--warn:#ebcb8b;--danger:#bf616a;--text:#2e3440;--dim:#5b6473;--purple:#b48ead;
+  --topbar-bg:rgba(236,239,244,.86);--radius:12px;--btn-radius:12px;--card-shadow:0 4px 14px rgba(46,52,64,.06)}
+/* 8) Glassmorphism */
+:root[data-theme="glass"]{--bg:#1a1730;--panel:rgba(255,255,255,.07);--panel2:rgba(255,255,255,.04);--border:rgba(255,255,255,.16);--border-strong:rgba(255,255,255,.3);
+  --accent:#a78bfa;--ok:#34d399;--info:#60a5fa;--warn:#fbbf24;--danger:#fb7185;--text:#f3f0ff;--dim:#b9b2d6;--purple:#c4b5fd;
+  --topbar-bg:rgba(255,255,255,.07);--radius:16px;--btn-radius:14px;--panel-blur:blur(14px);--card-shadow:0 8px 32px rgba(0,0,0,.25)}
+/* 9) Deep Ocean */
+:root[data-theme="ocean"]{--bg:#071a2c;--panel:#0c2840;--panel2:#103352;--border:#1d4a72;--border-strong:#2c6699;
+  --accent:#ff7e5f;--ok:#2dd4bf;--info:#38bdf8;--warn:#fbbf24;--danger:#fb7185;--text:#e8f4ff;--dim:#79a6cc;--purple:#a5b4fc;
+  --topbar-bg:rgba(7,26,44,.92);--radius:11px;--btn-radius:11px;--card-shadow:0 6px 20px rgba(0,0,0,.28)}
+/* 10) Luxury Obsidian */
+:root[data-theme="obsidian"]{--bg:#0f0f0f;--panel:#181715;--panel2:#201e1a;--border:#3a342a;--border-strong:#5c5340;
+  --accent:#d4af37;--ok:#b7c98a;--info:#9fb4cf;--warn:#e0b94a;--danger:#cf6b5e;--text:#ece6d8;--dim:#9b9486;--purple:#c8a2d8;
+  --topbar-bg:rgba(15,15,15,.94);--radius:8px;--btn-radius:8px;--card-shadow:0 4px 18px rgba(0,0,0,.5),0 0 0 1px rgba(212,175,55,.08)}
 *{box-sizing:border-box;margin:0;padding:0}
 html.no-bg body::before,html.no-bg body::after{display:none!important}
+/* per-theme glow on active nav + stat numbers (cyber/matrix) */
+:root[data-theme="cyber"] .sn-btn.active,:root[data-theme="matrix"] .sn-btn.active{box-shadow:0 0 16px color-mix(in srgb,var(--accent) 55%,transparent)}
+:root[data-theme="cyber"] .sc-value,:root[data-theme="matrix"] .sc-value{text-shadow:0 0 18px color-mix(in srgb,currentColor 55%,transparent)}
+/* light-mode themes → grid/glow อ่อนลง */
+:root[data-theme="clean"] body::before,:root[data-theme="minimal"] body::before,:root[data-theme="solarized"] body::before,:root[data-theme="nordic"] body::before{
+  background-image:linear-gradient(rgba(120,135,165,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(120,135,165,.10) 1px,transparent 1px)}
+:root[data-theme="minimal"] body::before{background-image:none}
+:root[data-theme="clean"] body::after,:root[data-theme="minimal"] body::after,:root[data-theme="solarized"] body::after,:root[data-theme="nordic"] body::after{background:none}
+/* glass theme: blur topbar + frosted */
+:root[data-theme="glass"]{background:linear-gradient(135deg,#241b46,#101a33 55%,#0a1f2e)}
+:root[data-theme="glass"] body::after{background:radial-gradient(ellipse 60% 50% at 25% 15%,rgba(167,139,250,.18),transparent 60%),radial-gradient(ellipse 55% 50% at 80% 85%,rgba(96,165,250,.14),transparent 62%)}
 html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!important;transition:none!important}
 html{scroll-behavior:smooth;font-size:23.5px}
 body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6;overflow-x:hidden}
@@ -127,10 +170,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* stat cards */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 @media(max-width:640px){.stat-grid{grid-template-columns:repeat(2,1fr)}}
-.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--card-shadow);backdrop-filter:var(--panel-blur);
   padding:14px 16px;position:relative;overflow:hidden;transition:border-color .25s,box-shadow .25s;
   cursor:default}
-.stat-card:hover{border-color:var(--accent);box-shadow:0 0 22px rgba(255,107,0,.1)}
+.stat-card:hover{border-color:var(--accent);box-shadow:0 0 22px color-mix(in srgb,var(--accent) 22%,transparent)}
 .sc-bar{position:absolute;top:0;left:0;right:0;height:2px;border-radius:10px 10px 0 0}
 .sc-label{font-family:var(--font-mono);font-size:.6rem;letter-spacing:2px;
   color:var(--dim);text-transform:uppercase;margin-bottom:8px}
@@ -183,7 +227,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .cs-val.ok{color:var(--ok)} .cs-val.danger{color:var(--danger)} .cs-val.warn{color:var(--warn)}
 
 /* chart card */
-.chart-card{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+.chart-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
+  box-shadow:var(--card-shadow);backdrop-filter:var(--panel-blur);
   padding:16px;margin-bottom:12px}
 .cc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .cc-title{font-family:var(--font-mono);font-size:.72rem;letter-spacing:2px;
@@ -209,7 +254,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sn-btn{font-family:var(--font-mono);font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;
   flex:1 1 0;min-width:118px;justify-content:center;
   padding:9px 14px;border:1px solid currentColor;background:var(--panel2);color:var(--dim);
-  border-radius:12px;cursor:pointer;transition:.18s;display:flex;align-items:center;gap:7px}
+  border-radius:var(--btn-radius);cursor:pointer;transition:.18s;display:flex;align-items:center;gap:7px}
 .sn-btn:hover{color:var(--info);background:linear-gradient(rgba(51,153,255,.14),rgba(51,153,255,.14)),var(--panel)}
 .sn-btn.active{color:#fff;border-color:transparent;background:var(--accent);
   background:linear-gradient(90deg, color-mix(in srgb,var(--accent) 80%,#000) 0%, var(--accent) 52%, color-mix(in srgb,var(--accent) 72%,#fff) 100%);
@@ -307,6 +352,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
 .set-head .cc-title{font-size:.82rem}
 .set-row{margin-bottom:18px}
+.theme-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+@media(max-width:520px){.theme-grid{grid-template-columns:repeat(3,1fr)}}
+.theme-sw{position:relative;border:1px solid var(--border);border-radius:9px;padding:7px;cursor:pointer;
+  transition:.15s;overflow:hidden;text-align:center}
+.theme-sw:hover{transform:translateY(-2px)}
+.theme-sw.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.theme-prev{height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:5px;border:1px solid rgba(255,255,255,.06)}
+.theme-prev i{width:10px;height:10px;border-radius:50%}
+.theme-name{font-family:var(--font-sans);font-size:.54rem;color:var(--dim);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-sw.on .theme-name{color:var(--accent);font-weight:600}
 .set-lbl{font-size:.7rem;color:var(--dim);margin-bottom:9px;font-weight:600}
 .set-opts{display:flex;gap:8px;flex-wrap:wrap}
 .set-opts button{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-sans);font-size:.72rem;
@@ -682,11 +737,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <button class="icon-btn" onclick="closeSettings()"><i data-lucide="x"></i></button>
     </div>
     <div class="set-row">
-      <div class="set-lbl">ธีม</div>
-      <div class="set-opts" id="setTheme">
-        <button data-v="dark" onclick="setUI('theme','dark')"><i data-lucide="moon"></i>Dark</button>
-        <button data-v="light" onclick="setUI('theme','light')"><i data-lucide="sun"></i>Light</button>
-      </div>
+      <div class="set-lbl">ธีม (Theme) — เลือก 1 ใน 10</div>
+      <div class="theme-grid" id="setTheme"></div>
     </div>
     <div class="set-row">
       <div class="set-lbl">ขนาดตัวอักษร · <span id="setScaleVal">23.5px</span></div>
