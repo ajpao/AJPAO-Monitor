@@ -1046,13 +1046,15 @@ def _files_safe(name):
 @flask_app.route("/api/files")
 @require_auth
 def api_files_list():
-    out = []
+    out, used = [], 0
     for n in sorted(os.listdir(FILES_DIR)):
         fp = os.path.join(FILES_DIR, n)
         if os.path.isfile(fp):
             st = os.stat(fp)
+            used += st.st_size
             out.append({"name": n, "size": st.st_size, "mtime": int(st.st_mtime)})
-    return jsonify({"files": out})
+    du = psutil.disk_usage(FILES_DIR)
+    return jsonify({"files": out, "used": used, "free": du.free, "disk_total": du.total})
 
 
 @flask_app.route("/api/files/upload", methods=["POST"])

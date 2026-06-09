@@ -959,12 +959,22 @@ function uploadFiles(fileList){
 }
 
 async function loadFiles(){
-  try{ renderFiles((await fetch('/api/files').then(r=>r.json())).files||[]); }
+  try{ renderFiles(await fetch('/api/files').then(r=>r.json())); }
   catch(e){ document.getElementById('filesBody').innerHTML='<tr><td colspan="4" class="proc-empty">โหลดรายการไม่สำเร็จ</td></tr>'; }
 }
 
-function renderFiles(files){
+function renderFiles(data){
+  const files=(data&&data.files)||[];
   setText('filesNote', files.length+' files');
+  const u=document.getElementById('filesUsage');
+  if(u){
+    if(data && data.used!=null){
+      u.style.display='';
+      u.innerHTML=`<span><i data-lucide="folder"></i>ใช้ไป <b>${fmtFileSize(data.used)}</b></span>`
+        + `<span><i data-lucide="database"></i>เหลือว่างสำหรับอัปโหลด <b>${fmtFileSize(data.free)}</b></span>`;
+      if(window.lucide) lucide.createIcons();
+    } else u.style.display='none';
+  }
   const body=document.getElementById('filesBody');
   if(!files.length){ body.innerHTML='<tr><td colspan="4" class="proc-empty">ยังไม่มีไฟล์</td></tr>'; return; }
   body.innerHTML=files.map(f=>{

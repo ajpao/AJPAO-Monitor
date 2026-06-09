@@ -466,6 +466,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .up-meta{color:var(--dim);font-size:.62rem}
 .up-bar{height:8px;background:var(--panel2);border:1px solid var(--border);border-radius:20px;overflow:hidden}
 .up-bar-fill{height:100%;width:0;background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);transition:width .15s}
+.files-usage{display:flex;align-items:center;gap:10px 22px;flex-wrap:wrap;margin-top:14px;
+  padding:10px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:9px}
+.files-usage span{display:inline-flex;align-items:center;gap:7px;font-size:.7rem;color:var(--dim)}
+.files-usage b{font-family:var(--font-display);color:var(--text);font-weight:700}
+.files-usage svg{width:1.1em;height:1.1em;color:var(--accent)}
 .files-table{width:100%;border-collapse:collapse;margin-top:14px;
   font-family:var(--font-mono)}
 .files-table th{font-size:.58rem;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;
@@ -1071,6 +1076,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <div class="up-info"><span id="upPct">0%</span><span id="upMeta" class="up-meta"></span></div>
         <div class="up-bar"><div id="upBarFill" class="up-bar-fill"></div></div>
       </div>
+      <div id="filesUsage" class="files-usage"></div>
       <table class="files-table">
         <thead><tr><th>ชื่อไฟล์</th><th class="num">ขนาด</th><th class="hide-sm">แก้ไขล่าสุด</th><th></th></tr></thead>
         <tbody id="filesBody"><tr><td colspan="4" class="proc-empty">—</td></tr></tbody>
