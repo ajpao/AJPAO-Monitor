@@ -260,6 +260,26 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .modal-cancel{padding:10px 28px;background:transparent;border:1px solid var(--border);color:var(--dim);
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:var(--font-sans);transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
+.modal-input{width:100%;margin-bottom:18px;font-family:var(--font-mono);font-size:.85rem;
+  padding:11px 13px;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+  border-radius:9px;outline:none;text-align:center}
+.modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.14)}
+.modal-confirm.accent{background:var(--accent)}
+.modal-confirm.accent:hover{filter:brightness(1.1)}
+/* toast */
+.toast-wrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:400;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.toast{display:flex;align-items:center;gap:9px;font-family:var(--font-sans);font-size:.78rem;color:var(--text);
+  background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--dim);
+  border-radius:10px;padding:11px 16px;box-shadow:0 6px 24px rgba(0,0,0,.4);
+  animation:toastIn .25s ease;max-width:90vw}
+.toast.ok{border-left-color:var(--ok)}   .toast.ok svg{color:var(--ok)}
+.toast.error{border-left-color:var(--danger)} .toast.error svg{color:var(--danger)}
+.toast.info{border-left-color:var(--info)} .toast.info svg{color:var(--info)}
+.toast svg{width:1.1em;height:1.1em;flex-shrink:0}
+.toast.out{animation:toastOut .25s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(10px)}}
 
 /* settings modal */
 .settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px;max-height:86vh;overflow-y:auto}
@@ -693,6 +713,23 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 </div>
+
+<!-- Generic confirm / prompt modal -->
+<div class="modal-bg" id="uiModal">
+  <div class="modal-box">
+    <div class="modal-icon" id="uiModalIcon">⚠️</div>
+    <div class="modal-title" id="uiModalTitle"></div>
+    <div class="modal-sub" id="uiModalMsg"></div>
+    <input id="uiModalInput" class="modal-input" style="display:none" autocomplete="off" spellcheck="false">
+    <div class="modal-btns">
+      <button class="modal-confirm" id="uiModalConfirm">ยืนยัน</button>
+      <button class="modal-cancel" id="uiModalCancel">ยกเลิก</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast notifications -->
+<div id="toastWrap" class="toast-wrap"></div>
 
 <div class="page">
 <div class="container">

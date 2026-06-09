@@ -139,6 +139,46 @@ async function syncCloudSettings(){
 
 applySettings();   // ใช้ค่าจาก localStorage ทันที (เผื่อ head script พลาด)
 
+// ─── generic modal (confirm / prompt) + toast — แทน confirm()/prompt()/alert() ────
+
+function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false, value='', confirmText='ยืนยัน', danger=true}={}){
+  return new Promise(resolve=>{
+    const modal=document.getElementById('uiModal');
+    document.getElementById('uiModalIcon').textContent=icon;
+    document.getElementById('uiModalTitle').textContent=title;
+    document.getElementById('uiModalMsg').innerHTML=msg;
+    const inp=document.getElementById('uiModalInput');
+    if(input){ inp.style.display=''; inp.value=value; } else inp.style.display='none';
+    const cbtn=document.getElementById('uiModalConfirm');
+    cbtn.textContent=confirmText; cbtn.className='modal-confirm'+(danger?'':' accent');
+    const cancel=document.getElementById('uiModalCancel');
+    modal.classList.add('open');
+    if(input) setTimeout(()=>{ inp.focus(); inp.select(); },60);
+    const finish=(val)=>{ modal.classList.remove('open'); cbtn.onclick=cancel.onclick=modal.onclick=inp.onkeydown=null; document.removeEventListener('keydown',onKey); resolve(val); };
+    const ok=()=>finish(input?inp.value:true);
+    const no=()=>finish(input?null:false);
+    const onKey=e=>{ if(e.key==='Escape') no(); };
+    cbtn.onclick=ok; cancel.onclick=no;
+    modal.onclick=e=>{ if(e.target===modal) no(); };
+    inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ok(); } };
+    document.addEventListener('keydown',onKey);
+  });
+}
+function showConfirm(o){ return uiModal({...o, input:false}); }
+async function showPrompt(o){ const v=await uiModal({...o, input:true, danger:false}); return v==null?null:v.trim(); }
+
+function toast(msg, type='info', ms=3200){
+  const wrap=document.getElementById('toastWrap'); if(!wrap) return;
+  const icon = type==='ok'?'circle-check' : type==='error'?'circle-x' : 'info';
+  const el=document.createElement('div');
+  el.className='toast '+type;
+  el.innerHTML=`<i data-lucide="${icon}"></i><span></span>`;
+  el.querySelector('span').textContent=msg;
+  wrap.appendChild(el);
+  if(window.lucide) lucide.createIcons();
+  setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),250); }, ms);
+}
+
 // ─── date helpers ────────────────────────────────────────────────────────────
 
 const pad = n => String(n).padStart(2,'0');
@@ -785,8 +825,9 @@ async function svcAction(name, action, btn){
   btn.textContent='…';
   try{
     const d=await fetch(`/api/service/${name}/${action}`,{method:'POST'}).then(r=>r.json());
-    if(!d.ok) alert('สั่ง '+action+' '+name+' ไม่สำเร็จ:\n'+(d.error||d.output||''));
-  }catch(e){ alert('error: '+(e?.message||e)); }
+    if(!d.ok) toast('สั่ง '+action+' '+name+' ไม่สำเร็จ: '+(d.error||d.output||''),'error');
+    else toast(action+' '+name+' สำเร็จ','ok');
+  }catch(e){ toast('error: '+(e?.message||e),'error'); }
   setTimeout(loadServices, 700);   // รอ systemd อัปเดตสถานะ
 }
 
@@ -851,13 +892,13 @@ function sendResize(){
 
 // ส่งคีย์ดิบเข้า PTY (เช่น Ctrl+C = \x03)
 function termSendKey(data){
-  if(MODE!=='local'){ alert('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN'); return; }
+  if(MODE!=='local'){ toast('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN','info'); return; }
   if(termSock && termSock.readyState===1){ termSock.send(JSON.stringify({type:'input', data})); if(term) term.focus(); }
 }
 
 // คำสั่งด่วน — ส่งคำสั่ง + Enter เข้า PTY ทันที
 function termSendCmd(cmd){
-  if(MODE!=='local'){ alert('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN'); return; }
+  if(MODE!=='local'){ toast('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN','info'); return; }
   const fire=()=>{
     if(termSock && termSock.readyState===1){
       termSock.send(JSON.stringify({type:'input', data:cmd+'\r'}));   // \r = กด Enter
@@ -904,8 +945,8 @@ function uploadFiles(fileList){
   xhr.open('POST','/api/files/upload');
   xhr.upload.onprogress=e=>{ if(e.lengthComputable) fill.style.width=(e.loaded/e.total*100)+'%'; };
   xhr.onload=()=>{ fill.style.width='100%'; setTimeout(()=>bar.style.display='none',500);
-    if(xhr.status===200) loadFiles(); else alert('อัปโหลดไม่สำเร็จ ('+xhr.status+')'); };
-  xhr.onerror=()=>{ bar.style.display='none'; alert('อัปโหลดไม่สำเร็จ — เชื่อมต่อไม่ได้'); };
+    if(xhr.status===200){ loadFiles(); toast('อัปโหลดสำเร็จ','ok'); } else toast('อัปโหลดไม่สำเร็จ ('+xhr.status+')','error'); };
+  xhr.onerror=()=>{ bar.style.display='none'; toast('อัปโหลดไม่สำเร็จ — เชื่อมต่อไม่ได้','error'); };
   xhr.send(fd);
 }
 
@@ -937,23 +978,23 @@ function downloadFile(enc){ window.location.href='/api/files/download/'+enc; }  
 
 async function renameFile(enc){
   const oldName=decodeURIComponent(enc);
-  const newName=(prompt('เปลี่ยนชื่อไฟล์เป็น:', oldName)||'').trim();
+  const newName=await showPrompt({title:'เปลี่ยนชื่อไฟล์', icon:'✏️', value:oldName, confirmText:'เปลี่ยนชื่อ'});
   if(!newName || newName===oldName) return;
   try{
     const d=await fetch('/api/files/rename',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({old:oldName, new:newName})}).then(r=>r.json());
-    if(d.ok) loadFiles(); else alert('เปลี่ยนชื่อไม่สำเร็จ: '+(d.error||''));
-  }catch(e){ alert('เปลี่ยนชื่อไม่สำเร็จ'); }
+    if(d.ok){ loadFiles(); toast('เปลี่ยนชื่อแล้ว','ok'); } else toast('เปลี่ยนชื่อไม่สำเร็จ: '+(d.error||''),'error');
+  }catch(e){ toast('เปลี่ยนชื่อไม่สำเร็จ','error'); }
 }
 
 async function deleteFile(enc){
   const name=decodeURIComponent(enc);
-  if(!confirm('ลบไฟล์ "'+name+'" ?')) return;
+  if(!(await showConfirm({title:'ลบไฟล์?', msg:`ลบไฟล์ <b>${agEsc(name)}</b> ?`, confirmText:'ลบ', danger:true}))) return;
   try{
     const d=await fetch('/api/files/delete',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name})}).then(r=>r.json());
-    if(d.ok) loadFiles(); else alert('ลบไม่สำเร็จ');
-  }catch(e){ alert('ลบไม่สำเร็จ'); }
+    if(d.ok){ loadFiles(); toast('ลบไฟล์แล้ว','ok'); } else toast('ลบไม่สำเร็จ','error');
+  }catch(e){ toast('ลบไม่สำเร็จ','error'); }
 }
 
 function fmtFileSize(b){
@@ -1093,7 +1134,7 @@ async function noteSave(id){
 }
 
 async function noteDelete(id){
-  if(!confirm('ลบโน้ตนี้?')) return;
+  if(!(await showConfirm({title:'ลบโน้ต?', msg:'ลบโน้ตนี้ออกถาวร?', confirmText:'ลบ', danger:true}))) return;
   if(MODE==='local'){ await fetch('/api/notes/'+id+'/delete',{method:'POST'}); loadNotes(); }
   else { await db.collection('notes').doc(id).delete(); }
 }
@@ -1219,9 +1260,9 @@ async function agControl(enabled, duration){
       const d=await fetch('/api/adguard/protection',{method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({enabled, duration:duration||0})}).then(r=>r.json());
-      if(!d.ok){ alert('AdGuard: '+(d.error||'ทำคำสั่งไม่สำเร็จ')); return; }
-      if(d.adguard) updateAdguard(d.adguard);
-    }catch(e){ alert('error: '+(e?.message||e)); }
+      if(!d.ok){ toast('AdGuard: '+(d.error||'ทำคำสั่งไม่สำเร็จ'),'error'); return; }
+      if(d.adguard){ updateAdguard(d.adguard); toast('อัปเดต AdGuard แล้ว','ok'); }
+    }catch(e){ toast('error: '+(e?.message||e),'error'); }
   } else {
     try{
       let user=auth.currentUser;
@@ -1231,8 +1272,8 @@ async function agControl(enabled, duration){
         requested_at:firebase.firestore.FieldValue.serverTimestamp(),
         requested_by:user.email||user.uid, handled:false,
       });
-      alert('ส่งคำสั่งแล้ว — Pi จะอัปเดตภายใน ~15 วินาที');
-    }catch(e){ alert('error: '+(e?.message||e)); }
+      toast('ส่งคำสั่งแล้ว — Pi จะอัปเดตภายใน ~15 วินาที','info');
+    }catch(e){ toast('error: '+(e?.message||e),'error'); }
   }
 }
 function agToggle(){ agControl(!agProtection, 0); }
@@ -1327,7 +1368,7 @@ async function doPower(){
       });
     }
   } catch(e){
-    alert('สั่ง '+action+' ไม่สำเร็จ: '+(e?.message||e));
+    toast('สั่ง '+action+' ไม่สำเร็จ: '+(e?.message||e),'error');
     btn.innerHTML = orig; btn.disabled = false;
   }
 }
