@@ -115,6 +115,7 @@ function rerenderCharts(){
   if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); }
   else if(currentPanel==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
   else if(currentPanel==='temp') loadDatePanel('temp');
+  else if(currentPanel==='grafana') gfRerender();
 }
 
 // เรียกเมื่อ settings เปลี่ยน — apply + บันทึก (local + cloud) + วาดกราฟใหม่
@@ -1354,6 +1355,107 @@ function updateCards(d){
   const now = new Date();
   document.getElementById('iLastSeen').textContent =
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  window.lastData = d;
+  gfPush(d);
+  if(gfReady) gfRender(d);
+}
+
+// ─── Grafana-style page (page 2) ────────────────────────────────────────────────
+
+const GF = { cpu:[], down:[], up:[], temp:[], t:[], MAX:40, _seen:'' };
+let gfReady = false;
+function setHtml(id,h){ const e=document.getElementById(id); if(e) e.innerHTML=h; }
+function gfColor(m,v){
+  if(m==='temp') return v>=70?C.danger:v>=55?C.accent:v>=50?C.warn:C.info;
+  if(m==='cpu')  return v>=80?C.danger:v>=50?C.accent:C.info;
+  if(m==='ram')  return v>=80?C.danger:v>=60?C.accent:C.purple;
+  return v>=90?C.danger:v>=70?C.accent:C.warn;   // disk
+}
+function gfFade(el,color){
+  const ctx=el.getContext('2d'); const h=el.clientHeight||el.height||50;
+  const g=ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,color+'55'); g.addColorStop(1,color+'08'); return g;
+}
+function gfGauge(id,value,max,color){
+  const el=document.getElementById(id); if(!el) return;
+  const track=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,.08)';
+  const v=Math.max(0,Math.min(value,max));
+  if(charts[id]){ const ds=charts[id].data.datasets[0]; ds.data=[v,max-v]; ds.backgroundColor=[color,track]; charts[id].update('none'); return; }
+  charts[id]=new Chart(el,{type:'doughnut',
+    data:{datasets:[{data:[v,max-v],backgroundColor:[color,track],borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,rotation:-126,circumference:252,cutout:'73%',
+      events:[],animation:{duration:350},
+      plugins:{legend:{display:false},tooltip:{enabled:false},datalabels:{display:false}}}});
+}
+function gfSpark(id,arr,color){
+  const el=document.getElementById(id); if(!el) return;
+  if(charts[id]){ const c=charts[id]; c.data.labels=arr.map((_,i)=>i);
+    c.data.datasets[0].data=arr.slice(); c.data.datasets[0].borderColor=color;
+    c.data.datasets[0].backgroundColor=gfFade(el,color); c.update('none'); return; }
+  charts[id]=new Chart(el,{type:'line',
+    data:{labels:arr.map((_,i)=>i),datasets:[{data:arr.slice(),borderColor:color,borderWidth:1.7,
+      fill:true,backgroundColor:gfFade(el,color),tension:.35,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,events:[],animation:false,
+      scales:{x:{display:false},y:{display:false,grace:'10%'}},
+      plugins:{legend:{display:false},tooltip:{enabled:false},datalabels:{display:false}}}});
+}
+function gfTs(){
+  const id='gfTempTs', el=document.getElementById(id); if(!el) return;
+  const col=C.ok;
+  if(charts[id]){ const c=charts[id]; c.data.labels=GF.t.slice(); c.data.datasets[0].data=GF.temp.slice(); c.update('none'); return; }
+  charts[id]=new Chart(el,{type:'line',
+    data:{labels:GF.t.slice(),datasets:[{data:GF.temp.slice(),borderColor:col,borderWidth:2,
+      fill:true,backgroundColor:gfFade(el,col),tension:.3,pointRadius:0}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{intersect:false,mode:'index'},
+      scales:{x:{grid:{display:false},ticks:{color:C.dim,font:{size:10},maxTicksLimit:6,maxRotation:0}},
+              y:{grid:{color:C.grid},ticks:{color:C.dim,font:{size:10}}}},
+      plugins:{legend:{display:false},datalabels:{display:false},tooltip:{enabled:true}}}});
+}
+function gfPush(d){
+  if(!d) return;
+  const n=new Date(), lbl=`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+  GF.cpu.push(d.cpu); GF.temp.push(d.temp); GF.down.push(d.down_kbps||0); GF.up.push(d.up_kbps||0); GF.t.push(lbl);
+  ['cpu','temp','down','up','t'].forEach(k=>{ while(GF[k].length>GF.MAX) GF[k].shift(); });
+  GF._seen=lbl;
+}
+function gfRender(d){
+  if(!d) return;
+  gfGauge('gfgTemp',d.temp,90,gfColor('temp',d.temp));
+  gfGauge('gfgCpu', d.cpu, 100,gfColor('cpu', d.cpu));
+  gfGauge('gfgRam', d.ram, 100,gfColor('ram', d.ram));
+  gfGauge('gfgDisk',d.disk,100,gfColor('disk',d.disk));
+  setHtml('gfgTempV',d.temp.toFixed(1)+'<small>°C</small>');
+  setHtml('gfgCpuV', d.cpu.toFixed(0)+'<small>%</small>');
+  setHtml('gfgRamV', d.ram.toFixed(0)+'<small>%</small>');
+  setHtml('gfgDiskV',d.disk.toFixed(0)+'<small>%</small>');
+  const down=document.getElementById('gfDown'); if(down) down.textContent=fmtSpeed(d.down_kbps||0);
+  const up=document.getElementById('gfUp');     if(up)   up.textContent=fmtSpeed(d.up_kbps||0);
+  setHtml('gfCpuBig',d.cpu.toFixed(0)+'<small>%</small>');
+  gfSpark('gfSpDown',GF.down,C.info);
+  gfSpark('gfSpUp',  GF.up,  C.ok);
+  gfSpark('gfSpCpu', GF.cpu, C.accent);
+  gfTs();
+  setText('gfTsCount',GF.temp.length+' pts');
+  if(d.uptime) setText('gfUptime',uptimeFmt(d.uptime));
+  setText('gfHost', d.hostname||'--');
+  if(d.model) setText('gfModel',shortModel(d.model));
+  if(d.ip)    setText('gfIP',d.ip);
+  setText('gfMode',MODE==='cloud'?'CLOUD':'LAN');
+  setText('gfSeen',GF._seen||'--');
+}
+function setupGrafana(){
+  gfReady=true;
+  if(window.lastData) gfRender(window.lastData);
+  else { gfGauge('gfgTemp',0,90,C.info); gfGauge('gfgCpu',0,100,C.info);
+         gfGauge('gfgRam',0,100,C.purple); gfGauge('gfgDisk',0,100,C.warn); gfTs(); }
+  if(window.lucide) lucide.createIcons();
+}
+function gfRerender(){
+  if(!gfReady) return;
+  ['gfgTemp','gfgCpu','gfgRam','gfgDisk','gfSpDown','gfSpUp','gfSpCpu','gfTempTs']
+    .forEach(id=>{ if(charts[id]){ charts[id].destroy(); delete charts[id]; } });
+  gfRender(window.lastData);
 }
 
 // ─── AdGuard widget ─────────────────────────────────────────────────────────────
@@ -1476,6 +1578,7 @@ function switchPanel(name, btn){
   if(!panelLoaded[name]){
     panelLoaded[name]=true;
     if(name==='temp') loadDatePanel('temp');
+    else if(name==='grafana') setupGrafana();
     else if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
     else if(name==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
     else if(name==='device'){ loadDevice(); loadServices(); }
