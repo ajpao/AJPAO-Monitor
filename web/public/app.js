@@ -141,7 +141,7 @@ applySettings();   // ใช้ค่าจาก localStorage ทันที (
 
 // ─── generic modal (confirm / prompt) + toast — แทน confirm()/prompt()/alert() ────
 
-function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false, value='', confirmText='ยืนยัน', danger=true, buttons=null}={}){
+function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false, value='', confirmText='ยืนยัน', danger=true, buttons=null, wide=false}={}){
   if(!buttons) buttons=[
     {label:confirmText, val:'__ok',     cls:'modal-confirm'+(danger?'':' accent')},
     {label:'ยกเลิก',    val:'__cancel', cls:'modal-cancel'},
@@ -153,7 +153,7 @@ function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false
     document.getElementById('uiModalMsg').innerHTML=msg;
     const inp=document.getElementById('uiModalInput');
     if(input){ inp.style.display=''; inp.value=value; } else inp.style.display='none';
-    modal.querySelector('.modal-box').classList.toggle('wide', input);
+    modal.querySelector('.modal-box').classList.toggle('wide', input||wide);
     const wrap=document.getElementById('uiModalBtns'); wrap.innerHTML='';
     const finish=(val)=>{
       modal.classList.remove('open'); modal.onclick=inp.onkeydown=null; document.removeEventListener('keydown',onKey);
@@ -955,8 +955,8 @@ async function uploadFiles(fileList){
   for(const f of files){
     let name=f.name;
     if(names.has(name)){
-      let c=await showChoice({ title:'ไฟล์ซ้ำ', icon:'⚠️',
-        msg:`มีไฟล์ <b>${agEsc(name)}</b> อยู่แล้ว — ต้องการทำอย่างไร?`,
+      let c=await showChoice({ title:'ไฟล์ซ้ำ', icon:'⚠️', wide:true,
+        msg:`มีไฟล์ชื่อนี้อยู่แล้ว — ต้องการทำอย่างไร?<div class="dup-name">${agEsc(name)}</div>`,
         buttons:[
           {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm', icon:'refresh-cw'},
           {label:'เปลี่ยนชื่อ',  val:'rename',    cls:'modal-confirm accent', icon:'pencil'},
@@ -968,8 +968,8 @@ async function uploadFiles(fileList){
           const nn=await showPrompt({title:'เปลี่ยนชื่อก่อนอัปโหลด', icon:'✏️', value:name, confirmText:'ใช้ชื่อนี้'});
           if(!nn){ c='skip'; break; }
           if(!names.has(nn) && !plan.some(p=>p.name===nn)){ name=nn; c='ok'; break; }
-          const c2=await showChoice({ title:'ยังซ้ำอยู่', icon:'⚠️',
-            msg:`ชื่อ <b>${agEsc(nn)}</b> ก็มีอยู่แล้ว`,
+          const c2=await showChoice({ title:'ยังซ้ำอยู่', icon:'⚠️', wide:true,
+            msg:`ชื่อนี้ก็มีอยู่แล้ว — ต้องการทำอย่างไร?<div class="dup-name">${agEsc(nn)}</div>`,
             buttons:[
               {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm', icon:'refresh-cw'},
               {label:'เปลี่ยนชื่อใหม่', val:'rename', cls:'modal-confirm accent', icon:'pencil'},
