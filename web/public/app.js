@@ -141,7 +141,11 @@ applySettings();   // ใช้ค่าจาก localStorage ทันที (
 
 // ─── generic modal (confirm / prompt) + toast — แทน confirm()/prompt()/alert() ────
 
-function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false, value='', confirmText='ยืนยัน', danger=true}={}){
+function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false, value='', confirmText='ยืนยัน', danger=true, buttons=null}={}){
+  if(!buttons) buttons=[
+    {label:confirmText, val:'__ok',     cls:'modal-confirm'+(danger?'':' accent')},
+    {label:'ยกเลิก',    val:'__cancel', cls:'modal-cancel'},
+  ];
   return new Promise(resolve=>{
     const modal=document.getElementById('uiModal');
     document.getElementById('uiModalIcon').textContent=icon;
@@ -149,24 +153,24 @@ function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false
     document.getElementById('uiModalMsg').innerHTML=msg;
     const inp=document.getElementById('uiModalInput');
     if(input){ inp.style.display=''; inp.value=value; } else inp.style.display='none';
-    modal.querySelector('.modal-box').classList.toggle('wide', input);   // prompt = กล่องกว้างเห็นชื่อเต็ม
-    const cbtn=document.getElementById('uiModalConfirm');
-    cbtn.textContent=confirmText; cbtn.className='modal-confirm'+(danger?'':' accent');
-    const cancel=document.getElementById('uiModalCancel');
+    modal.querySelector('.modal-box').classList.toggle('wide', input);
+    const wrap=document.getElementById('uiModalBtns'); wrap.innerHTML='';
+    const finish=(val)=>{
+      modal.classList.remove('open'); modal.onclick=inp.onkeydown=null; document.removeEventListener('keydown',onKey);
+      resolve(val==='__ok' ? (input?inp.value:true) : val==='__cancel' ? (input?null:false) : val);
+    };
+    buttons.forEach(b=>{ const el=document.createElement('button'); el.className=b.cls||'modal-cancel'; el.textContent=b.label; el.onclick=()=>finish(b.val); wrap.appendChild(el); });
+    const onKey=e=>{ if(e.key==='Escape') finish('__cancel'); };
     modal.classList.add('open');
     if(input) setTimeout(()=>{ inp.focus(); inp.select(); },60);
-    const finish=(val)=>{ modal.classList.remove('open'); cbtn.onclick=cancel.onclick=modal.onclick=inp.onkeydown=null; document.removeEventListener('keydown',onKey); resolve(val); };
-    const ok=()=>finish(input?inp.value:true);
-    const no=()=>finish(input?null:false);
-    const onKey=e=>{ if(e.key==='Escape') no(); };
-    cbtn.onclick=ok; cancel.onclick=no;
-    modal.onclick=e=>{ if(e.target===modal) no(); };
-    inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); ok(); } };
+    modal.onclick=e=>{ if(e.target===modal) finish('__cancel'); };
+    inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); finish('__ok'); } };
     document.addEventListener('keydown',onKey);
   });
 }
 function showConfirm(o){ return uiModal({...o, input:false}); }
-async function showPrompt(o){ const v=await uiModal({...o, input:true, danger:false}); return v==null?null:v.trim(); }
+async function showPrompt(o){ const v=await uiModal({...o, input:true, danger:false}); return v==null?null:String(v).trim(); }
+function showChoice(o){ return uiModal(o); }   // o.buttons = [{label,val,cls}]
 
 function toast(msg, type='info', ms=3200){
   const wrap=document.getElementById('toastWrap'); if(!wrap) return;
@@ -937,9 +941,51 @@ function bindDropzone(){
     if(e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
 }
 
-function uploadFiles(fileList){
+async function uploadFiles(fileList){
+  const files=[...fileList];
+  // ชื่อไฟล์ที่มีอยู่แล้ว (ดึงสด)
+  let names;
+  try{ names=new Set(((await fetch('/api/files').then(r=>r.json())).files||[]).map(f=>f.name)); }
+  catch(e){ names=new Set(); }
+
+  const plan=[];   // {file, name}
+  for(const f of files){
+    let name=f.name;
+    if(names.has(name)){
+      let c=await showChoice({ title:'ไฟล์ซ้ำ', icon:'⚠️',
+        msg:`มีไฟล์ <b>${agEsc(name)}</b> อยู่แล้ว — ต้องการทำอย่างไร?`,
+        buttons:[
+          {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm'},
+          {label:'เปลี่ยนชื่อ',  val:'rename',    cls:'modal-confirm accent'},
+          {label:'ข้าม',         val:'skip',      cls:'modal-cancel'},
+        ]});
+      if(c==='rename'){
+        // วน prompt จนได้ชื่อที่ไม่ซ้ำ หรือผู้ใช้เลือกทับ/ข้าม
+        while(true){
+          const nn=await showPrompt({title:'เปลี่ยนชื่อก่อนอัปโหลด', icon:'✏️', value:name, confirmText:'ใช้ชื่อนี้'});
+          if(!nn){ c='skip'; break; }
+          if(!names.has(nn) && !plan.some(p=>p.name===nn)){ name=nn; c='ok'; break; }
+          const c2=await showChoice({ title:'ยังซ้ำอยู่', icon:'⚠️',
+            msg:`ชื่อ <b>${agEsc(nn)}</b> ก็มีอยู่แล้ว`,
+            buttons:[
+              {label:'ทับไฟล์เดิม', val:'overwrite', cls:'modal-confirm'},
+              {label:'เปลี่ยนชื่อใหม่', val:'rename', cls:'modal-confirm accent'},
+              {label:'ข้าม',         val:'skip',      cls:'modal-cancel'},
+            ]});
+          if(c2==='overwrite'){ name=nn; c='ok'; break; }
+          if(c2!=='rename'){ c='skip'; break; }
+        }
+      }
+      if(c==='skip' || c===false || c==null) continue;   // ข้ามไฟล์นี้
+      // overwrite หรือ ok → ใช้ name ปัจจุบัน (ทับถ้าซ้ำ)
+    }
+    plan.push({file:f, name});
+    names.add(name);   // กันซ้ำกันเองในชุดเดียว
+  }
+  if(!plan.length){ toast('ไม่มีไฟล์ที่อัปโหลด','info'); return; }
+
   const fd=new FormData();
-  [...fileList].forEach(f=>fd.append('files',f));      // หลายไฟล์ ชื่อ field = "files"
+  plan.forEach(p=>fd.append('files', p.file, p.name));   // arg ที่ 3 = ชื่อที่จะเซฟ
   const bar=document.getElementById('upBar'), fill=document.getElementById('upBarFill');
   bar.style.display=''; fill.style.width='0';
   const pct=document.getElementById('upPct'), meta=document.getElementById('upMeta');
