@@ -149,6 +149,7 @@ function uiModal({title='ยืนยัน', msg='', icon='⚠️', input=false
     document.getElementById('uiModalMsg').innerHTML=msg;
     const inp=document.getElementById('uiModalInput');
     if(input){ inp.style.display=''; inp.value=value; } else inp.style.display='none';
+    modal.querySelector('.modal-box').classList.toggle('wide', input);   // prompt = กล่องกว้างเห็นชื่อเต็ม
     const cbtn=document.getElementById('uiModalConfirm');
     cbtn.textContent=confirmText; cbtn.className='modal-confirm'+(danger?'':' accent');
     const cancel=document.getElementById('uiModalCancel');

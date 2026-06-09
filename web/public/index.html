@@ -260,9 +260,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .modal-cancel{padding:10px 28px;background:transparent;border:1px solid var(--border);color:var(--dim);
   border-radius:8px;font-size:.85rem;cursor:pointer;font-family:var(--font-sans);transition:.2s}
 .modal-cancel:hover{border-color:var(--text);color:var(--text)}
+.modal-box.wide{max-width:640px}
 .modal-input{width:100%;margin-bottom:18px;font-family:var(--font-mono);font-size:.85rem;
   padding:11px 13px;background:var(--panel2);border:1px solid var(--border);color:var(--text);
-  border-radius:9px;outline:none;text-align:center}
+  border-radius:9px;outline:none;text-align:left}
 .modal-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.14)}
 .modal-confirm.accent{background:var(--accent)}
 .modal-confirm.accent:hover{filter:brightness(1.1)}
@@ -494,7 +495,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* xterm terminal */
 .xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
   padding:10px 12px;overflow:hidden}
-.xterm-wrap .xterm{height:100%}
 .xterm-wrap .xterm-viewport{background:transparent!important}
 @media(max-width:600px){.xterm-wrap{height:340px}}
 
