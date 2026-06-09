@@ -825,7 +825,8 @@ function setupTerminal(){
   fitAddon=new FitAddon.FitAddon();
   term.loadAddon(fitAddon);
   term.open(document.getElementById('xterm'));
-  setTimeout(()=>fitAddon.fit(),60);
+  const fitNow=()=>{ try{ fitAddon.fit(); sendResize(); }catch(e){} };
+  setTimeout(fitNow,60); setTimeout(fitNow,320);   // fit + ส่ง cols ให้ PTY ตรงกัน (กันตัวอักษรซ้อน)
   term.onData(d=>{ if(termSock && termSock.readyState===1) termSock.send(JSON.stringify({type:'input',data:d})); });
   connectTerm();
   window.addEventListener('resize',()=>{
@@ -838,7 +839,7 @@ function setupTerminal(){
 function connectTerm(){
   const proto = location.protocol==='https:'?'wss':'ws';
   termSock = new WebSocket(`${proto}://${location.host}/ws/terminal`);
-  termSock.onopen    = ()=>{ sendResize(); if(term) term.focus(); };
+  termSock.onopen    = ()=>{ try{ fitAddon && fitAddon.fit(); }catch(e){} sendResize(); if(term) term.focus(); };
   termSock.onmessage = e=>{ if(term) term.write(e.data); };
   termSock.onclose   = ()=>{ if(term) term.write('\r\n\x1b[31m[การเชื่อมต่อปิด — กดแท็บอื่นแล้วกลับมาเพื่อเชื่อมใหม่]\x1b[0m\r\n'); };
 }
@@ -846,6 +847,12 @@ function connectTerm(){
 function sendResize(){
   if(termSock && termSock.readyState===1 && term)
     termSock.send(JSON.stringify({type:'resize',cols:term.cols,rows:term.rows}));
+}
+
+// ส่งคีย์ดิบเข้า PTY (เช่น Ctrl+C = \x03)
+function termSendKey(data){
+  if(MODE!=='local'){ alert('Web Terminal ใช้ได้เฉพาะตอนเปิดใน LAN'); return; }
+  if(termSock && termSock.readyState===1){ termSock.send(JSON.stringify({type:'input', data})); if(term) term.focus(); }
 }
 
 // คำสั่งด่วน — ส่งคำสั่ง + Enter เข้า PTY ทันที

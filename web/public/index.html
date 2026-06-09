@@ -466,10 +466,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .term-quick button:hover{color:var(--accent);border-color:var(--accent);
   background:linear-gradient(rgba(255,107,0,.1),rgba(255,107,0,.1)),var(--panel2)}
 .term-quick button svg{width:1.05em;height:1.05em}
+.term-quick button.tq-stop{color:var(--danger);border-color:rgba(255,51,85,.4)}
+.term-quick button.tq-stop:hover{color:var(--danger);border-color:var(--danger);
+  background:linear-gradient(rgba(255,51,85,.12),rgba(255,51,85,.12)),var(--panel2)}
 
 /* xterm terminal */
 .xterm-wrap{height:440px;background:#05080f;border:1px solid var(--border);border-radius:8px;
-  padding:8px;overflow:hidden}
+  padding:10px 12px;overflow:hidden}
 .xterm-wrap .xterm,.xterm-wrap .xterm-viewport,.xterm-wrap .xterm-screen{height:100%!important}
 .xterm-wrap .xterm-viewport{background:transparent!important}
 @media(max-width:600px){.xterm-wrap{height:340px}}
@@ -995,6 +998,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <span class="data-count" id="termNote">LAN only · interactive shell</span>
       </div>
       <div class="term-quick" id="termQuick">
+        <button class="tq-stop" onclick="termSendKey(String.fromCharCode(3))"><i data-lucide="ban"></i>Ctrl+C ยกเลิก</button>
         <button onclick="termSendCmd('sudo apt update && sudo apt upgrade -y')"><i data-lucide="arrow-up-circle"></i>Update &amp; Upgrade</button>
         <button onclick="termSendCmd('df -h')"><i data-lucide="hard-drive"></i>Disk</button>
         <button onclick="termSendCmd('free -h')"><i data-lucide="memory-stick"></i>RAM</button>
