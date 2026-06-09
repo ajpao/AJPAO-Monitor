@@ -856,7 +856,7 @@ function setupTerminal(){
     return;
   }
   termInit=true;
-  term=new Terminal({fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:13, cursorBlink:true,
+  term=new Terminal({fontFamily:"ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", fontSize:15, cursorBlink:true,
     theme:{
       background:'#01010b', foreground:'#bfc7d5', cursor:'#3ad900', cursorAccent:'#01010b', selectionBackground:'#274b73',
       black:'#0c0c1c', red:'#e35d5d', green:'#3ad900', yellow:'#d8b53a', blue:'#3b8eea',
