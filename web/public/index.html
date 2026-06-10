@@ -227,12 +227,16 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .mode-badge.cloud{color:var(--info);border-color:rgba(51,153,255,.4);background:rgba(51,153,255,.06)}
 .spacer{flex:1}
 .clock{font-family:var(--font-mono);font-size:.72rem;color:var(--dim);white-space:nowrap}
-.btn-reboot{font-family:var(--font-mono);font-size:.65rem;letter-spacing:1.5px;
-  padding:5px 14px;border:1px solid rgba(255,51,85,.5);background:transparent;color:var(--danger);
-  border-radius:6px;cursor:pointer;transition:.2s;flex-shrink:0;text-transform:uppercase}
-.btn-reboot:hover{background:rgba(255,51,85,.12);border-color:var(--danger);box-shadow:0 0 16px rgba(255,51,85,.2)}
-.btn-reboot:disabled{opacity:.4;cursor:not-allowed}
-.btn-reboot{display:inline-flex;align-items:center;gap:5px}
+.topbar-sep{flex-shrink:0;width:2px;height:30px;align-self:center;margin:0 7px;border-radius:2px;
+  background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--danger) 75%,transparent),transparent)}
+.btn-reboot{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:32px;height:32px;border-radius:8px;cursor:pointer;transition:.2s;
+  border:1px solid color-mix(in srgb,var(--danger) 42%,transparent);
+  background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger)}
+.btn-reboot:hover{background:var(--danger);color:#fff;border-color:var(--danger);
+  transform:translateY(-1px);box-shadow:0 4px 14px color-mix(in srgb,var(--danger) 45%,transparent)}
+.btn-reboot:active{transform:translateY(0)}
+.btn-reboot:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
 .btn-reboot svg{width:1.05em;height:1.05em}
 .icon-btn{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
   width:32px;height:32px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
@@ -297,8 +301,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:6px;width:26px;height:26px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .sess-revoke:hover{color:var(--danger);border-color:var(--danger)}
 .sess-revoke svg{width:14px;height:14px}
-.btn-shutdown{border-color:rgba(255,107,0,.5);color:var(--accent)}
-.btn-shutdown:hover{background:rgba(255,107,0,.12);border-color:var(--accent);box-shadow:0 0 16px rgba(255,107,0,.2)}
+.btn-shutdown{border-color:color-mix(in srgb,var(--accent) 42%,transparent);
+  background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent)}
+.btn-shutdown:hover{background:var(--accent);color:#fff;border-color:var(--accent);
+  box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 45%,transparent)}
 /* header mobile: สั้นลง — ซ่อน clock + ข้อความปุ่ม, ย่อให้พอดีจอ, เผื่อ safe-area (status bar PWA) */
 @media(max-width:640px){
   .clock{display:none}
@@ -308,7 +314,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .brand-mono{font-size:.92rem;letter-spacing:1px}
   .mode-badge{padding:2px 7px;font-size:.55rem}
   .icon-btn{width:30px;height:30px}
-  .btn-reboot{padding:6px 8px}
+  .btn-reboot{width:30px;height:30px}
 }
 
 /* main layout */
@@ -861,6 +867,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pv-content{flex:1;min-height:120px;max-height:64vh;overflow:auto;white-space:pre-wrap;word-break:break-word;
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;line-height:1.55;color:#cdd9f0;
   background:#0a0e17;border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0}
+.pv-content.pv-img{display:flex;align-items:center;justify-content:center;white-space:normal;padding:8px;
+  background:repeating-conic-gradient(#11161f 0% 25%,#0a0e17 0% 50%) 50%/22px 22px}
+.pv-content.pv-img img{max-width:100%;max-height:60vh;height:auto;border-radius:8px;display:block;
+  box-shadow:0 4px 24px rgba(0,0,0,.5)}
+.pv-content.pv-img .pv-imgerr{color:var(--danger);font-family:var(--font-sans);font-size:.8rem}
 .pv-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .pv-foot .modal-confirm{display:inline-flex;align-items:center;gap:6px}
 .pv-foot .modal-confirm svg{width:1.05em;height:1.05em}
@@ -1277,9 +1288,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <button class="icon-btn bell-btn" id="alertBtn" onclick="openAlerts()" title="การแจ้งเตือน"><i data-lucide="bell"></i><span class="bell-badge" id="bellBadge" style="display:none">0</span></button>
   <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด"><i data-lucide="moon"></i></button>
   <button class="icon-btn" id="settingsBtn" onclick="openSettings()" title="ตั้งค่าหน้าตา"><i data-lucide="settings"></i></button>
+  <div class="topbar-sep" title="danger zone"></div>
   <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
-  <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i><span class="btn-label">REBOOT</span></button>
-  <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i><span class="btn-label">SHUTDOWN</span></button>
+  <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i></button>
+  <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i></button>
  </div>
 </header>
 
@@ -1456,7 +1468,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <pre class="pv-content" id="pvContent"></pre>
     <div class="pv-foot">
       <span class="set-note" id="pvNote"></span>
-      <button class="modal-confirm accent" onclick="copyPreview()"><i data-lucide="copy"></i>คัดลอกทั้งหมด</button>
+      <button class="modal-confirm accent" id="pvCopyBtn" onclick="copyPreview()"><i data-lucide="copy"></i>คัดลอกทั้งหมด</button>
+      <button class="modal-confirm accent" id="pvOpenBtn" onclick="pvOpenImage()" style="display:none"><i data-lucide="external-link"></i>เปิดเต็มจอ</button>
     </div>
   </div>
 </div>

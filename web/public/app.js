@@ -1404,12 +1404,13 @@ function drawFiles(){
   body.innerHTML=arr.map(f=>{
     const enc=encodeURIComponent(f.name);
     const isText=/\.(txt|log|md|markdown|csv|tsv|json|conf|cfg|ini|ya?ml|sh|bash|py|js|ts|css|html?|xml|env|service|list|properties)$/i.test(f.name);
+    const isImage=FILE_IMG_RE.test(f.name);
     return `<tr>
       <td class="ft-name" title="${agEsc(f.name)}">${agEsc(f.name)}</td>
       <td class="num">${fmtFileSize(f.size)}</td>
       <td class="ft-time hide-sm">${fmtFileTime(f.mtime)}</td>
       <td><div class="ft-act">
-        ${isText?`<button class="ft-btn pv" onclick="previewFile('${enc}')" title="พรีวิว"><i data-lucide="eye"></i></button>`:''}
+        ${(isText||isImage)?`<button class="ft-btn pv" onclick="previewFile('${enc}')" title="พรีวิว"><i data-lucide="${isImage?'image':'eye'}"></i></button>`:''}
         <button class="ft-btn dl" onclick="downloadFile('${enc}')"><i data-lucide="download"></i>โหลด</button>
         <button class="ft-btn rn" onclick="renameFile('${enc}')" title="เปลี่ยนชื่อ"><i data-lucide="pencil"></i></button>
         <button class="ft-btn del" onclick="deleteFile('${enc}')"><i data-lucide="trash-2"></i></button>
@@ -1420,20 +1421,42 @@ function drawFiles(){
 
 function downloadFile(enc){ window.location.href='/api/files/download/'+enc; }   // cookie ติดไปเอง
 
-let pvText='';
+const FILE_IMG_RE=/\.(jpe?g|png|gif|webp|bmp|svg|ico|avif)$/i;
+let pvText='', pvImgUrl='';
 async function previewFile(enc){
-  document.getElementById('pvTitle').textContent=decodeURIComponent(enc);
-  document.getElementById('pvContent').textContent='กำลังโหลด…';
-  document.getElementById('pvNote').textContent=''; pvText='';
+  const name=decodeURIComponent(enc);
+  const content=document.getElementById('pvContent');
+  const copyBtn=document.getElementById('pvCopyBtn'), openBtn=document.getElementById('pvOpenBtn');
+  document.getElementById('pvTitle').textContent=name;
+  document.getElementById('pvNote').textContent=''; pvText=''; pvImgUrl='';
   document.getElementById('previewModal').classList.add('open');
+
+  if(FILE_IMG_RE.test(name)){                 // ── รูปภาพ ──
+    pvImgUrl='/api/files/download/'+enc;
+    content.classList.add('pv-img');
+    content.innerHTML=`<img src="${pvImgUrl}" alt="${agEsc(name)}" onerror="pvImgError(this)">`;
+    if(copyBtn) copyBtn.style.display='none';
+    if(openBtn) openBtn.style.display='';
+    const f=(filesData||[]).find(x=>x.name===name);
+    if(f) document.getElementById('pvNote').textContent=fmtFileSize(f.size);
+    return;
+  }
+
+  // ── ข้อความ ──
+  content.classList.remove('pv-img');
+  if(copyBtn) copyBtn.style.display='';
+  if(openBtn) openBtn.style.display='none';
+  content.textContent='กำลังโหลด…';
   try{
     const d=await fetch('/api/files/view/'+enc).then(r=>r.json());
-    if(d.error){ document.getElementById('pvContent').textContent='โหลดไม่สำเร็จ: '+d.error; return; }
+    if(d.error){ content.textContent='โหลดไม่สำเร็จ: '+d.error; return; }
     pvText=d.text||'';
-    document.getElementById('pvContent').textContent=pvText||'(ไฟล์ว่าง)';
+    content.textContent=pvText||'(ไฟล์ว่าง)';
     document.getElementById('pvNote').textContent=(d.truncated?'⚠ แสดงบางส่วน (ไฟล์ใหญ่เกิน 1MB) · ':'')+fmtFileSize(d.size);
-  }catch(e){ document.getElementById('pvContent').textContent='โหลดไม่สำเร็จ'; }
+  }catch(e){ content.textContent='โหลดไม่สำเร็จ'; }
 }
+function pvOpenImage(){ if(pvImgUrl) window.open(pvImgUrl,'_blank'); }
+function pvImgError(img){ const p=img.parentNode; p.innerHTML='<div class="pv-imgerr">โหลดรูปไม่สำเร็จ</div>'; }
 function closePreview(){ document.getElementById('previewModal').classList.remove('open'); }
 async function copyPreview(){
   try{ await navigator.clipboard.writeText(pvText); toast('คัดลอกแล้ว','ok'); return; }catch(e){}

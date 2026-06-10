@@ -75,6 +75,9 @@ ADGUARD_USER       = (os.getenv("ADGUARD_USER") or "").strip()     # username �
 ADGUARD_PASSWORD   = (os.getenv("ADGUARD_PASSWORD") or "").strip() # password สำหรับ Basic Auth
 
 PORT               = int(os.getenv("PORT", "5000"))
+HTTPS_PORT         = int(os.getenv("HTTPS_PORT", "5443"))            # HTTPS ขนาน (สำหรับ port-forward/เข้าจากนอกบ้าน)
+SSL_CERT           = os.getenv("SSL_CERT", os.path.join(BASE_DIR, "cert.pem"))
+SSL_KEY            = os.getenv("SSL_KEY",  os.path.join(BASE_DIR, "key.pem"))
 TEMP_ALERT         = float(os.getenv("TEMP_ALERT", "55"))
 COLLECT_INTERVAL   = int(os.getenv("COLLECT_INTERVAL", "600"))   # วินาที (default 10 นาที)
 DAILY_REPORT_HOUR  = int(os.getenv("DAILY_REPORT_HOUR", "8"))
@@ -1754,6 +1757,15 @@ def main():
     threading.Thread(target=bot_loop, daemon=True).start()
     threading.Thread(target=reboot_poll_loop, daemon=True).start()
     print(f"🌐 LAN dashboard: http://0.0.0.0:{PORT}")
+    # HTTPS ขนาน — เปิดเฉพาะเมื่อมี cert/key (สำหรับเข้าจากนอกบ้านผ่าน port-forward, รหัสผ่านไม่วิ่ง cleartext)
+    if os.path.exists(SSL_CERT) and os.path.exists(SSL_KEY):
+        print(f"🔒 HTTPS dashboard: https://0.0.0.0:{HTTPS_PORT}")
+        threading.Thread(
+            target=lambda: flask_app.run(host="0.0.0.0", port=HTTPS_PORT,
+                ssl_context=(SSL_CERT, SSL_KEY), debug=False, use_reloader=False, threaded=True),
+            daemon=True).start()
+    else:
+        print(f"ℹ️  HTTPS ปิดอยู่ (ไม่พบ {os.path.basename(SSL_CERT)}/{os.path.basename(SSL_KEY)})")
     flask_app.run(host="0.0.0.0", port=PORT, debug=False, use_reloader=False, threaded=True)
 
 

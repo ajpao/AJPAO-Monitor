@@ -2,6 +2,8 @@
 .env
 serviceAccountKey.json
 .flask_secret
+cert.pem
+key.pem
 
 # ─── ไฟล์ที่อัปโหลดผ่าน DropZone ───
 files/
