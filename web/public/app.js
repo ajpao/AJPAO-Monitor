@@ -67,7 +67,7 @@ const THEMES = [
 ];
 const THEME_IDS = THEMES.map(t=>t.id);
 const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic','liquidglass']);
-const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true, gfPage:true, btnStyle:'default' };
+const UI_DEFAULT = { theme:'liquidglassblack', scale:23.5, numFont:'oxanium', accent:'#e3c4c4', uiFont:'manrope', bgFx:false, anim:true, gfPage:false, btnStyle:'liquid-glass-dark' };
 
 // 10 สไตล์ปุ่ม/เมนู (+ default = ดีไซน์ปัจจุบัน)
 const BTN_STYLES = [
@@ -119,7 +119,16 @@ function applySettings(){
   const nav=document.getElementById('navGrafana');
   if(nav) nav.style.display = (UI.gfPage===false) ? 'none' : '';
   r.setAttribute('data-btnstyle', BTN_STYLE_IDS.includes(UI.btnStyle)?UI.btnStyle:'default');
+  requestAnimationFrame(syncTopbarH);   // ความสูง topbar เปลี่ยนตาม scale → อัปเดต sticky-top ของเมนู
 }
+
+// วัดความสูง topbar จริง → ใช้เป็น top ของแถบเมนู sticky (กันขอบทับ topbar)
+function syncTopbarH(){
+  const tb=document.querySelector('.topbar');
+  if(tb) document.documentElement.style.setProperty('--topbar-h', tb.offsetHeight+'px');
+}
+window.addEventListener('resize', syncTopbarH);
+window.addEventListener('load', syncTopbarH);
 
 function syncChartColors(){
   const cs = getComputedStyle(document.documentElement);
@@ -148,6 +157,16 @@ function rerenderCharts(){
 // เรียกเมื่อ settings เปลี่ยน — apply + บันทึก (local + cloud) + วาดกราฟใหม่
 function commitSettings(){ applySettings(); applyThemeIcon(); saveLocalSettings(); syncChartColors(); rerenderCharts(); saveCloudSettings(); }
 
+// custom accent (input type=color): ลากแล้ว preview เบา ๆ ไม่ rebuild picker (กัน native picker รีเซ็ต)
+function accentLive(val){
+  UI.accent = val;
+  document.documentElement.style.setProperty('--accent', val);
+  syncChartColors();
+  const sw=document.getElementById('setAccent');
+  if(sw) sw.querySelectorAll('.set-sw').forEach(el=>el.classList.remove('on'));   // ไฮไลต์ swatch โดยไม่แตะ input
+}
+function accentCommit(val){ setUI('accent', val); }   // ปล่อยแล้วค่อย commit เต็ม (save + render + cloud)
+
 // ปุ่ม sun/moon บน topbar — สลับเร็วระหว่างธีมสว่าง/มืด (เก็บธีมล่าสุดแต่ละโหมด)
 let _lastDark = LIGHT_THEMES.has(UI.theme)?'cyber':UI.theme;
 let _lastLight = LIGHT_THEMES.has(UI.theme)?UI.theme:'clean';
@@ -167,7 +186,7 @@ function setUI(key, val){
 }
 function resetSettings(){ UI=Object.assign({},UI_DEFAULT); commitSettings(); renderSettingsControls(); }
 
-function openSettings(){ renderSettingsControls(); document.getElementById('settingsModal').classList.add('open'); }
+function openSettings(){ renderSettingsControls(); loadSecurity(); document.getElementById('settingsModal').classList.add('open'); }
 function closeSettings(){ document.getElementById('settingsModal').classList.remove('open'); }
 
 function renderSettingsControls(){
@@ -190,7 +209,7 @@ function renderSettingsControls(){
   if(sw){ sw.innerHTML=
       `<div class="set-sw${!UI.accent?' on':''}" style="background:conic-gradient(#00e5ff,#6366f1,#00ff66,#ff2e88,#ff7e5f,#d4af37,#00e5ff);outline:1px dashed var(--dim);outline-offset:-3px" title="สี accent ของธีม" onclick="setUI('accent','')"></div>`
     + ACCENTS.map(c=>`<div class="set-sw${c===UI.accent?' on':''}" style="background:${c}" onclick="setUI('accent','${c}')"></div>`).join('')
-    + `<label class="set-sw" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red);display:inline-flex;align-items:center;justify-content:center" title="เลือกเอง"><input type="color" value="${UI.accent||'#ff6b00'}" style="opacity:0;width:100%;height:100%;cursor:pointer" oninput="setUI('accent',this.value)"></label>`; }
+    + `<label class="set-sw" style="background:conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red);display:inline-flex;align-items:center;justify-content:center" title="เลือกเอง"><input type="color" value="${UI.accent||'#ff6b00'}" style="opacity:0;width:100%;height:100%;cursor:pointer" oninput="accentLive(this.value)" onchange="accentCommit(this.value)"></label>`; }
   const note=document.getElementById('setSyncNote'); if(note) note.textContent = (MODE==='cloud'?'sync: cloud':'sync: LAN→cloud');
 }
 
@@ -736,16 +755,137 @@ async function loadCompare(){
   } catch(e){ console.error('compare error',e); }
 }
 
-// การ์ดอุณหภูมิ 24 ชม. บน dashboard (ใช้ระบบ History เดิม)
+// การ์ด 24 ชม. บน dashboard — สลับ metric ได้ (ใช้ระบบ History เดิม)
+let dash24Metric = 'temp';
+const D24 = {
+  temp:{ name:'อุณหภูมิ', color:()=>C.accent, unit:'°C' },
+  cpu: { name:'CPU',     color:()=>C.info,   unit:'%' },
+  ram: { name:'RAM',     color:()=>C.purple, unit:'%' },
+  disk:{ name:'Disk',    color:()=>C.warn,   unit:'%' },
+};
+function setDash24(m){
+  dash24Metric=m;
+  document.querySelectorAll('#dash24Tabs .d24-tab').forEach(b=>b.classList.toggle('active', b.dataset.m===m));
+  loadDash24();
+}
 async function loadDash24(){
   try{
     const el=document.getElementById('dash24Chart'); if(!el) return;
     const d=await fetchHistory('24h');
+    const cfg=D24[dash24Metric]||D24.temp, arr=d[dash24Metric];
+    const t=document.getElementById('dash24Title'); if(t) t.textContent=cfg.name;
     const sum=document.getElementById('dash24Sum');
-    if(!d.labels||!d.labels.length){ destroyChart('dash24Chart'); if(sum) sum.innerHTML=''; return; }
-    makeHistChart('dash24Chart', d.labels, d.temp, C.accent, '°C');
-    if(sum) sum.innerHTML = summaryHtml(d.temp,'°C');
+    if(!d.labels||!d.labels.length||!arr){ destroyChart('dash24Chart'); if(sum) sum.innerHTML=''; return; }
+    makeHistChart('dash24Chart', d.labels, arr, cfg.color(), cfg.unit);
+    if(sum) sum.innerHTML = summaryHtml(arr, cfg.unit);
   }catch(e){ console.error('dash24 error',e); }
+}
+
+// Health Score 0–100 จากค่าสด (เย็น/ว่าง = คะแนนสูง)
+function healthScore(d){
+  if(!d || d.temp==null) return null;
+  const sTemp = Math.max(0, Math.min(100, (70-d.temp)/(70-40)*100));  // 40°→100, 70°→0
+  const sCpu  = Math.max(0, 100-(d.cpu||0));
+  const sRam  = Math.max(0, 100-(d.ram||0));
+  const sDisk = Math.max(0, 100-(d.disk||0));
+  return Math.round(0.30*sTemp + 0.20*sCpu + 0.20*sRam + 0.30*sDisk);
+}
+
+// ─── alerts + event log ─────────────────────────────────────────────────────────
+const ALERTS = { cfg:null };
+const AL_METRICS = ['temp','cpu','ram','disk'];
+const AL_NAMES = { temp:'อุณหภูมิ', cpu:'CPU', ram:'RAM', disk:'Disk' };
+const AL_UNITS = { temp:'°C', cpu:'%', ram:'%', disk:'%' };
+const AL_INPUT = { temp:'alTemp', cpu:'alCpu', ram:'alRam', disk:'alDisk' };
+
+async function loadAlertCfg(){
+  try{
+    if(MODE==='local'){ ALERTS.cfg = (await fetch('/api/alert_config').then(r=>r.json())).config; }
+    else if(db){ const d=await db.collection('settings').doc('alerts').get(); ALERTS.cfg = d.exists?d.data():null; }
+  }catch(e){}
+  if(!ALERTS.cfg) ALERTS.cfg = { enabled:true, telegram:true, temp:70, cpu:90, ram:90, disk:90 };
+  updateBell();
+}
+function initAlerts(){ loadAlertCfg(); }
+
+// alert ที่กำลัง active = ค่าสด ≥ เกณฑ์ (คำนวณ client-side → ใช้ได้ทั้ง LAN/Cloud)
+function activeAlerts(){
+  const c=ALERTS.cfg, d=window.lastData;
+  if(!c || c.enabled===false || !d) return [];
+  const out=[];
+  AL_METRICS.forEach(m=>{
+    const v = m==='temp'?d.temp : m==='cpu'?d.cpu : m==='ram'?d.ram : d.disk;
+    if(v!=null && c[m]!=null && v>=c[m]) out.push({metric:m, value:v, thr:c[m]});
+  });
+  return out;
+}
+function updateBell(){
+  const act=activeAlerts();
+  const badge=document.getElementById('bellBadge');
+  if(badge){ if(act.length){ badge.textContent=act.length; badge.style.display=''; } else badge.style.display='none'; }
+  document.getElementById('alertBtn')?.classList.toggle('has-alert', act.length>0);
+  if(document.getElementById('alertsModal')?.classList.contains('open')) renderActive();
+}
+function renderActive(){
+  const el=document.getElementById('alActive'); if(!el) return;
+  if(ALERTS.cfg && ALERTS.cfg.enabled===false){ el.innerHTML='<span class="al-ok" style="color:var(--dim)">⏸ ระบบแจ้งเตือนปิดอยู่</span>'; return; }
+  const act=activeAlerts();
+  if(!act.length){ el.innerHTML='<span class="al-ok"><i data-lucide="check-circle"></i> ทุกอย่างปกติ</span>'; if(window.lucide)lucide.createIcons(); return; }
+  el.innerHTML=act.map(a=>`<span class="al-chip">${AL_NAMES[a.metric]} ${a.value.toFixed(1)}${AL_UNITS[a.metric]} ≥ ${a.thr}${AL_UNITS[a.metric]}</span>`).join('');
+}
+
+function openAlerts(){
+  document.getElementById('alertsModal').classList.add('open');
+  loadAlertCfg().then(()=>{ renderAlertCfg(); renderActive(); });
+  loadEvents();
+}
+function closeAlerts(){ document.getElementById('alertsModal').classList.remove('open'); }
+
+function renderAlertCfg(){
+  const c=ALERTS.cfg||{}, isLocal=MODE==='local';
+  AL_METRICS.forEach(m=>{ const inp=document.getElementById(AL_INPUT[m]); if(inp){ inp.value=c[m]??''; inp.disabled=!isLocal; } });
+  document.querySelectorAll('#alEnabled button').forEach(b=>{ b.classList.toggle('on',(b.dataset.v==='on')===(c.enabled!==false)); b.disabled=!isLocal; });
+  document.querySelectorAll('#alTelegram button').forEach(b=>{ b.classList.toggle('on',(b.dataset.v==='on')===(c.telegram!==false)); b.disabled=!isLocal; });
+  const hint=document.getElementById('alLanHint'); if(hint) hint.textContent = isLocal?'':'(แก้ไขได้เฉพาะใน LAN)';
+  const btn=document.getElementById('alSaveBtn'); if(btn) btn.style.display = isLocal?'':'none';
+}
+function alSetToggle(key,val){ if(MODE!=='local') return; if(!ALERTS.cfg) ALERTS.cfg={}; ALERTS.cfg[key]=val; renderAlertCfg(); renderActive(); }
+
+async function alSaveConfig(){
+  if(MODE!=='local'){ toast('แก้ไขเกณฑ์ได้เฉพาะตอนเปิดใน LAN','info'); return; }
+  const c=Object.assign({}, ALERTS.cfg||{});
+  AL_METRICS.forEach(m=>{ const inp=document.getElementById(AL_INPUT[m]); if(inp&&inp.value!=='') c[m]=parseFloat(inp.value); });
+  try{
+    const r=await fetch('/api/alert_config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(c)}).then(r=>r.json());
+    if(r.config) ALERTS.cfg=r.config;
+    const n=document.getElementById('alSaveNote'); if(n){ n.textContent='บันทึกแล้ว ✓'; setTimeout(()=>{n.textContent='';},2000); }
+    updateBell(); renderActive(); loadEvents();
+  }catch(e){ toast('บันทึกไม่สำเร็จ','error'); }
+}
+
+function fmtEvTs(d){ return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+async function loadEvents(){
+  const el=document.getElementById('alEvents'); if(!el) return;
+  try{
+    let evs=[];
+    if(MODE==='local'){ evs=(await fetch('/api/events?limit=60').then(r=>r.json())).events||[]; }
+    else if(db){
+      const snap=await db.collection('events').orderBy('ts','desc').limit(60).get();
+      evs=snap.docs.map(d=>{ const x=d.data(); return {ts:(x.ts&&x.ts.toDate)?fmtEvTs(x.ts.toDate()):x.ts, type:x.type, metric:x.metric, value:x.value, severity:x.severity, message:x.message}; });
+    }
+    renderEvents(evs);
+  }catch(e){ el.innerHTML='<div class="proc-empty">โหลด event ไม่สำเร็จ</div>'; }
+}
+function renderEvents(evs){
+  const el=document.getElementById('alEvents'); if(!el) return;
+  if(!evs.length){ el.innerHTML='<div class="proc-empty">ยังไม่มี event</div>'; return; }
+  const ICON={alert:'alert-triangle',recovery:'check-circle',info:'info',config:'sliders-horizontal',system:'power'};
+  el.innerHTML=evs.map(e=>{
+    const sev=e.severity||'info';
+    const ts=(typeof e.ts==='string')?e.ts.slice(5,16):(e.ts||'');
+    return `<div class="ev-row ev-${sev}"><i data-lucide="${ICON[e.type]||'circle'}"></i><span class="ev-msg">${e.message||e.type}</span><span class="ev-ts">${ts}</span></div>`;
+  }).join('');
+  if(window.lucide) lucide.createIcons();
 }
 
 // ─── load date panel ──────────────────────────────────────────────────────────
@@ -1547,6 +1687,14 @@ function updateCards(d){
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   window.lastData = d;
+  if(typeof updateBell==='function') updateBell();
+  const hs = healthScore(d);
+  if(hs!=null){
+    const el=document.getElementById('iHealth');
+    if(el){ const lab=hs>=85?'ดีมาก':hs>=70?'ดี':hs>=50?'พอใช้':'ควรเช็ก';
+      const col=hs>=85?C.ok:hs>=70?C.info:hs>=50?C.warn:C.danger;
+      el.innerHTML=`<b style="color:${col}">${hs}</b><span style="color:var(--dim);font-size:.82em;margin-left:6px">${lab}</span>`; }
+  }
   gfPush(d);
   if(gfReady) gfRender(d);
 }
@@ -1817,6 +1965,7 @@ function confirmPower(action){
 function closeModal(){ document.getElementById('rebootModal').classList.remove('open'); }
 document.getElementById('rebootModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 document.getElementById('settingsModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeSettings(); });
+document.getElementById('alertsModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeAlerts(); });
 
 async function doPower(){
   closeModal();
@@ -1869,17 +2018,27 @@ function showLogin(){
 function hideLogin(){ document.getElementById('loginGate').style.display='none'; }
 
 async function doLogin(){
-  const pw  = document.getElementById('loginPw').value;
-  const err = document.getElementById('loginErr');
-  const btn = document.getElementById('loginBtn');
+  const pw   = document.getElementById('loginPw').value;
+  const code = document.getElementById('loginCode').value.trim();
+  const err  = document.getElementById('loginErr');
+  const btn  = document.getElementById('loginBtn');
   btn.disabled = true; err.textContent = '';
   try {
     const r = await fetch('/api/login',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({password:pw}),
+      body:JSON.stringify({password:pw, code}),
     });
-    if(r.ok){ hideLogin(); startLocal(); }
-    else { const d=await r.json().catch(()=>({})); err.textContent=d.error||'เข้าสู่ระบบไม่สำเร็จ'; btn.disabled=false; }
+    if(r.ok){ hideLogin(); startLocal(); return; }
+    const d=await r.json().catch(()=>({}));
+    if(d.need_2fa){            // รหัสผ่านถูก แต่ต้องใส่ 2FA
+      const ci=document.getElementById('loginCode');
+      ci.style.display='block'; ci.focus();
+      ci.onkeydown = e => { if(e.key==='Enter') doLogin(); };
+      err.textContent = d.error || 'ใส่รหัส 2FA จากแอป Authenticator';
+    } else {
+      err.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
+    }
+    btn.disabled=false;
   } catch(e){ err.textContent='เชื่อมต่อไม่ได้'; btn.disabled=false; }
 }
 
@@ -1887,6 +2046,76 @@ async function doLogout(){
   if(MODE==='cloud' && auth){ try{ await auth.signOut(); }catch(e){} location.reload(); return; }
   try { await fetch('/api/logout',{method:'POST'}); } catch(e){}
   location.reload();
+}
+
+// ─── security: sessions + 2FA (LAN เท่านั้น) ─────────────────────────────────────
+let TWOFA_ON = false;
+async function loadSecurity(){
+  const row=document.getElementById('secRow'); if(!row) return;
+  if(MODE!=='local'){ row.style.display='none'; return; }
+  row.style.display='';
+  document.getElementById('secHint').textContent='';
+  document.getElementById('twofaSetup').style.display='none';
+  try{ const s=await fetch('/api/2fa/status').then(r=>r.json()); render2faToggle(s.enabled); }catch(e){}
+  loadSessions();
+}
+function render2faToggle(enabled){
+  TWOFA_ON=!!enabled;
+  document.querySelectorAll('#secTwofa button').forEach(b=>b.classList.toggle('on',(b.dataset.v==='on')===!!enabled));
+}
+async function twofaStart(){
+  if(TWOFA_ON){ render2faToggle(true); return; }
+  try{
+    const d=await fetch('/api/2fa/setup',{method:'POST'}).then(r=>r.json());
+    document.getElementById('twofaSetup').style.display='flex';
+    document.getElementById('twofaSecret').textContent='Secret: '+d.secret;
+    document.getElementById('twofaNote').textContent='';
+    const ci=document.getElementById('twofaCode'); ci.value='';
+    const qr=document.getElementById('twofaQr'); qr.innerHTML='';
+    if(window.QRCode){ new QRCode(qr, { text:d.uri, width:128, height:128, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M }); }
+    else { qr.textContent='QR โหลดไม่ได้ — ใช้ Secret ด้านล่างกรอกมือแทน'; }
+    ci.focus(); ci.onkeydown=e=>{ if(e.key==='Enter') twofaConfirm(); };
+  }catch(e){ toast('เริ่ม 2FA ไม่สำเร็จ','error'); }
+}
+async function twofaConfirm(){
+  const code=document.getElementById('twofaCode').value.trim();
+  try{
+    const r=await fetch('/api/2fa/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})}).then(r=>r.json());
+    if(r.ok){ document.getElementById('twofaSetup').style.display='none'; render2faToggle(true); toast('เปิด 2FA แล้ว','ok'); }
+    else document.getElementById('twofaNote').textContent=r.error||'รหัสไม่ถูกต้อง';
+  }catch(e){ document.getElementById('twofaNote').textContent='ผิดพลาด'; }
+}
+async function twofaDisable(){
+  if(!TWOFA_ON){ render2faToggle(false); return; }
+  const code=prompt('ใส่รหัส 2FA 6 หลักเพื่อปิดการใช้งาน:');
+  if(code===null){ render2faToggle(true); return; }
+  try{
+    const r=await fetch('/api/2fa/disable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code.trim()})}).then(r=>r.json());
+    if(r.ok){ render2faToggle(false); document.getElementById('twofaSetup').style.display='none'; toast('ปิด 2FA แล้ว','ok'); }
+    else { toast(r.error||'รหัสไม่ถูกต้อง','error'); render2faToggle(true); }
+  }catch(e){ toast('ผิดพลาด','error'); }
+}
+async function loadSessions(){
+  const el=document.getElementById('secSessions'); if(!el) return;
+  try{
+    const ss=(await fetch('/api/sessions').then(r=>r.json())).sessions||[];
+    if(!ss.length){ el.innerHTML='<div class="proc-empty">—</div>'; return; }
+    el.innerHTML=ss.map(s=>{
+      const dev=(s.ua||'').replace(/\(.*?\)/g,'').slice(0,40).trim()||'unknown';
+      return `<div class="sess-row ${s.current?'cur':''}">
+        <div class="sess-main"><div class="sess-ip">${s.ip||'?'} ${s.current?'<span class="sess-cur-badge">อุปกรณ์นี้</span>':''}</div>
+        <div class="sess-meta">${dev} · ล่าสุด ${(s.last_seen||'').slice(5,16)}</div></div>
+        ${s.current?'':`<button class="sess-revoke" title="เพิกถอน" onclick="revokeSession('${s.sid}')"><i data-lucide="x"></i></button>`}
+      </div>`;
+    }).join('');
+    if(window.lucide) lucide.createIcons();
+  }catch(e){ el.innerHTML='<div class="proc-empty">โหลดไม่สำเร็จ</div>'; }
+}
+async function revokeSession(sid){
+  try{ await fetch('/api/sessions/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid})}); loadSessions(); }catch(e){}
+}
+async function revokeOthers(){
+  try{ await fetch('/api/sessions/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({all:true})}); loadSessions(); toast('ออกจากระบบอุปกรณ์อื่นแล้ว','ok'); }catch(e){}
 }
 
 // ─── login gate (Cloud — Google sign-in) ─────────────────────────────────────────
@@ -1954,9 +2183,10 @@ function startDashboard(){
   applyAdguardVisibility();            // โชว์การ์ด AdGuard (skeleton) ทันทีระหว่างรอข้อมูล
   loadCompare();
   loadDash24();
+  initAlerts();
   loadDatePanel('temp');
   panelLoaded['temp'] = true;
-  setInterval(()=>{ loadCompare(); loadDash24(); }, 300000);   // refresh ทุก 5 นาที
+  setInterval(()=>{ loadCompare(); loadDash24(); loadAlertCfg(); }, 300000);   // refresh ทุก 5 นาที
 }
 
 async function init(){

@@ -80,6 +80,12 @@ COLLECT_INTERVAL   = int(os.getenv("COLLECT_INTERVAL", "600"))   # วินา�
 DAILY_REPORT_HOUR  = int(os.getenv("DAILY_REPORT_HOUR", "8"))
 REBOOT_POLL_SEC    = int(os.getenv("REBOOT_POLL_SEC", "15"))
 
+# ─── Alerts (แจ้งเตือนตาม threshold + Event Log) ───
+ALERT_FILE     = os.path.join(BASE_DIR, "alert_config.json")
+ALERT_DEFAULT  = {"enabled": True, "telegram": True,
+                  "temp": float(os.getenv("TEMP_ALERT", "70")), "cpu": 90.0, "ram": 90.0, "disk": 90.0}
+RETAIN_DAYS    = int(os.getenv("RETAIN_DAYS", "120"))   # auto-cleanup: เก็บข้อมูลย้อนหลังกี่วัน (0 = ไม่ลบ)
+
 # Firestore client (เปิดใช้เมื่อมี serviceAccountKey.json เท่านั้น)
 db_fs = None      # firestore.Client
 fs    = None      # firebase_admin.firestore module (สำหรับ SERVER_TIMESTAMP)
@@ -125,6 +131,28 @@ def init_db():
             con.execute(f"ALTER TABLE temperature ADD COLUMN {col} {decl}")
         except sqlite3.OperationalError:
             pass
+    # event log (แจ้งเตือน / กลับสู่ปกติ / ระบบเริ่มทำงาน ฯลฯ)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id        INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts        TEXT NOT NULL,
+            type      TEXT NOT NULL,
+            metric    TEXT,
+            value     REAL,
+            severity  TEXT,
+            message   TEXT
+        )
+    """)
+    # active sessions (รองรับ list/revoke จากหน้า Security)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            sid        TEXT PRIMARY KEY,
+            ip         TEXT,
+            ua         TEXT,
+            created    TEXT,
+            last_seen  TEXT
+        )
+    """)
     con.commit()
     con.close()
 
@@ -154,6 +182,182 @@ def mark_synced(rowid):
     con.execute("UPDATE temperature SET synced = 1 WHERE id = ?", (rowid,))
     con.commit()
     con.close()
+
+
+# ─── alerts + event log ──────────────────────────────────────────────────────────
+
+def load_alert_config():
+    cfg = dict(ALERT_DEFAULT)
+    try:
+        with open(ALERT_FILE) as f:
+            cfg.update(json.load(f))
+    except Exception:
+        pass
+    return cfg
+
+
+def save_alert_config(raw):
+    cfg = dict(ALERT_DEFAULT)
+    cfg["enabled"]  = bool(raw.get("enabled", True))
+    cfg["telegram"] = bool(raw.get("telegram", True))
+    for m in ("temp", "cpu", "ram", "disk"):
+        try:
+            cfg[m] = max(0.0, min(100.0 if m != "temp" else 120.0, float(raw.get(m, ALERT_DEFAULT[m]))))
+        except Exception:
+            pass
+    with open(ALERT_FILE, "w") as f:
+        json.dump(cfg, f)
+    push_alert_config(cfg)
+    return cfg
+
+
+def push_alert_config(cfg):
+    if db_fs:
+        try:
+            db_fs.collection("settings").document("alerts").set(cfg)
+        except Exception as e:
+            print(f"[alerts] push config ล้มเหลว: {e}")
+
+
+def log_event(etype, metric, value, severity, message):
+    now = datetime.now()
+    try:
+        con = sqlite3.connect(DB_PATH)
+        con.execute("INSERT INTO events (ts,type,metric,value,severity,message) VALUES (?,?,?,?,?,?)",
+                    (now.strftime("%Y-%m-%d %H:%M:%S"), etype, metric,
+                     (None if value is None else round(value, 1)), severity, message))
+        con.commit()
+        con.close()
+    except Exception as e:
+        print(f"[events] log ล้มเหลว: {e}")
+    if db_fs:
+        try:
+            db_fs.collection("events").add({
+                "ts": _aware(now), "type": etype, "metric": metric,
+                "value": (None if value is None else round(value, 1)),
+                "severity": severity, "message": message})
+        except Exception as e:
+            print(f"[events] push ล้มเหลว: {e}")
+
+
+_alert_state = {"temp": False, "cpu": False, "ram": False, "disk": False}
+_ALERT_NAMES = {"temp": "อุณหภูมิ", "cpu": "CPU", "ram": "RAM", "disk": "Disk"}
+_ALERT_UNITS = {"temp": "°C", "cpu": "%", "ram": "%", "disk": "%"}
+
+def check_alerts(now, temp, cpu, ram_pct, disk_pct):
+    """ตรวจ threshold ทุก metric — แจ้งครั้งเดียวตอนเกิน และครั้งเดียวตอนกลับปกติ (กันสแปม)"""
+    cfg = load_alert_config()
+    if not cfg.get("enabled", True):
+        return
+    vals = {"temp": temp, "cpu": cpu, "ram": ram_pct, "disk": disk_pct}
+    for m, val in vals.items():
+        thr = cfg.get(m)
+        if thr is None:
+            continue
+        u, name = _ALERT_UNITS[m], _ALERT_NAMES[m]
+        if val >= thr and not _alert_state[m]:
+            _alert_state[m] = True
+            log_event("alert", m, val, "danger", f"{name} {val:.1f}{u} เกินเกณฑ์ {thr:.0f}{u}")
+            if cfg.get("telegram", True):
+                broadcast(f"🚨 <b>แจ้งเตือน: {name}สูง</b>\n{name}: <b>{val:.1f}{u}</b> (เกณฑ์ {thr:.0f}{u})\n🕐 {now.strftime('%d/%m/%Y %H:%M')}")
+        elif val < thr and _alert_state[m]:
+            _alert_state[m] = False
+            log_event("recovery", m, val, "ok", f"{name} กลับสู่ปกติ {val:.1f}{u}")
+            if cfg.get("telegram", True):
+                broadcast(f"✅ <b>{name}กลับสู่ปกติ</b>\n{name}: <b>{val:.1f}{u}</b>\n🕐 {now.strftime('%d/%m/%Y %H:%M')}")
+
+
+def cleanup_old_data():
+    """ลบข้อมูล/event เก่ากว่า RETAIN_DAYS — คุมขนาด DB (เรียกวันละครั้ง)"""
+    if RETAIN_DAYS <= 0:
+        return
+    cutoff = (datetime.now() - timedelta(days=RETAIN_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        con = sqlite3.connect(DB_PATH)
+        n1 = con.execute("DELETE FROM temperature WHERE timestamp < ?", (cutoff,)).rowcount
+        n2 = con.execute("DELETE FROM events WHERE ts < ? AND type != 'system'", (cutoff,)).rowcount
+        con.commit()
+        con.execute("VACUUM")
+        con.close()
+        if n1 or n2:
+            print(f"[cleanup] ลบ readings {n1} แถว, events {n2} แถว (เก่ากว่า {RETAIN_DAYS} วัน)")
+    except Exception as e:
+        print(f"[cleanup] error: {e}")
+
+
+# ─── sessions + 2FA (security) ───────────────────────────────────────────────────
+import base64, hashlib, hmac, secrets as _secrets
+
+TWOFA_FILE = os.path.join(BASE_DIR, "twofa.json")
+
+def _now_str():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def session_create(ip, ua):
+    sid = _secrets.token_hex(16)
+    n = _now_str()
+    con = sqlite3.connect(DB_PATH)
+    con.execute("INSERT INTO sessions (sid,ip,ua,created,last_seen) VALUES (?,?,?,?,?)", (sid, ip, ua, n, n))
+    con.commit(); con.close()
+    return sid
+
+def session_check(sid):
+    """sid ยัง valid ไหม (อยู่ใน registry) — ใช้รองรับการ revoke"""
+    if not sid:
+        return False
+    rows = query("SELECT last_seen FROM sessions WHERE sid = ?", (sid,))
+    if not rows:
+        return False
+    try:
+        last = datetime.strptime(rows[0][0], "%Y-%m-%d %H:%M:%S")
+        if (datetime.now() - last).total_seconds() > 60:   # touch แบบประหยัด
+            con = sqlite3.connect(DB_PATH)
+            con.execute("UPDATE sessions SET last_seen = ? WHERE sid = ?", (_now_str(), sid))
+            con.commit(); con.close()
+    except Exception:
+        pass
+    return True
+
+def session_delete(sid):
+    if not sid:
+        return
+    con = sqlite3.connect(DB_PATH); con.execute("DELETE FROM sessions WHERE sid = ?", (sid,)); con.commit(); con.close()
+
+def load_twofa():
+    try:
+        with open(TWOFA_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"enabled": False, "secret": ""}
+
+def save_twofa(d):
+    with open(TWOFA_FILE, "w") as f:
+        json.dump(d, f)
+    try:
+        os.chmod(TWOFA_FILE, 0o600)
+    except Exception:
+        pass
+
+def gen_secret():
+    return base64.b32encode(_secrets.token_bytes(20)).decode().rstrip("=")
+
+def _totp_at(secret, t, step=30, digits=6):
+    key = base64.b32decode(secret + "=" * (-len(secret) % 8), casefold=True)
+    counter = struct.pack(">Q", int(t) // step)
+    h = hmac.new(key, counter, hashlib.sha1).digest()
+    o = h[-1] & 0x0F
+    code = (struct.unpack(">I", h[o:o+4])[0] & 0x7FFFFFFF) % (10 ** digits)
+    return str(code).zfill(digits)
+
+def totp_verify(secret, code, window=1):
+    if not secret or not code:
+        return False
+    code = str(code).strip()
+    now = time.time()
+    for w in range(-window, window + 1):
+        if _totp_at(secret, now + w * 30) == code:
+            return True
+    return False
 
 
 # ─── metrics ────────────────────────────────────────────────────────────────────
@@ -756,7 +960,7 @@ def require_auth(f):
     """endpoint ที่ต้อง login ก่อน (เฉพาะเมื่อมีตั้ง WEB_PASSWORD)"""
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if WEB_PASSWORD and not session.get("authed"):
+        if WEB_PASSWORD and not (session.get("authed") and session_check(session.get("sid"))):
             return jsonify({"error": "unauthorized"}), 401
         return f(*args, **kwargs)
     return wrapper
@@ -777,28 +981,119 @@ def api_ping():
 
 @flask_app.route("/api/me")
 def api_me():
+    authed = (not WEB_PASSWORD) or (bool(session.get("authed")) and session_check(session.get("sid")))
     return jsonify({
-        "authed": (not WEB_PASSWORD) or bool(session.get("authed")),
+        "authed": authed,
         "auth_required": bool(WEB_PASSWORD),
+        "twofa": load_twofa().get("enabled", False),
     })
+
+
+def _client_ip():
+    return (request.headers.get("X-Forwarded-For") or request.remote_addr or "?").split(",")[0].strip()
 
 
 @flask_app.route("/api/login", methods=["POST"])
 def api_login():
-    import hmac
     data = request.get_json(silent=True) or {}
     pw = data.get("password") or ""
-    if WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD):
-        session["authed"] = True
-        session.permanent = True
-        return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "รหัสผ่านไม่ถูกต้อง"}), 401
+    code = (data.get("code") or "").strip()
+    ip = _client_ip()
+    ua = (request.headers.get("User-Agent") or "")[:140]
+
+    if not (WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD)):
+        log_event("login", "auth", None, "danger", f"เข้าสู่ระบบล้มเหลว (รหัสผิด) — {ip}")
+        return jsonify({"ok": False, "error": "รหัสผ่านไม่ถูกต้อง"}), 401
+
+    tf = load_twofa()
+    if tf.get("enabled"):
+        if not code:
+            return jsonify({"ok": False, "need_2fa": True}), 401      # รหัสผ่านผ่าน รอ code
+        if not totp_verify(tf.get("secret"), code):
+            log_event("login", "auth", None, "danger", f"2FA ไม่ถูกต้อง — {ip}")
+            return jsonify({"ok": False, "need_2fa": True, "error": "รหัส 2FA ไม่ถูกต้อง"}), 401
+
+    sid = session_create(ip, ua)
+    session["authed"] = True
+    session["sid"] = sid
+    session.permanent = True
+    log_event("login", "auth", None, "ok", f"เข้าสู่ระบบสำเร็จ — {ip}")
+    return jsonify({"ok": True})
 
 
 @flask_app.route("/api/logout", methods=["POST"])
 def api_logout():
+    session_delete(session.get("sid"))
     session.clear()
     return jsonify({"ok": True})
+
+
+# ─── security: sessions + 2FA ─────────────────────────────────────────────────────
+
+@flask_app.route("/api/sessions")
+@require_auth
+def api_sessions():
+    cur = session.get("sid")
+    rows = query("SELECT sid,ip,ua,created,last_seen FROM sessions ORDER BY last_seen DESC")
+    return jsonify({"sessions": [
+        {"sid": r[0], "ip": r[1], "ua": r[2], "created": r[3], "last_seen": r[4], "current": (r[0] == cur)}
+        for r in rows]})
+
+
+@flask_app.route("/api/sessions/revoke", methods=["POST"])
+@require_auth
+def api_sessions_revoke():
+    data = request.get_json(silent=True) or {}
+    cur = session.get("sid")
+    if data.get("all"):
+        con = sqlite3.connect(DB_PATH)
+        con.execute("DELETE FROM sessions WHERE sid != ?", (cur,))
+        con.commit(); con.close()
+        log_event("info", "auth", None, "warn", "ออกจากระบบทุกอุปกรณ์อื่น")
+    elif data.get("sid"):
+        session_delete(data["sid"])
+        log_event("info", "auth", None, "warn", f"เพิกถอน session {str(data['sid'])[:8]}…")
+    return jsonify({"ok": True})
+
+
+@flask_app.route("/api/2fa/status")
+@require_auth
+def api_2fa_status():
+    return jsonify({"enabled": load_twofa().get("enabled", False)})
+
+
+@flask_app.route("/api/2fa/setup", methods=["POST"])
+@require_auth
+def api_2fa_setup():
+    secret = gen_secret()
+    save_twofa({"enabled": False, "secret": secret})   # ยังไม่เปิดจนกว่าจะยืนยัน code
+    uri = f"otpauth://totp/AJPAO-Monitor?secret={secret}&issuer=AJPAO-Monitor"
+    return jsonify({"secret": secret, "uri": uri})
+
+
+@flask_app.route("/api/2fa/enable", methods=["POST"])
+@require_auth
+def api_2fa_enable():
+    data = request.get_json(silent=True) or {}
+    tf = load_twofa()
+    if totp_verify(tf.get("secret"), data.get("code")):
+        tf["enabled"] = True
+        save_twofa(tf)
+        log_event("info", "auth", None, "ok", "เปิดใช้งาน 2FA")
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "รหัส 2FA ไม่ถูกต้อง"}), 400
+
+
+@flask_app.route("/api/2fa/disable", methods=["POST"])
+@require_auth
+def api_2fa_disable():
+    data = request.get_json(silent=True) or {}
+    tf = load_twofa()
+    if (not tf.get("enabled")) or totp_verify(tf.get("secret"), data.get("code")):
+        save_twofa({"enabled": False, "secret": ""})
+        log_event("info", "auth", None, "warn", "ปิดใช้งาน 2FA")
+        return jsonify({"ok": True})
+    return jsonify({"ok": False, "error": "รหัส 2FA ไม่ถูกต้อง"}), 400
 
 
 @flask_app.route("/api/status")
@@ -911,6 +1206,26 @@ def api_history_range():
         "disk":   [avg(buckets[k]["d"]) for k in keys],
         "count":  len(rows),
     })
+
+
+@flask_app.route("/api/events")
+@require_auth
+def api_events():
+    limit = max(1, min(int(request.args.get("limit", 60)), 200))
+    rows = query("SELECT ts,type,metric,value,severity,message FROM events ORDER BY id DESC LIMIT ?", (limit,))
+    return jsonify({"events": [
+        {"ts": r[0], "type": r[1], "metric": r[2], "value": r[3], "severity": r[4], "message": r[5]}
+        for r in rows]})
+
+
+@flask_app.route("/api/alert_config", methods=["GET", "POST"])
+@require_auth
+def api_alert_config():
+    if request.method == "POST":
+        cfg = save_alert_config(request.get_json(silent=True) or {})
+        log_event("info", "config", None, "info", "ปรับตั้งค่าการแจ้งเตือน")
+        return jsonify({"ok": True, "config": cfg})
+    return jsonify({"config": load_alert_config()})
 
 
 @flask_app.route("/api/monthly")
@@ -1415,12 +1730,8 @@ def collector_loop():
                 mark_synced(rowid)
             backfill_unsynced()
 
-            # แจ้งเตือนด่วนเมื่อร้อนเกินกำหนด
-            if temp > TEMP_ALERT:
-                broadcast(
-                    f"🚨 <b>แจ้งเตือน! อุณหภูมิสูงเกิน {TEMP_ALERT:.0f}°C</b>\n"
-                    f"🌡️ CPU: <b>{temp:.1f}°C</b>\n🕐 {now.strftime('%d/%m/%Y %H:%M')}\n"
-                    f"⚠️ กรุณาตรวจสอบการระบายความร้อน")
+            # แจ้งเตือนตาม threshold ทุก metric (temp/cpu/ram/disk) + บันทึก event
+            check_alerts(now, temp, cpu, ram.percent, disk.percent)
 
             # สถานะรายชั่วโมง (ส่งครั้งเดียวต่อชั่วโมง)
             if last_status_hour != now.hour:
@@ -1433,9 +1744,10 @@ def collector_loop():
                     f"💾 Disk: <b>{disk.percent:.1f}%</b> (ว่าง {disk.free//1024//1024//1024} GB)")
                 last_status_hour = now.hour
 
-            # รายงานสรุปประจำวัน (เมื่อวาน) ตอนเช้า
+            # รายงานสรุปประจำวัน (เมื่อวาน) + auto-cleanup DB ตอนเช้า (วันละครั้ง)
             if now.hour == DAILY_REPORT_HOUR and last_daily_date != now.date():
                 send_daily_report()
+                cleanup_old_data()
                 last_daily_date = now.date()
 
         except Exception as e:
@@ -1524,6 +1836,8 @@ def reboot_poll_loop():
 def main():
     init_db()
     init_firestore()
+    push_alert_config(load_alert_config())                      # sync เกณฑ์แจ้งเตือนขึ้น cloud
+    log_event("info", "system", None, "info", "ระบบเริ่มทำงาน")  # โผล่ใน Event Log = proxy ของการรีบูต
     threading.Thread(target=collector_loop, daemon=True).start()
     threading.Thread(target=bot_loop, daemon=True).start()
     threading.Thread(target=reboot_poll_loop, daemon=True).start()

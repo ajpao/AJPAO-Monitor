@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AJPAO-Monitor</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -13,15 +13,17 @@
 <meta name="apple-mobile-web-app-title" content="Monitor">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon.png">
-<script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = cyber */
+<script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = Liquid Glass Black */
 (function(){try{
+  var DEF={theme:'liquidglassblack',scale:23.5,numFont:'oxanium',accent:'#e3c4c4',uiFont:'manrope',bgFx:false,anim:true,gfPage:false,btnStyle:'liquid-glass-dark'};
   var s=JSON.parse(localStorage.getItem('ui_settings')||'null');
   if(!s){ var t=localStorage.getItem('theme'); s=t?{theme:t}:{}; }
+  for(var k in DEF){ if(s[k]===undefined) s[k]=DEF[k]; }
   var r=document.documentElement;
   var TH=['cyber','clean','minimal','matrix','solarized','retro','nordic','glass','ocean','obsidian','superblack','liquidglass','liquidglassdark','liquidglassblack'];
-  var th=s.theme; if(th==='dark')th='cyber'; else if(th==='light')th='clean'; else if(TH.indexOf(th)<0)th='cyber';
+  var th=s.theme; if(th==='dark')th='cyber'; else if(th==='light')th='clean'; else if(TH.indexOf(th)<0)th='liquidglassblack';
   r.setAttribute('data-theme',th);
-  r.setAttribute('data-btnstyle', s.btnStyle||'default');
+  r.setAttribute('data-btnstyle', s.btnStyle||'liquid-glass-dark');
   if(s.scale) r.style.fontSize=s.scale+'px';
   if(s.accent) r.style.setProperty('--accent',s.accent);
   var F={jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",oxanium:"'Oxanium',ui-monospace,monospace",chakra:"'Chakra Petch','Noto Sans Thai',monospace",rajdhani:"'Rajdhani','Noto Sans Thai',sans-serif",teko:"'Teko','Noto Sans Thai',sans-serif",plexmono:"'IBM Plex Mono',ui-monospace,monospace",space:"'Space Grotesk','Noto Sans Thai',sans-serif",inter:"'Inter','Noto Sans Thai',sans-serif"};
@@ -37,6 +39,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
@@ -187,9 +190,30 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .br{bottom:12px;right:12px;border-bottom:2px solid var(--accent);border-right:2px solid var(--accent)}
 
 /* topbar */
-.topbar{position:sticky;top:0;z-index:50;min-height:44px;background:var(--topbar-bg);
+.topbar{position:sticky;top:0;z-index:50;background:var(--topbar-bg);
   border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
-  display:flex;align-items:center;gap:9px;padding:5px 14px}
+  padding:calc(16px + env(safe-area-inset-top,0px)) 0 16px}
+.topbar-inner{width:100%;padding:0 16px;min-height:38px;position:relative;
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;row-gap:7px}
+@media(max-width:640px){.topbar-inner{padding:0 10px}}
+/* เมนู tabs ที่ฝังในแถบ topbar */
+.topbar .section-nav{flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;gap:7px;margin:0;padding:0;
+  position:static;background:none;z-index:auto;-webkit-backdrop-filter:none;backdrop-filter:none}
+.topbar .section-nav .sn-btn{flex:1 1 0;min-width:0;padding:10px 8px;font-size:.68rem;letter-spacing:1px;gap:7px;white-space:nowrap}
+.topbar .section-nav .sn-btn svg{width:1.05em;height:1.05em;flex-shrink:0}
+.topbar-inner>.spacer{display:none}   /* default (จอแคบ): เมนูยืดเต็ม ไม่ต้องมี spacer */
+/* จอกว้าง: เมนูลอยกึ่งกลาง กว้างเท่าคอลัมน์การ์ด (1280) — brand/ปุ่ม action อยู่ขอบจอ */
+@media(min-width:1500px){
+  .topbar-inner>.spacer{display:block}      /* คืน spacer ดันปุ่ม action ไปขวาสุด */
+  .topbar-inner>.section-nav{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:100%;max-width:1280px;padding:0 16px;flex:0 1 auto}
+}
+@media(max-width:640px){
+  .topbar-inner>.spacer{display:block}
+  .topbar .section-nav{flex:1 1 100%;order:99;gap:6px}
+  .topbar .section-nav .sn-btn{flex:1 1 0;padding:10px 0;font-size:0;letter-spacing:0;justify-content:center;gap:0}
+  .topbar .section-nav .sn-btn svg{width:19px;height:19px}
+}
 .dot-live{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;position:relative;
   animation:liveGlow 1.6s ease-in-out infinite}
 .dot-live::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--ok);
@@ -217,15 +241,87 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border-radius:7px;cursor:pointer;transition:.2s}
 .icon-btn:hover{color:var(--accent);border-color:var(--accent)}
 .icon-btn svg{width:1.05em;height:1.05em}
+/* bell + alert badge */
+.bell-btn{position:relative;overflow:visible}
+.bell-btn.has-alert{color:var(--danger);border-color:var(--danger)}
+.bell-btn.has-alert svg{animation:bellShake 2s ease-in-out infinite}
+@keyframes bellShake{0%,88%,100%{transform:rotate(0)}90%{transform:rotate(12deg)}94%{transform:rotate(-10deg)}97%{transform:rotate(6deg)}}
+.bell-badge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;
+  background:var(--danger);color:#fff;font-family:var(--font-mono);font-size:.58rem;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--bg)}
+/* alerts modal pieces */
+.al-active{display:flex;flex-wrap:wrap;gap:8px}
+.al-ok{display:inline-flex;align-items:center;gap:6px;color:var(--ok);font-size:.78rem;font-family:var(--font-mono)}
+.al-ok svg{width:1.1em;height:1.1em}
+.al-chip{font-family:var(--font-mono);font-size:.68rem;padding:5px 11px;border-radius:8px;
+  border:1px solid color-mix(in srgb,var(--danger) 45%,transparent);color:var(--danger);
+  background:color-mix(in srgb,var(--danger) 10%,transparent)}
+.al-thr{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+@media(max-width:520px){.al-thr{grid-template-columns:1fr}}
+.al-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.al-row>span:first-child{display:inline-flex;align-items:center;gap:7px;font-size:.74rem;color:var(--dim);font-family:var(--font-mono)}
+.al-row svg{width:1.05em;height:1.05em;color:var(--accent)}
+.al-inwrap{display:inline-flex;align-items:center;gap:5px}
+.al-inwrap b{font-family:var(--font-mono);font-size:.68rem;color:var(--dim)}
+.al-inwrap input{width:58px;text-align:right;font-family:var(--font-display);font-size:.86rem;font-weight:700;
+  background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;outline:none}
+.al-inwrap input:focus{border-color:var(--accent)}
+.al-inwrap input:disabled{opacity:.55;cursor:not-allowed}
+.al-events{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto}
+.ev-row{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:9px;
+  background:var(--panel2);border:1px solid var(--border);font-size:.74rem}
+.ev-row svg{width:1.05em;height:1.05em;flex-shrink:0}
+.ev-msg{flex:1;color:var(--text);line-height:1.35}
+.ev-ts{font-family:var(--font-mono);font-size:.62rem;color:var(--dim);white-space:nowrap}
+.ev-danger{border-left:3px solid var(--danger)} .ev-danger svg{color:var(--danger)}
+.ev-ok{border-left:3px solid var(--ok)} .ev-ok svg{color:var(--ok)}
+.ev-warn{border-left:3px solid var(--warn)} .ev-warn svg{color:var(--warn)}
+.ev-info{border-left:3px solid var(--dim)} .ev-info svg{color:var(--dim)}
+/* 24h card metric toggle */
+.d24-tabs{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel2)}
+.d24-tab{font-family:var(--font-mono);font-size:.58rem;letter-spacing:1px;padding:5px 11px;border:none;
+  border-right:1px solid var(--border);background:transparent;color:var(--dim);cursor:pointer;transition:.15s}
+.d24-tab:last-child{border-right:none}
+.d24-tab:hover{color:var(--text)}
+.d24-tab.active{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text)}
+/* security: 2FA + sessions */
+.twofa-setup{display:flex;gap:14px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;flex-wrap:wrap}
+.twofa-qr{background:#fff;border-radius:8px;padding:6px;width:140px;height:140px;display:grid;place-items:center}
+.twofa-qr canvas,.twofa-qr img{display:block;width:128px!important;height:128px!important}
+.twofa-info{flex:1;min-width:180px;display:flex;flex-direction:column;gap:8px}
+.twofa-sub{font-size:.72rem;color:var(--dim);line-height:1.4}
+.twofa-secret{font-family:var(--font-mono);font-size:.66rem;color:var(--accent);word-break:break-all;
+  background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px}
+.twofa-verify{display:flex;gap:8px}
+.twofa-verify input{flex:1;font-family:var(--font-display);font-size:1rem;letter-spacing:4px;text-align:center;
+  background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px;outline:none}
+.twofa-verify input:focus{border-color:var(--accent)}
+.sec-sessions{display:flex;flex-direction:column;gap:7px}
+.sess-row{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:9px;
+  background:var(--panel2);border:1px solid var(--border);font-size:.72rem}
+.sess-row.cur{border-color:color-mix(in srgb,var(--ok) 45%,var(--border))}
+.sess-main{flex:1;min-width:0}
+.sess-ip{font-family:var(--font-mono);color:var(--text)}
+.sess-meta{color:var(--dim);font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess-cur-badge{font-size:.56rem;color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 45%,transparent);
+  border-radius:6px;padding:2px 6px;font-family:var(--font-mono)}
+.sess-revoke{flex-shrink:0;background:none;border:1px solid var(--border);color:var(--dim);
+  border-radius:6px;width:26px;height:26px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.sess-revoke:hover{color:var(--danger);border-color:var(--danger)}
+.sess-revoke svg{width:14px;height:14px}
 .btn-shutdown{border-color:rgba(255,107,0,.5);color:var(--accent)}
 .btn-shutdown:hover{background:rgba(255,107,0,.12);border-color:var(--accent);box-shadow:0 0 16px rgba(255,107,0,.2)}
-/* header mobile: สั้นลง — ซ่อน clock + ข้อความปุ่ม เหลือ icon */
+/* header mobile: สั้นลง — ซ่อน clock + ข้อความปุ่ม, ย่อให้พอดีจอ, เผื่อ safe-area (status bar PWA) */
 @media(max-width:640px){
   .clock{display:none}
   .btn-label{display:none}
-  .btn-reboot{padding:6px 9px}
   .brand-sub{display:none}
-  .topbar{gap:7px;padding:5px 10px}
+  .topbar{gap:5px;min-height:0;padding:calc(5px + env(safe-area-inset-top,0px)) 8px 5px}
+  .brand-mono{font-size:.92rem;letter-spacing:1px}
+  .mode-badge{padding:2px 7px;font-size:.55rem}
+  .icon-btn{width:30px;height:30px}
+  .btn-reboot{padding:6px 8px}
 }
 
 /* main layout */
@@ -252,16 +348,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-ram .sc-bar{background:var(--purple)} .sc-ram .sc-value{color:var(--purple)}
 .sc-disk .sc-bar{background:var(--warn)}  .sc-disk .sc-value{color:var(--warn)}
 /* ring gauge (วงแหวน % การใช้งาน) มุมขวาของการ์ด */
-.sc-ring{position:absolute;top:50%;right:14px;width:74px;height:74px;
+.sc-ring{position:absolute;top:50%;right:12px;width:94px;height:94px;
   transform:translateY(-50%) rotate(-90deg);pointer-events:none}
-.sc-ring circle{fill:none;stroke-width:4}
+.sc-ring circle{fill:none;stroke-width:6}
 .sc-ring-bg{stroke:var(--border)}
 .sc-ring-fg{stroke-linecap:round;stroke-dasharray:0 100;
   transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1),stroke .3s}
 .sc-temp .sc-ring-fg{stroke:var(--ok)}  .sc-cpu .sc-ring-fg{stroke:var(--info)}
 .sc-ram .sc-ring-fg{stroke:var(--purple)} .sc-disk .sc-ring-fg{stroke:var(--warn)}
 .lbl-short{display:none}
-@media(max-width:640px){.sc-ring{display:none}.lbl-full{display:none}.lbl-short{display:inline}}
+@media(max-width:640px){.sc-ring{display:none}.lbl-full{display:none}.lbl-short{display:inline}
+  /* มือถือ: ปิด glow ของตัวเลข + ทำการ์ดทึบ (กัน blob พื้นหลังทะลุการ์ดกระจกมาฟุ้งทับเลข) */
+  .sc-value{text-shadow:none!important}
+  .stat-card{background-color:var(--bg)!important;background-image:linear-gradient(var(--panel),var(--panel))!important;
+    -webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+}
 
 /* dual row: compare card + info card */
 .dual-row{display:grid;grid-template-columns:1fr 300px;gap:12px;margin-bottom:16px}
@@ -327,7 +428,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .chart-wrap{position:relative;width:100%}
 
 /* section nav */
-.section-nav{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.section-nav{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;
+  position:sticky;top:var(--topbar-h,50px);z-index:40;padding:10px 0;
+  background:var(--topbar-bg);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .sn-btn{font-family:var(--font-mono);font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;
   flex:1 1 0;min-width:118px;justify-content:center;
   padding:10px 14px;border:1px solid var(--border);color:var(--dim);
@@ -666,7 +769,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 :root[data-btnstyle="liquid-glass-dark"] .date-go{
   color:#fff;border-color:color-mix(in srgb,var(--accent) 50%,rgba(255,255,255,.3));
   background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,rgba(255,255,255,.16)),color-mix(in srgb,var(--accent) 30%,transparent));
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 5px color-mix(in srgb,var(--accent) 25%,transparent),0 8px 24px color-mix(in srgb,var(--accent) 50%,transparent)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 5px color-mix(in srgb,var(--accent) 25%,transparent),0 6px 17px color-mix(in srgb,var(--accent) 35%,transparent)}
 
 /* ── 13) LIQUID GLASS BLACK — graphite frosted pill (monochrome) ── */
 :root[data-btnstyle="liquid-glass-black"] .sn-btn,
@@ -702,6 +805,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 /* เคารพ no-anim — ปิด glitch/neon-pulse */
 :root.no-anim .sn-btn,:root.no-anim .date-quick,:root.no-anim .date-go{animation:none!important}
+
+/* มือถือ: เมนูเหลือไอคอนอย่างเดียว แถวเดียว เฉลี่ยกว้างเท่ากัน */
+@media(max-width:640px){
+  .section-nav{flex-wrap:nowrap;gap:6px;margin-bottom:12px}
+  .section-nav .sn-btn{flex:1 1 0;min-width:0;font-size:0;letter-spacing:0;gap:0;padding:11px 0;justify-content:center}
+  .section-nav .sn-btn svg{width:19px;height:19px}
+  :root[data-btnstyle="industrial"] .section-nav .sn-btn::before{display:none}
+  :root[data-btnstyle="cyber-glitch"] .section-nav .sn-btn::after{display:none}
+}
 
 /* summary mini */
 .sum-mini{display:flex;gap:14px;flex-wrap:wrap}
@@ -767,7 +879,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .pv-foot .modal-confirm svg{width:1.05em;height:1.05em}
 
 /* settings modal */
-.settings-box{max-width:480px;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 24px;max-height:86vh;overflow-y:auto}
+.settings-box{max-width:640px;width:92%;text-align:left;border-color:var(--border);box-shadow:0 0 48px rgba(0,0,0,.4);padding:22px 26px;max-height:86vh;overflow-y:auto;
+  background-color:var(--bg);background-image:linear-gradient(var(--panel),var(--panel)),linear-gradient(var(--panel),var(--panel));
+  -webkit-backdrop-filter:none;backdrop-filter:none}
 .set-row-inline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .set-hint{font-size:.82em;color:var(--dim);font-weight:400}
 .set-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
@@ -1134,6 +1248,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="login-brand"><span class="brand-mono">RPi</span> <span class="brand-sub">AJPAO-Monitor</span></div>
     <div class="login-sub">ใส่รหัสผ่านเพื่อเข้าใช้งาน</div>
     <input type="password" id="loginPw" class="login-input" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <input type="text" id="loginCode" class="login-input" placeholder="รหัส 2FA (6 หลัก)" inputmode="numeric" maxlength="6" autocomplete="one-time-code" style="display:none;text-align:center;letter-spacing:4px;font-family:var(--font-display)">
     <div class="login-err" id="loginErr"></div>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
   </div>
@@ -1152,19 +1267,34 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 <!-- Topbar -->
 <header class="topbar">
+ <div class="topbar-inner">
   <div class="dot-live" id="dotLive"></div>
   <div>
     <span class="brand-mono">RPi</span>
     <span class="brand-sub">AJPAO-Monitor</span>
   </div>
   <span class="mode-badge" id="modeBadge">…</span>
+  <!-- Toolsbar (tabs) — รวมอยู่ใน topbar -->
+  <div class="section-nav">
+    <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="layout-dashboard"></i>Dashboard</button>
+    <button class="sn-btn" id="navGrafana" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
+    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
+    <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
+    <button class="sn-btn" onclick="switchPanel('history',this)"><i data-lucide="activity"></i>History</button>
+    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
+    <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
+    <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
+    <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
+  </div>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
+  <button class="icon-btn bell-btn" id="alertBtn" onclick="openAlerts()" title="การแจ้งเตือน"><i data-lucide="bell"></i><span class="bell-badge" id="bellBadge" style="display:none">0</span></button>
   <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="สลับธีม สว่าง/มืด"><i data-lucide="moon"></i></button>
   <button class="icon-btn" id="settingsBtn" onclick="openSettings()" title="ตั้งค่าหน้าตา"><i data-lucide="settings"></i></button>
   <button class="btn-reboot" id="logoutBtn" onclick="doLogout()" style="display:none" title="ออกจากระบบ"><i data-lucide="log-out"></i></button>
   <button class="btn-reboot" id="rebootBtn" onclick="confirmPower('reboot')" title="Reboot"><i data-lucide="rotate-cw"></i><span class="btn-label">REBOOT</span></button>
   <button class="btn-reboot btn-shutdown" id="shutdownBtn" onclick="confirmPower('shutdown')" title="Shutdown"><i data-lucide="power"></i><span class="btn-label">SHUTDOWN</span></button>
+ </div>
 </header>
 
 <!-- Reboot Modal -->
@@ -1251,9 +1381,89 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button data-v="off" onclick="setUI('gfPage',false)">ปิด</button>
       </div>
     </div>
+
+    <!-- Security (LAN เท่านั้น) -->
+    <div class="set-row" id="secRow" style="border-top:1px solid var(--border);padding-top:16px">
+      <div class="set-lbl"><i data-lucide="shield" style="width:1em;height:1em;vertical-align:-2px"></i> ความปลอดภัย <span class="set-hint" id="secHint"></span></div>
+      <div id="secBody">
+        <div class="set-row-inline" style="margin-bottom:12px">
+          <div class="set-lbl" style="margin:0">2FA (Authenticator)</div>
+          <div class="set-opts" id="secTwofa">
+            <button data-v="on" onclick="twofaStart()">เปิด</button>
+            <button data-v="off" onclick="twofaDisable()">ปิด</button>
+          </div>
+        </div>
+        <div id="twofaSetup" class="twofa-setup" style="display:none">
+          <div class="twofa-qr"><div id="twofaQr"></div></div>
+          <div class="twofa-info">
+            <div class="twofa-sub">สแกน QR ด้วยแอป Authenticator แล้วใส่รหัส 6 หลักเพื่อยืนยัน</div>
+            <div class="twofa-secret" id="twofaSecret"></div>
+            <div class="twofa-verify">
+              <input type="text" id="twofaCode" inputmode="numeric" maxlength="6" placeholder="000000">
+              <button class="note-add" onclick="twofaConfirm()"><i data-lucide="check"></i>ยืนยัน</button>
+            </div>
+            <div class="set-note" id="twofaNote"></div>
+          </div>
+        </div>
+        <div class="set-lbl" style="margin:10px 0 8px">อุปกรณ์ที่ล็อกอินอยู่</div>
+        <div id="secSessions" class="sec-sessions"><div class="proc-empty">—</div></div>
+        <button class="note-sort" style="margin-top:10px" onclick="revokeOthers()"><i data-lucide="log-out"></i>ออกจากระบบอุปกรณ์อื่นทั้งหมด</button>
+      </div>
+    </div>
+
     <div class="set-foot">
       <button class="set-reset" onclick="resetSettings()"><i data-lucide="rotate-ccw"></i>รีเซ็ตค่าเริ่มต้น</button>
       <span class="set-note" id="setSyncNote"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Alerts & Event Log modal -->
+<div class="modal-bg" id="alertsModal">
+  <div class="modal-box settings-box">
+    <div class="set-head">
+      <div class="cc-title"><i data-lucide="bell"></i>การแจ้งเตือน &amp; Event Log</div>
+      <button class="icon-btn" onclick="closeAlerts()"><i data-lucide="x"></i></button>
+    </div>
+
+    <div class="set-row">
+      <div class="set-lbl">สถานะตอนนี้</div>
+      <div id="alActive" class="al-active"></div>
+    </div>
+
+    <div class="set-row">
+      <div class="set-lbl">เกณฑ์แจ้งเตือน (Threshold) <span class="set-hint" id="alLanHint"></span></div>
+      <div class="al-thr">
+        <label class="al-row"><span><i data-lucide="thermometer"></i>อุณหภูมิ ≥</span><span class="al-inwrap"><input type="number" id="alTemp" min="0" max="120" step="1"><b>°C</b></span></label>
+        <label class="al-row"><span><i data-lucide="cpu"></i>CPU ≥</span><span class="al-inwrap"><input type="number" id="alCpu" min="0" max="100" step="1"><b>%</b></span></label>
+        <label class="al-row"><span><i data-lucide="memory-stick"></i>RAM ≥</span><span class="al-inwrap"><input type="number" id="alRam" min="0" max="100" step="1"><b>%</b></span></label>
+        <label class="al-row"><span><i data-lucide="hard-drive"></i>Disk ≥</span><span class="al-inwrap"><input type="number" id="alDisk" min="0" max="100" step="1"><b>%</b></span></label>
+      </div>
+    </div>
+
+    <div class="set-row set-row-inline">
+      <div class="set-lbl" style="margin:0">เปิดระบบแจ้งเตือน</div>
+      <div class="set-opts" id="alEnabled">
+        <button data-v="on" onclick="alSetToggle('enabled',true)">เปิด</button>
+        <button data-v="off" onclick="alSetToggle('enabled',false)">ปิด</button>
+      </div>
+    </div>
+    <div class="set-row set-row-inline">
+      <div class="set-lbl" style="margin:0">ส่งเข้า Telegram</div>
+      <div class="set-opts" id="alTelegram">
+        <button data-v="on" onclick="alSetToggle('telegram',true)">เปิด</button>
+        <button data-v="off" onclick="alSetToggle('telegram',false)">ปิด</button>
+      </div>
+    </div>
+
+    <div class="set-foot">
+      <button class="note-add" id="alSaveBtn" onclick="alSaveConfig()"><i data-lucide="save"></i>บันทึกเกณฑ์</button>
+      <span class="set-note" id="alSaveNote"></span>
+    </div>
+
+    <div class="set-row" style="margin-top:6px;margin-bottom:0">
+      <div class="set-lbl"><i data-lucide="history" style="width:1em;height:1em;vertical-align:-2px"></i> Event Log ล่าสุด</div>
+      <div id="alEvents" class="al-events"><div class="proc-empty">กำลังโหลด…</div></div>
     </div>
   </div>
 </div>
@@ -1290,19 +1500,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <div class="page">
 <div class="container">
 
-  <!-- Toolsbar (tabs) — บนสุดของหน้า -->
-  <div class="section-nav">
-    <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="layout-dashboard"></i>Dashboard</button>
-    <button class="sn-btn" id="navGrafana" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
-    <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
-    <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
-    <button class="sn-btn" onclick="switchPanel('history',this)"><i data-lucide="activity"></i>History</button>
-    <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
-    <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
-    <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
-    <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
-  </div>
-
   <!-- Dashboard head (stat cards + compare + Pi info) — โชว์เฉพาะแท็บ อุณหภูมิ -->
   <div id="dashHead">
 
@@ -1310,28 +1507,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="stat-grid">
     <div class="stat-card sc-temp">
       <div class="sc-bar"></div>
-      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sTempRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sTempRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="thermometer"></i><span class="lbl-full">Temperature</span><span class="lbl-short">Temp</span></div>
       <div class="sc-value" id="sTemp">--.-°</div>
       <div class="sc-sub" id="sTempSub">--</div>
     </div>
     <div class="stat-card sc-cpu">
       <div class="sc-bar"></div>
-      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sCpuRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sCpuRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="cpu"></i>CPU</div>
       <div class="sc-value" id="sCpu">--.-%</div>
       <div class="sc-sub">Processing</div>
     </div>
     <div class="stat-card sc-ram">
       <div class="sc-bar"></div>
-      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sRamRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sRamRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="memory-stick"></i>RAM</div>
       <div class="sc-value" id="sRam">--.-%</div>
       <div class="sc-sub" id="sRamSub">ว่าง -- MB</div>
     </div>
     <div class="stat-card sc-disk">
       <div class="sc-bar"></div>
-      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sDiskRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sDiskRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="hard-drive"></i>Disk</div>
       <div class="sc-value" id="sDisk">--.-%</div>
       <div class="sc-sub" id="sDiskSub">ว่าง -- GB</div>
@@ -1360,6 +1557,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <div class="cc-title"><i data-lucide="activity"></i>ข้อมูล Pi</div>
       </div>
       <div class="info-row"><span class="ir-label"><i data-lucide="activity"></i>Status</span><span class="ir-val online" id="iPiStatus"><span class="live-dot"></span>ONLINE</span></div>
+      <div class="info-row"><span class="ir-label"><i data-lucide="heart-pulse"></i>Health Score</span><span class="ir-val" id="iHealth">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="cpu"></i>Model</span><span class="ir-val" id="iModel">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="tag"></i>Hostname</span><span class="ir-val" id="iHostname">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="iIP">--</span></div>
@@ -1370,13 +1568,19 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- การ์ด อุณหภูมิ 24 ชม. (ใช้ข้อมูลจากระบบ History) -->
+  <!-- การ์ด 24 ชม. (สลับ metric ได้ — ใช้ข้อมูลจากระบบ History) -->
   <div class="chart-card" style="margin-bottom:16px">
     <div class="cc-head">
-      <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิ — 24 ชม.</div>
-      <div class="sum-mini" id="dash24Sum"></div>
+      <div class="cc-title"><i data-lucide="activity"></i><span id="dash24Title">อุณหภูมิ</span> — 24 ชม.</div>
+      <div class="d24-tabs" id="dash24Tabs">
+        <button class="d24-tab active" data-m="temp" onclick="setDash24('temp')">TEMP</button>
+        <button class="d24-tab" data-m="cpu" onclick="setDash24('cpu')">CPU</button>
+        <button class="d24-tab" data-m="ram" onclick="setDash24('ram')">RAM</button>
+        <button class="d24-tab" data-m="disk" onclick="setDash24('disk')">DISK</button>
+      </div>
     </div>
     <div class="chart-wrap" style="height:200px"><canvas id="dash24Chart"></canvas></div>
+    <div class="sum-mini" id="dash24Sum" style="margin-top:10px;justify-content:center"></div>
   </div>
 
   </div><!-- /dashHead -->

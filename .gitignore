@@ -9,6 +9,8 @@ files/
 # ─── notes / settings (fallback local store) ───
 notes.json
 ui_settings.json
+alert_config.json
+twofa.json
 
 # ─── ฐานข้อมูล local ───
 *.db
