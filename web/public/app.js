@@ -2019,25 +2019,17 @@ function hideLogin(){ document.getElementById('loginGate').style.display='none';
 
 async function doLogin(){
   const pw   = document.getElementById('loginPw').value;
-  const code = document.getElementById('loginCode').value.trim();
   const err  = document.getElementById('loginErr');
   const btn  = document.getElementById('loginBtn');
   btn.disabled = true; err.textContent = '';
   try {
     const r = await fetch('/api/login',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({password:pw, code}),
+      body:JSON.stringify({password:pw}),
     });
     if(r.ok){ hideLogin(); startLocal(); return; }
     const d=await r.json().catch(()=>({}));
-    if(d.need_2fa){            // รหัสผ่านถูก แต่ต้องใส่ 2FA
-      const ci=document.getElementById('loginCode');
-      ci.style.display='block'; ci.focus();
-      ci.onkeydown = e => { if(e.key==='Enter') doLogin(); };
-      err.textContent = d.error || 'ใส่รหัส 2FA จากแอป Authenticator';
-    } else {
-      err.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
-    }
+    err.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
     btn.disabled=false;
   } catch(e){ err.textContent='เชื่อมต่อไม่ได้'; btn.disabled=false; }
 }
@@ -2048,52 +2040,13 @@ async function doLogout(){
   location.reload();
 }
 
-// ─── security: sessions + 2FA (LAN เท่านั้น) ─────────────────────────────────────
-let TWOFA_ON = false;
+// ─── security: sessions (LAN เท่านั้น) ───────────────────────────────────────────
 async function loadSecurity(){
   const row=document.getElementById('secRow'); if(!row) return;
   if(MODE!=='local'){ row.style.display='none'; return; }
   row.style.display='';
   document.getElementById('secHint').textContent='';
-  document.getElementById('twofaSetup').style.display='none';
-  try{ const s=await fetch('/api/2fa/status').then(r=>r.json()); render2faToggle(s.enabled); }catch(e){}
   loadSessions();
-}
-function render2faToggle(enabled){
-  TWOFA_ON=!!enabled;
-  document.querySelectorAll('#secTwofa button').forEach(b=>b.classList.toggle('on',(b.dataset.v==='on')===!!enabled));
-}
-async function twofaStart(){
-  if(TWOFA_ON){ render2faToggle(true); return; }
-  try{
-    const d=await fetch('/api/2fa/setup',{method:'POST'}).then(r=>r.json());
-    document.getElementById('twofaSetup').style.display='flex';
-    document.getElementById('twofaSecret').textContent='Secret: '+d.secret;
-    document.getElementById('twofaNote').textContent='';
-    const ci=document.getElementById('twofaCode'); ci.value='';
-    const qr=document.getElementById('twofaQr'); qr.innerHTML='';
-    if(window.QRCode){ new QRCode(qr, { text:d.uri, width:128, height:128, colorDark:'#000000', colorLight:'#ffffff', correctLevel:QRCode.CorrectLevel.M }); }
-    else { qr.textContent='QR โหลดไม่ได้ — ใช้ Secret ด้านล่างกรอกมือแทน'; }
-    ci.focus(); ci.onkeydown=e=>{ if(e.key==='Enter') twofaConfirm(); };
-  }catch(e){ toast('เริ่ม 2FA ไม่สำเร็จ','error'); }
-}
-async function twofaConfirm(){
-  const code=document.getElementById('twofaCode').value.trim();
-  try{
-    const r=await fetch('/api/2fa/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})}).then(r=>r.json());
-    if(r.ok){ document.getElementById('twofaSetup').style.display='none'; render2faToggle(true); toast('เปิด 2FA แล้ว','ok'); }
-    else document.getElementById('twofaNote').textContent=r.error||'รหัสไม่ถูกต้อง';
-  }catch(e){ document.getElementById('twofaNote').textContent='ผิดพลาด'; }
-}
-async function twofaDisable(){
-  if(!TWOFA_ON){ render2faToggle(false); return; }
-  const code=prompt('ใส่รหัส 2FA 6 หลักเพื่อปิดการใช้งาน:');
-  if(code===null){ render2faToggle(true); return; }
-  try{
-    const r=await fetch('/api/2fa/disable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code.trim()})}).then(r=>r.json());
-    if(r.ok){ render2faToggle(false); document.getElementById('twofaSetup').style.display='none'; toast('ปิด 2FA แล้ว','ok'); }
-    else { toast(r.error||'รหัสไม่ถูกต้อง','error'); render2faToggle(true); }
-  }catch(e){ toast('ผิดพลาด','error'); }
 }
 async function loadSessions(){
   const el=document.getElementById('secSessions'); if(!el) return;

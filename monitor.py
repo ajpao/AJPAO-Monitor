@@ -285,10 +285,8 @@ def cleanup_old_data():
         print(f"[cleanup] error: {e}")
 
 
-# ─── sessions + 2FA (security) ───────────────────────────────────────────────────
-import base64, hashlib, hmac, secrets as _secrets
-
-TWOFA_FILE = os.path.join(BASE_DIR, "twofa.json")
+# ─── sessions (security) ─────────────────────────────────────────────────────────
+import hmac, secrets as _secrets
 
 def _now_str():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -322,42 +320,6 @@ def session_delete(sid):
     if not sid:
         return
     con = sqlite3.connect(DB_PATH); con.execute("DELETE FROM sessions WHERE sid = ?", (sid,)); con.commit(); con.close()
-
-def load_twofa():
-    try:
-        with open(TWOFA_FILE) as f:
-            return json.load(f)
-    except Exception:
-        return {"enabled": False, "secret": ""}
-
-def save_twofa(d):
-    with open(TWOFA_FILE, "w") as f:
-        json.dump(d, f)
-    try:
-        os.chmod(TWOFA_FILE, 0o600)
-    except Exception:
-        pass
-
-def gen_secret():
-    return base64.b32encode(_secrets.token_bytes(20)).decode().rstrip("=")
-
-def _totp_at(secret, t, step=30, digits=6):
-    key = base64.b32decode(secret + "=" * (-len(secret) % 8), casefold=True)
-    counter = struct.pack(">Q", int(t) // step)
-    h = hmac.new(key, counter, hashlib.sha1).digest()
-    o = h[-1] & 0x0F
-    code = (struct.unpack(">I", h[o:o+4])[0] & 0x7FFFFFFF) % (10 ** digits)
-    return str(code).zfill(digits)
-
-def totp_verify(secret, code, window=1):
-    if not secret or not code:
-        return False
-    code = str(code).strip()
-    now = time.time()
-    for w in range(-window, window + 1):
-        if _totp_at(secret, now + w * 30) == code:
-            return True
-    return False
 
 
 # ─── metrics ────────────────────────────────────────────────────────────────────
@@ -985,7 +947,6 @@ def api_me():
     return jsonify({
         "authed": authed,
         "auth_required": bool(WEB_PASSWORD),
-        "twofa": load_twofa().get("enabled", False),
     })
 
 
@@ -997,21 +958,12 @@ def _client_ip():
 def api_login():
     data = request.get_json(silent=True) or {}
     pw = data.get("password") or ""
-    code = (data.get("code") or "").strip()
     ip = _client_ip()
     ua = (request.headers.get("User-Agent") or "")[:140]
 
     if not (WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD)):
         log_event("login", "auth", None, "danger", f"เข้าสู่ระบบล้มเหลว (รหัสผิด) — {ip}")
         return jsonify({"ok": False, "error": "รหัสผ่านไม่ถูกต้อง"}), 401
-
-    tf = load_twofa()
-    if tf.get("enabled"):
-        if not code:
-            return jsonify({"ok": False, "need_2fa": True}), 401      # รหัสผ่านผ่าน รอ code
-        if not totp_verify(tf.get("secret"), code):
-            log_event("login", "auth", None, "danger", f"2FA ไม่ถูกต้อง — {ip}")
-            return jsonify({"ok": False, "need_2fa": True, "error": "รหัส 2FA ไม่ถูกต้อง"}), 401
 
     sid = session_create(ip, ua)
     session["authed"] = True
@@ -1028,7 +980,7 @@ def api_logout():
     return jsonify({"ok": True})
 
 
-# ─── security: sessions + 2FA ─────────────────────────────────────────────────────
+# ─── security: sessions ────────────────────────────────────────────────────────────
 
 @flask_app.route("/api/sessions")
 @require_auth
@@ -1054,46 +1006,6 @@ def api_sessions_revoke():
         session_delete(data["sid"])
         log_event("info", "auth", None, "warn", f"เพิกถอน session {str(data['sid'])[:8]}…")
     return jsonify({"ok": True})
-
-
-@flask_app.route("/api/2fa/status")
-@require_auth
-def api_2fa_status():
-    return jsonify({"enabled": load_twofa().get("enabled", False)})
-
-
-@flask_app.route("/api/2fa/setup", methods=["POST"])
-@require_auth
-def api_2fa_setup():
-    secret = gen_secret()
-    save_twofa({"enabled": False, "secret": secret})   # ยังไม่เปิดจนกว่าจะยืนยัน code
-    uri = f"otpauth://totp/AJPAO-Monitor?secret={secret}&issuer=AJPAO-Monitor"
-    return jsonify({"secret": secret, "uri": uri})
-
-
-@flask_app.route("/api/2fa/enable", methods=["POST"])
-@require_auth
-def api_2fa_enable():
-    data = request.get_json(silent=True) or {}
-    tf = load_twofa()
-    if totp_verify(tf.get("secret"), data.get("code")):
-        tf["enabled"] = True
-        save_twofa(tf)
-        log_event("info", "auth", None, "ok", "เปิดใช้งาน 2FA")
-        return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "รหัส 2FA ไม่ถูกต้อง"}), 400
-
-
-@flask_app.route("/api/2fa/disable", methods=["POST"])
-@require_auth
-def api_2fa_disable():
-    data = request.get_json(silent=True) or {}
-    tf = load_twofa()
-    if (not tf.get("enabled")) or totp_verify(tf.get("secret"), data.get("code")):
-        save_twofa({"enabled": False, "secret": ""})
-        log_event("info", "auth", None, "warn", "ปิดใช้งาน 2FA")
-        return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "รหัส 2FA ไม่ถูกต้อง"}), 400
 
 
 @flask_app.route("/api/status")
