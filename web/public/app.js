@@ -1410,7 +1410,7 @@ function drawFiles(){
       <td class="num">${fmtFileSize(f.size)}</td>
       <td class="ft-time hide-sm">${fmtFileTime(f.mtime)}</td>
       <td><div class="ft-act">
-        ${(isText||isImage)?`<button class="ft-btn pv" onclick="previewFile('${enc}')" title="พรีวิว"><i data-lucide="${isImage?'image':'eye'}"></i></button>`:''}
+        ${(isText||isImage)?`<button class="ft-btn pv" onclick="previewFile('${enc}')" title="พรีวิว"><i data-lucide="eye"></i></button>`:''}
         <button class="ft-btn dl" onclick="downloadFile('${enc}')"><i data-lucide="download"></i>โหลด</button>
         <button class="ft-btn rn" onclick="renameFile('${enc}')" title="เปลี่ยนชื่อ"><i data-lucide="pencil"></i></button>
         <button class="ft-btn del" onclick="deleteFile('${enc}')"><i data-lucide="trash-2"></i></button>
