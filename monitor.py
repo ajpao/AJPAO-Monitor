@@ -853,6 +853,66 @@ def api_history():
     return jsonify({"labels": labels, "data": data})
 
 
+@flask_app.route("/api/history_range")
+@require_auth
+def api_history_range():
+    """กราฟย้อนหลัง temp/cpu/ram ตามช่วงที่เลือก — bucket อัตโนมัติ
+       24h → ราย 1 ชม. | 7d → ราย 3 ชม. | 30d → รายวัน"""
+    rng = request.args.get("range", "24h")
+    cfg = {
+        "24h": (timedelta(hours=24), 3600),       # bucket 1 ชม.
+        "7d":  (timedelta(days=7),   3 * 3600),   # bucket 3 ชม.
+        "30d": (timedelta(days=30),  86400),      # bucket 1 วัน
+    }.get(rng)
+    if not cfg:
+        rng, cfg = "24h", (timedelta(hours=24), 3600)
+    span, bucket = cfg
+    day_mode = (bucket >= 86400)
+    since = (datetime.now() - span).strftime("%Y-%m-%d %H:%M:%S")
+    rows = query("SELECT timestamp, temp_c, cpu_pct, ram_pct, disk_pct FROM temperature "
+                 "WHERE timestamp >= ? ORDER BY timestamp", (since,))
+
+    buckets = {}   # key → {"t":[], "c":[], "r":[], "d":[], "ord":epoch}
+    for ts, temp, cpu, ram, disk in rows:
+        dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+        if day_mode:
+            key = dt.strftime("%Y-%m-%d")
+            ordv = dt.replace(hour=0, minute=0, second=0).timestamp()
+        else:
+            epoch = int(dt.timestamp())
+            key = epoch - (epoch % bucket)
+            ordv = key
+        b = buckets.get(key)
+        if b is None:
+            b = buckets[key] = {"t": [], "c": [], "r": [], "d": [], "ord": ordv}
+        if temp is not None: b["t"].append(temp)
+        if cpu  is not None: b["c"].append(cpu)
+        if ram  is not None: b["r"].append(ram)
+        if disk is not None: b["d"].append(disk)
+
+    keys = sorted(buckets, key=lambda k: buckets[k]["ord"])
+    avg = lambda a: round(sum(a) / len(a), 1) if a else None
+
+    def label(k):
+        b = buckets[k]
+        d = datetime.fromtimestamp(b["ord"])
+        if day_mode:
+            return f"{d.day}/{d.month}"
+        if rng == "24h":
+            return f"{d.hour:02d}:{d.minute:02d}"
+        return f"{d.day}/{d.month} {d.hour:02d}:00"
+
+    return jsonify({
+        "range":  rng,
+        "labels": [label(k) for k in keys],
+        "temp":   [avg(buckets[k]["t"]) for k in keys],
+        "cpu":    [avg(buckets[k]["c"]) for k in keys],
+        "ram":    [avg(buckets[k]["r"]) for k in keys],
+        "disk":   [avg(buckets[k]["d"]) for k in keys],
+        "count":  len(rows),
+    })
+
+
 @flask_app.route("/api/monthly")
 @require_auth
 def api_monthly():

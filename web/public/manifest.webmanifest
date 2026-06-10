@@ -1,0 +1,17 @@
+{
+  "name": "AJPAO Monitor",
+  "short_name": "Monitor",
+  "description": "Raspberry Pi system monitor — temp / CPU / RAM / disk, history, terminal & files",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#060a14",
+  "theme_color": "#060a14",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -61,10 +61,32 @@ const THEMES = [
   { id:'ocean',     name:'Deep Ocean',      bg:'#0c2840', ac:'#ff7e5f', tx:'#e8f4ff' },
   { id:'obsidian',  name:'Luxury Obsidian', bg:'#181715', ac:'#d4af37', tx:'#ece6d8' },
   { id:'superblack',name:'Super Black OLED', bg:'#000000', ac:'#0a84ff', tx:'#f5f5f7' },
+  { id:'liquidglass',name:'Liquid Glass',   bg:'#eaf0fb', ac:'#0a84ff', tx:'#1c1c2e' },
+  { id:'liquidglassdark',name:'Liquid Glass Dark', bg:'#0b1020', ac:'#0a84ff', tx:'#f2f5fb' },
+  { id:'liquidglassblack',name:'Liquid Glass Black', bg:'#0a0a0c', ac:'#0a84ff', tx:'#f4f4f6' },
 ];
 const THEME_IDS = THEMES.map(t=>t.id);
-const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic']);
-const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true, gfPage:true };
+const LIGHT_THEMES = new Set(['clean','minimal','solarized','nordic','liquidglass']);
+const UI_DEFAULT = { theme:'cyber', scale:23.5, numFont:'jetbrains', accent:'', uiFont:'inter', bgFx:true, anim:true, gfPage:true, btnStyle:'default' };
+
+// 10 สไตล์ปุ่ม/เมนู (+ default = ดีไซน์ปัจจุบัน)
+const BTN_STYLES = [
+  { id:'default',      name:'Default' },
+  { id:'cyber-neon',   name:'Cyber Neon' },
+  { id:'rounded-soft', name:'Rounded Soft' },
+  { id:'flat-minimal', name:'Flat Minimal' },
+  { id:'retro-8bit',   name:'Retro 8-Bit' },
+  { id:'glass-frost',  name:'Glass Frost' },
+  { id:'industrial',   name:'Industrial' },
+  { id:'luxury-gold',  name:'Luxury Gold' },
+  { id:'skeuo-3d',     name:'Skeuomorphic 3D' },
+  { id:'nordic-split', name:'Nordic Split' },
+  { id:'cyber-glitch', name:'Cyberpunk Glitch' },
+  { id:'liquid-glass', name:'Liquid Glass' },
+  { id:'liquid-glass-dark', name:'Liquid Glass Dark' },
+  { id:'liquid-glass-black', name:'Liquid Glass Black' },
+];
+const BTN_STYLE_IDS = BTN_STYLES.map(s=>s.id);
 
 // แปลงค่าเก่า (dark/light) → ชื่อธีมใหม่
 function migrateTheme(s){
@@ -96,6 +118,7 @@ function applySettings(){
   r.classList.toggle('no-anim', UI.anim===false);
   const nav=document.getElementById('navGrafana');
   if(nav) nav.style.display = (UI.gfPage===false) ? 'none' : '';
+  r.setAttribute('data-btnstyle', BTN_STYLE_IDS.includes(UI.btnStyle)?UI.btnStyle:'default');
 }
 
 function syncChartColors(){
@@ -114,9 +137,11 @@ function applyThemeIcon(){
 function rerenderCharts(){
   syncChartColors();
   if(typeof loadCompare==='function') loadCompare();
+  if(typeof loadDash24==='function') loadDash24();
   if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); }
   else if(currentPanel==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
   else if(currentPanel==='temp') loadDatePanel('temp');
+  else if(currentPanel==='history') loadHistory(histRange);
   else if(currentPanel==='grafana') gfRerender();
 }
 
@@ -157,6 +182,9 @@ function renderSettingsControls(){
   document.querySelectorAll('#setBgFx button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.bgFx!==false)));
   document.querySelectorAll('#setAnim button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.anim!==false)));
   document.querySelectorAll('#setGfPage button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.gfPage!==false)));
+  const bs=document.getElementById('setBtnStyle');
+  if(bs){ bs.innerHTML = BTN_STYLES.map(s=>`<button data-v="${s.id}" onclick="setUI('btnStyle','${s.id}')">${s.name}</button>`).join('');
+    bs.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.v===(UI.btnStyle||'default'))); }
   const sc=document.getElementById('setScale'); if(sc){ sc.value=UI.scale; document.getElementById('setScaleVal').textContent=UI.scale+'px'; }
   const sw=document.getElementById('setAccent');
   if(sw){ sw.innerHTML=
@@ -708,6 +736,18 @@ async function loadCompare(){
   } catch(e){ console.error('compare error',e); }
 }
 
+// การ์ดอุณหภูมิ 24 ชม. บน dashboard (ใช้ระบบ History เดิม)
+async function loadDash24(){
+  try{
+    const el=document.getElementById('dash24Chart'); if(!el) return;
+    const d=await fetchHistory('24h');
+    const sum=document.getElementById('dash24Sum');
+    if(!d.labels||!d.labels.length){ destroyChart('dash24Chart'); if(sum) sum.innerHTML=''; return; }
+    makeHistChart('dash24Chart', d.labels, d.temp, C.accent, '°C');
+    if(sum) sum.innerHTML = summaryHtml(d.temp,'°C');
+  }catch(e){ console.error('dash24 error',e); }
+}
+
 // ─── load date panel ──────────────────────────────────────────────────────────
 
 async function loadDatePanel(type){
@@ -783,6 +823,114 @@ async function loadMonthly(){
     document.getElementById('mDiskSum').innerHTML = summaryHtml(sys.disk,'%');
   } catch(e){ console.error('monthly error',e); }
 }
+
+// ─── history (24h / 7d / 30d) ──────────────────────────────────────────────────
+
+let histRange = '24h';
+const HIST_LABELS = { '24h':'24 ชม.', '7d':'7 วัน', '30d':'30 วัน' };
+
+async function fetchHistory(range){
+  return MODE==='local' ? localFetchHistory(range) : cloudFetchHistory(range);
+}
+async function localFetchHistory(range){
+  return fetch(`/api/history_range?range=${range}`).then(r=>r.json());
+}
+async function cloudFetchHistory(range){
+  const now = Date.now();
+  const spanMs   = { '24h':24*3600e3, '7d':7*864e5, '30d':30*864e5 }[range] || 24*3600e3;
+  const bucketMs = range==='24h' ? 3600e3 : range==='7d' ? 3*3600e3 : 864e5;
+  const dayMode  = range==='30d';
+  const start = new Date(now - spanMs);
+  const snap  = await db.collection('readings').where('ts','>=',start).orderBy('ts').get();
+  const buckets = {};
+  snap.forEach(doc=>{
+    const x=doc.data(), dt=x.ts.toDate();
+    let key, ord;
+    if(dayMode){ key=`${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+                 ord=new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()).getTime(); }
+    else { key=Math.floor(dt.getTime()/bucketMs)*bucketMs; ord=key; }
+    const b = buckets[key] || (buckets[key]={t:[],c:[],r:[],d:[],ord});
+    if(x.temp_c!=null) b.t.push(x.temp_c);
+    if(x.cpu_pct!=null) b.c.push(x.cpu_pct);
+    if(x.ram_pct!=null) b.r.push(x.ram_pct);
+    if(x.disk_pct!=null) b.d.push(x.disk_pct);
+  });
+  const keys = Object.keys(buckets).sort((a,b)=>buckets[a].ord-buckets[b].ord);
+  const avg = a=>a.length?Math.round(a.reduce((p,q)=>p+q,0)/a.length*10)/10:null;
+  const lbl = k=>{
+    const d=new Date(buckets[k].ord);
+    if(dayMode) return `${d.getDate()}/${d.getMonth()+1}`;
+    if(range==='24h') return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    return `${d.getDate()}/${d.getMonth()+1} ${pad2(d.getHours())}:00`;
+  };
+  return { range, labels:keys.map(lbl),
+           temp:keys.map(k=>avg(buckets[k].t)), cpu:keys.map(k=>avg(buckets[k].c)),
+           ram:keys.map(k=>avg(buckets[k].r)), disk:keys.map(k=>avg(buckets[k].d)), count:snap.size };
+}
+
+// line chart สำหรับ history (จุดเยอะ — ปิด datalabels, เน้นเส้น + พื้นไล่สี)
+function makeHistChart(id, labels, data, color, unit){
+  destroyChart(id);
+  const el=document.getElementById(id); if(!el) return;
+  const vals=(data||[]).filter(v=>v!=null);
+  if(!vals.length) return;
+  const ny=niceY(Math.min(...vals), Math.max(...vals), unit==='°C'?5:8);
+  const ctx=el.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,0,el.clientHeight||220);
+  grad.addColorStop(0,color+'55'); grad.addColorStop(1,color+'08');
+  charts[id]=new Chart(el,{
+    type:'line',
+    data:{labels,datasets:[{
+      data, borderColor:color, backgroundColor:grad, fill:true,
+      borderWidth:2, tension:0.35, pointRadius:0, pointHoverRadius:4,
+      pointHoverBackgroundColor:color, spanGaps:true }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.y==null?'-':ctx.parsed.y.toFixed(1)}${unit}`},
+          backgroundColor:'rgba(12,20,36,.95)',borderColor:'rgba(29,47,80,.8)',borderWidth:1,
+          titleColor:C.dim,bodyColor:C.text,padding:10},
+        datalabels:{display:false},
+      },
+      scales:{
+        x:{ticks:{color:C.dim,font:{size:11,family:'Inter'},maxRotation:0,autoSkip:true,maxTicksLimit:8},
+           grid:{display:false}},
+        y:{min:ny.min,max:ny.max,
+           ticks:{color:C.dim,font:{size:12,family:'Inter'},stepSize:ny.step,callback:v=>Math.round(v)+unit},
+           grid:{color:C.grid}},
+      },
+    },
+  });
+}
+
+async function loadHistory(range){
+  histRange=range;
+  ['24h','7d','30d'].forEach(r=>document.getElementById('hq-'+r)?.classList.toggle('active', r===range));
+  const lblEl=document.getElementById('histRangeLabel'); if(lblEl) lblEl.textContent=HIST_LABELS[range];
+  try{
+    const d=await fetchHistory(range);
+    document.getElementById('histCount').textContent = d.count ? `${d.count} records` : '';
+    const noData=document.getElementById('histNoData'), canvas=document.getElementById('histTempChart');
+    if(!d.labels||!d.labels.length){
+      noData.style.display='flex'; canvas.style.display='none';
+      ['histTempSum','histCpuSum','histRamSum','histDiskSum'].forEach(id=>{const e=document.getElementById(id); if(e) e.innerHTML='';});
+      destroyChart('histCpuChart'); destroyChart('histRamChart'); destroyChart('histDiskChart');
+      return;
+    }
+    noData.style.display='none'; canvas.style.display='block';
+    makeHistChart('histTempChart', d.labels, d.temp, C.accent, '°C');
+    makeHistChart('histCpuChart',  d.labels, d.cpu,  C.info,   '%');
+    makeHistChart('histRamChart',  d.labels, d.ram,  C.purple, '%');
+    makeHistChart('histDiskChart', d.labels, d.disk, C.warn,   '%');
+    document.getElementById('histTempSum').innerHTML = summaryHtml(d.temp,'°C');
+    document.getElementById('histCpuSum').innerHTML  = summaryHtml(d.cpu,'%');
+    document.getElementById('histRamSum').innerHTML  = summaryHtml(d.ram,'%');
+    document.getElementById('histDiskSum').innerHTML = summaryHtml(d.disk,'%');
+  }catch(e){ console.error('history error',e); }
+}
+function setupHistory(){ loadHistory(histRange); }
 
 // ─── device tab (network / OS / processes) ─────────────────────────────────────
 
@@ -1117,7 +1265,7 @@ function drawFiles(){
     const enc=encodeURIComponent(f.name);
     const isText=/\.(txt|log|md|markdown|csv|tsv|json|conf|cfg|ini|ya?ml|sh|bash|py|js|ts|css|html?|xml|env|service|list|properties)$/i.test(f.name);
     return `<tr>
-      <td>${agEsc(f.name)}</td>
+      <td class="ft-name" title="${agEsc(f.name)}">${agEsc(f.name)}</td>
       <td class="num">${fmtFileSize(f.size)}</td>
       <td class="ft-time hide-sm">${fmtFileTime(f.mtime)}</td>
       <td><div class="ft-act">
@@ -1325,13 +1473,46 @@ async function noteDelete(id){
 
 // ─── status cards ─────────────────────────────────────────────────────────────
 
+// อัปเดตวงแหวน % การใช้งาน (pathLength=100 → dasharray เป็นเปอร์เซ็นต์ตรง ๆ)
+function setRing(id, pct, color){
+  const el=document.getElementById(id); if(!el) return;
+  const p=Math.max(0,Math.min(100,pct||0));
+  el.style.strokeDasharray = `${p.toFixed(1)} 100`;
+  if(color) el.style.stroke = color;
+}
+
+// ไล่สีต่อเนื่องตามค่า — interpolate ระหว่าง stops [[value,hex],...] (เรียงน้อย→มาก)
+function _hx(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; }
+function rampColor(v, stops){
+  if(v<=stops[0][0]) return stops[0][1];
+  const last=stops[stops.length-1];
+  if(v>=last[0]) return last[1];
+  for(let i=0;i<stops.length-1;i++){
+    const [v0,c0]=stops[i], [v1,c1]=stops[i+1];
+    if(v>=v0 && v<=v1){
+      const t=(v-v0)/(v1-v0), a=_hx(c0), b=_hx(c1);
+      const m=k=>Math.round(a[k]+(b[k]-a[k])*t).toString(16).padStart(2,'0');
+      return '#'+m(0)+m(1)+m(2);
+    }
+  }
+  return last[1];
+}
+// คงสีประจำการ์ดตอนค่าต่ำ แล้วเฟด → ส้ม → แดง ตอนค่าสูง (temp ใช้ °C, ที่เหลือใช้ %)
+const RING_RAMP = {
+  temp: [[50,C.ok],   [57,C.warn], [64,C.accent], [73,C.danger]],
+  cpu:  [[0, C.info], [55,C.accent], [80,C.danger]],
+  ram:  [[0, C.purple],[60,C.accent], [82,C.danger]],
+  disk: [[0, C.warn], [72,C.accent], [92,C.danger]],
+};
+
 function updateCards(d){
   if(!d) return;
-  const tc = d.temp>=70?C.danger:d.temp>=55?C.accent:d.temp>=50?C.warn:C.info;
+  const tc = d.temp>=70?C.danger:d.temp>=55?C.accent:d.temp>=50?C.warn:C.ok;
   const tempEl = document.getElementById('sTemp');
   tempEl.textContent = d.temp.toFixed(1)+'°';
   tempEl.style.color = tc;
   document.querySelector('.sc-temp .sc-bar').style.background = tc;
+  setRing('sTempRing', d.temp/90*100, rampColor(d.temp, RING_RAMP.temp));   // temp เทียบสเกล 0–90°C
   const st = d.temp>=70?'🔥 ร้อนมาก!':d.temp>=55?'⚠️ อุ่น':d.temp>=50?'🟡 เริ่มอุ่น':'✅ ปกติ';
   document.getElementById('sTempSub').textContent = st;
 
@@ -1339,18 +1520,21 @@ function updateCards(d){
   document.getElementById('sCpu').textContent = d.cpu.toFixed(1)+'%';
   document.getElementById('sCpu').style.color = cpuC;
   document.querySelector('.sc-cpu .sc-bar').style.background = cpuC;
+  setRing('sCpuRing', d.cpu, rampColor(d.cpu, RING_RAMP.cpu));
 
   const ramC = d.ram>=80?C.danger:d.ram>=60?C.accent:C.purple;
   document.getElementById('sRam').textContent = d.ram.toFixed(1)+'%';
   document.getElementById('sRam').style.color = ramC;
   document.querySelector('.sc-ram .sc-bar').style.background = ramC;
   document.getElementById('sRamSub').textContent = `ว่าง ${d.ram_free_mb} MB`;
+  setRing('sRamRing', d.ram, rampColor(d.ram, RING_RAMP.ram));
 
   const diskC = d.disk>=90?C.danger:d.disk>=70?C.accent:C.warn;
   document.getElementById('sDisk').textContent = d.disk.toFixed(1)+'%';
   document.getElementById('sDisk').style.color = diskC;
   document.querySelector('.sc-disk .sc-bar').style.background = diskC;
   document.getElementById('sDiskSub').textContent = `ว่าง ${d.disk_free_gb} GB`;
+  setRing('sDiskRing', d.disk, rampColor(d.disk, RING_RAMP.disk));
 
   if(d.uptime) document.getElementById('iUptime').textContent = uptimeFmt(d.uptime);
   if(d.model)    setText('iModel', shortModel(d.model));
@@ -1587,6 +1771,7 @@ function switchPanel(name, btn){
     else if(name==='grafana') setupGrafana();
     else if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
     else if(name==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
+    else if(name==='history') setupHistory();
     else if(name==='device'){ loadDevice(); loadServices(); }
     else if(name==='terminal') setupTerminal();
     else if(name==='files') setupFiles();
@@ -1768,9 +1953,10 @@ function startCloudData(){
 function startDashboard(){
   applyAdguardVisibility();            // โชว์การ์ด AdGuard (skeleton) ทันทีระหว่างรอข้อมูล
   loadCompare();
+  loadDash24();
   loadDatePanel('temp');
   panelLoaded['temp'] = true;
-  setInterval(loadCompare, 300000);   // refresh compare ทุก 5 นาที
+  setInterval(()=>{ loadCompare(); loadDash24(); }, 300000);   // refresh ทุก 5 นาที
 }
 
 async function init(){

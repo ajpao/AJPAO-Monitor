@@ -4,14 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AJPAO-Monitor</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#060a14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Monitor">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="favicon.png">
 <script>/* ใช้ค่า settings ก่อน render กันหน้ากระพริบ — default = cyber */
 (function(){try{
   var s=JSON.parse(localStorage.getItem('ui_settings')||'null');
   if(!s){ var t=localStorage.getItem('theme'); s=t?{theme:t}:{}; }
   var r=document.documentElement;
-  var TH=['cyber','clean','minimal','matrix','solarized','retro','nordic','glass','ocean','obsidian','superblack'];
+  var TH=['cyber','clean','minimal','matrix','solarized','retro','nordic','glass','ocean','obsidian','superblack','liquidglass','liquidglassdark','liquidglassblack'];
   var th=s.theme; if(th==='dark')th='cyber'; else if(th==='light')th='clean'; else if(TH.indexOf(th)<0)th='cyber';
   r.setAttribute('data-theme',th);
+  r.setAttribute('data-btnstyle', s.btnStyle||'default');
   if(s.scale) r.style.fontSize=s.scale+'px';
   if(s.accent) r.style.setProperty('--accent',s.accent);
   var F={jetbrains:"'JetBrains Mono',ui-monospace,monospace",sharetech:"'Share Tech Mono',ui-monospace,monospace",orbitron:"'Orbitron',ui-monospace,monospace",oxanium:"'Oxanium',ui-monospace,monospace",chakra:"'Chakra Petch','Noto Sans Thai',monospace",rajdhani:"'Rajdhani','Noto Sans Thai',sans-serif",teko:"'Teko','Noto Sans Thai',sans-serif",plexmono:"'IBM Plex Mono',ui-monospace,monospace",space:"'Space Grotesk','Noto Sans Thai',sans-serif",inter:"'Inter','Noto Sans Thai',sans-serif"};
@@ -90,10 +100,31 @@
 :root[data-theme="superblack"]{--bg:#0a0a0a;--panel:#171717;--panel2:#1f1f1f;--border:#2b2b2b;--border-strong:#3a3a3a;
   --accent:#0a84ff;--ok:#30d158;--info:#64d2ff;--warn:#ffd60a;--danger:#ff453a;--text:#f5f5f7;--dim:#8e8e93;--purple:#bf5af2;
   --topbar-bg:rgba(10,10,10,.96);--radius:12px;--btn-radius:10px;--card-shadow:0 2px 12px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.05)}
+/* 12) Liquid Glass (Apple iOS 26) — frosted โปร่งแสง + saturate + ขอบไฮไลต์ */
+:root[data-theme="liquidglass"]{--bg:#e9edf5;--panel:rgba(255,255,255,.5);--panel2:rgba(255,255,255,.34);
+  --border:rgba(255,255,255,.6);--border-strong:rgba(255,255,255,.85);
+  --accent:#0a84ff;--ok:#30d158;--info:#0a84ff;--warn:#ff9f0a;--danger:#ff3b30;--text:#1c1c2e;--dim:#6b7280;--purple:#bf5af2;
+  --topbar-bg:rgba(255,255,255,.45);--radius:24px;--btn-radius:22px;
+  --panel-blur:blur(22px) saturate(180%);
+  --card-shadow:0 10px 32px rgba(40,55,95,.13),inset 0 1px 0 rgba(255,255,255,.7)}
+/* 13) Liquid Glass Dark — frosted โทนมืด + blob เรืองแสง */
+:root[data-theme="liquidglassdark"]{--bg:#0a0e17;--panel:rgba(255,255,255,.07);--panel2:rgba(255,255,255,.045);
+  --border:rgba(255,255,255,.14);--border-strong:rgba(255,255,255,.3);
+  --accent:#0a84ff;--ok:#30d158;--info:#64d2ff;--warn:#ffd60a;--danger:#ff453a;--text:#f2f5fb;--dim:#9aa3b2;--purple:#bf5af2;
+  --topbar-bg:rgba(15,20,32,.5);--radius:24px;--btn-radius:22px;
+  --panel-blur:blur(22px) saturate(180%);
+  --card-shadow:0 12px 34px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.14)}
+/* 14) Liquid Glass Black — กระจกฝ้าโทนดำ/เทา monochrome */
+:root[data-theme="liquidglassblack"]{--bg:#0a0a0c;--panel:rgba(255,255,255,.06);--panel2:rgba(255,255,255,.035);
+  --border:rgba(255,255,255,.12);--border-strong:rgba(255,255,255,.26);
+  --accent:#0a84ff;--ok:#30d158;--info:#64d2ff;--warn:#ffd60a;--danger:#ff453a;--text:#f4f4f6;--dim:#9a9aa2;--purple:#bf5af2;
+  --topbar-bg:rgba(12,12,14,.55);--radius:24px;--btn-radius:22px;
+  --panel-blur:blur(22px) saturate(150%);
+  --card-shadow:0 12px 34px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.12)}
 *{box-sizing:border-box;margin:0;padding:0}
 html.no-bg body::before,html.no-bg body::after{display:none!important}
 /* per-theme glow on active nav + stat numbers (cyber/matrix) */
-:root[data-theme="cyber"] .sn-btn.active,:root[data-theme="matrix"] .sn-btn.active{box-shadow:0 0 16px color-mix(in srgb,var(--accent) 55%,transparent)}
+:root[data-theme="cyber"] .sn-btn.active,:root[data-theme="matrix"] .sn-btn.active{box-shadow:0 5px 18px color-mix(in srgb,var(--accent) 42%,transparent),0 0 16px color-mix(in srgb,var(--accent) 50%,transparent),inset 0 1px 0 rgba(255,255,255,.28)}
 :root[data-theme="cyber"] .sc-value,:root[data-theme="matrix"] .sc-value{text-shadow:0 0 18px color-mix(in srgb,currentColor 55%,transparent)}
 /* light-mode themes → grid/glow อ่อนลง */
 :root[data-theme="clean"] body::before,:root[data-theme="minimal"] body::before,:root[data-theme="solarized"] body::before,:root[data-theme="nordic"] body::before{
@@ -104,11 +135,37 @@ html.no-bg body::before,html.no-bg body::after{display:none!important}
 :root[data-theme="superblack"]{background:#000}
 :root[data-theme="superblack"] body::before{background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)}
 :root[data-theme="superblack"] body::after{background:none}
-:root[data-theme="superblack"] .sn-btn.active{box-shadow:0 0 16px color-mix(in srgb,var(--accent) 50%,transparent)}
-:root[data-theme="superblack"] .sc-value{text-shadow:0 0 16px color-mix(in srgb,currentColor 40%,transparent)}
+:root[data-theme="superblack"] .sn-btn.active{box-shadow:0 5px 18px color-mix(in srgb,var(--accent) 45%,transparent),0 0 16px color-mix(in srgb,var(--accent) 38%,transparent),inset 0 1px 0 rgba(255,255,255,.25)}
+:root[data-theme="superblack"] .sc-value{text-shadow:0 0 9px color-mix(in srgb,currentColor 25%,transparent)}
 /* glass theme: blur topbar + frosted */
 :root[data-theme="glass"]{background:linear-gradient(135deg,#241b46,#101a33 55%,#0a1f2e)}
 :root[data-theme="glass"] body::after{background:radial-gradient(ellipse 60% 50% at 25% 15%,rgba(167,139,250,.18),transparent 60%),radial-gradient(ellipse 55% 50% at 80% 85%,rgba(96,165,250,.14),transparent 62%)}
+/* liquid glass (iOS 26): พื้นไล่เฉดอ่อน + blob สีสด refract ผ่านกระจกฝ้า, ปิด grid */
+:root[data-theme="liquidglass"]{background:linear-gradient(135deg,#eaf0fb 0%,#f3ecf8 45%,#eafaf3 100%)}
+:root[data-theme="liquidglass"] body::before{background-image:none}
+:root[data-theme="liquidglass"] body::after{background:
+  radial-gradient(ellipse 48% 40% at 16% 12%,rgba(10,132,255,.22),transparent 60%),
+  radial-gradient(ellipse 44% 38% at 86% 18%,rgba(191,90,242,.18),transparent 62%),
+  radial-gradient(ellipse 52% 44% at 72% 92%,rgba(48,209,88,.16),transparent 64%),
+  radial-gradient(ellipse 40% 36% at 40% 60%,rgba(255,159,10,.10),transparent 66%)}
+:root[data-theme="liquidglass"] .sc-value{text-shadow:0 1px 1px rgba(255,255,255,.5)}
+/* liquid glass dark: พื้นมืดไล่เฉด + blob เรืองแสงเข้มขึ้น refract ผ่านกระจกฝ้ามืด */
+:root[data-theme="liquidglassdark"]{background:linear-gradient(135deg,#0b1020 0%,#10131f 50%,#0a1418 100%)}
+:root[data-theme="liquidglassdark"] body::before{background-image:none}
+:root[data-theme="liquidglassdark"] body::after{background:
+  radial-gradient(ellipse 48% 40% at 16% 12%,rgba(10,132,255,.30),transparent 60%),
+  radial-gradient(ellipse 44% 38% at 86% 18%,rgba(191,90,242,.26),transparent 62%),
+  radial-gradient(ellipse 52% 44% at 72% 92%,rgba(48,209,88,.20),transparent 64%),
+  radial-gradient(ellipse 40% 36% at 42% 58%,rgba(255,159,10,.13),transparent 66%)}
+:root[data-theme="liquidglassdark"] .sc-value{text-shadow:0 0 12px color-mix(in srgb,currentColor 30%,transparent)}
+/* liquid glass black: ไล่เฉดดำ/เทา monochrome + glow ขาวจางๆ ผ่านกระจกฝ้า */
+:root[data-theme="liquidglassblack"]{background:linear-gradient(160deg,#141416 0%,#0a0a0c 45%,#1a1a1d 100%)}
+:root[data-theme="liquidglassblack"] body::before{background-image:none}
+:root[data-theme="liquidglassblack"] body::after{background:
+  radial-gradient(ellipse 60% 45% at 24% 8%,rgba(255,255,255,.075),transparent 60%),
+  radial-gradient(ellipse 55% 45% at 82% 88%,rgba(255,255,255,.05),transparent 62%),
+  radial-gradient(ellipse 46% 40% at 60% 50%,rgba(150,165,200,.05),transparent 66%)}
+:root[data-theme="liquidglassblack"] .sc-value{text-shadow:0 0 12px color-mix(in srgb,currentColor 25%,transparent)}
 html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!important;transition:none!important}
 html{scroll-behavior:smooth;font-size:23.5px}
 body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6;overflow-x:hidden}
@@ -190,10 +247,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-value{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.2rem);
   font-weight:800;line-height:1;margin-bottom:6px;letter-spacing:-.5px}
 .sc-sub{font-family:var(--font-mono);font-size:.65rem;color:var(--dim)}
-.sc-temp .sc-bar{background:var(--info)}  .sc-temp .sc-value{color:var(--info)}
+.sc-temp .sc-bar{background:var(--ok)}  .sc-temp .sc-value{color:var(--ok)}
 .sc-cpu .sc-bar{background:var(--info)}   .sc-cpu .sc-value{color:var(--info)}
 .sc-ram .sc-bar{background:var(--purple)} .sc-ram .sc-value{color:var(--purple)}
 .sc-disk .sc-bar{background:var(--warn)}  .sc-disk .sc-value{color:var(--warn)}
+/* ring gauge (วงแหวน % การใช้งาน) มุมขวาของการ์ด */
+.sc-ring{position:absolute;top:50%;right:14px;width:74px;height:74px;
+  transform:translateY(-50%) rotate(-90deg);pointer-events:none}
+.sc-ring circle{fill:none;stroke-width:4}
+.sc-ring-bg{stroke:var(--border)}
+.sc-ring-fg{stroke-linecap:round;stroke-dasharray:0 100;
+  transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1),stroke .3s}
+.sc-temp .sc-ring-fg{stroke:var(--ok)}  .sc-cpu .sc-ring-fg{stroke:var(--info)}
+.sc-ram .sc-ring-fg{stroke:var(--purple)} .sc-disk .sc-ring-fg{stroke:var(--warn)}
+.lbl-short{display:none}
+@media(max-width:640px){.sc-ring{display:none}.lbl-full{display:none}.lbl-short{display:inline}}
 
 /* dual row: compare card + info card */
 .dual-row{display:grid;grid-template-columns:1fr 300px;gap:12px;margin-bottom:16px}
@@ -246,7 +314,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .cc-title svg{width:1.25em;height:1.25em;color:var(--accent);flex-shrink:0;stroke-width:2.2}
 .sn-btn svg{width:1.15em;height:1.15em;flex-shrink:0}
 .sc-label svg{width:1.2em;height:1.2em;flex-shrink:0;vertical-align:-.18em;margin-right:5px}
-.sc-temp .sc-label svg{color:var(--info)}
+.sc-temp .sc-label svg{color:var(--ok)}
 .sc-cpu .sc-label svg{color:var(--info)}
 .sc-ram .sc-label svg{color:var(--purple)}
 .sc-disk .sc-label svg{color:var(--warn)}
@@ -262,12 +330,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .section-nav{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .sn-btn{font-family:var(--font-mono);font-size:.68rem;letter-spacing:1.5px;text-transform:uppercase;
   flex:1 1 0;min-width:118px;justify-content:center;
-  padding:9px 14px;border:1px solid currentColor;background:var(--panel2);color:var(--dim);
-  border-radius:var(--btn-radius);cursor:pointer;transition:.18s;display:flex;align-items:center;gap:7px}
-.sn-btn:hover{color:var(--info);background:linear-gradient(rgba(51,153,255,.14),rgba(51,153,255,.14)),var(--panel)}
-.sn-btn.active{color:#fff;border-color:transparent;background:var(--accent);
-  background:linear-gradient(90deg, color-mix(in srgb,var(--accent) 80%,#000) 0%, var(--accent) 52%, color-mix(in srgb,var(--accent) 72%,#fff) 100%);
-  box-shadow:0 4px 14px color-mix(in srgb,var(--accent) 35%,transparent)}
+  padding:10px 14px;border:1px solid var(--border);color:var(--dim);
+  background:linear-gradient(180deg,color-mix(in srgb,#fff 5%,var(--panel2)),var(--panel2));
+  border-radius:var(--btn-radius);cursor:pointer;display:flex;align-items:center;gap:7px;
+  transition:transform .15s ease,background .18s,color .18s,border-color .18s,box-shadow .18s}
+.sn-btn:hover{color:var(--text);transform:translateY(-1px);
+  border-color:color-mix(in srgb,var(--accent) 50%,var(--border));
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 15%,var(--panel2)),var(--panel2));
+  box-shadow:0 3px 12px color-mix(in srgb,var(--accent) 18%,transparent)}
+.sn-btn.active{color:#fff;border-color:transparent;
+  background:linear-gradient(135deg, color-mix(in srgb,var(--accent) 80%,#000) 0%, var(--accent) 50%, color-mix(in srgb,var(--accent) 72%,#fff) 100%);
+  box-shadow:0 5px 18px color-mix(in srgb,var(--accent) 42%,transparent),inset 0 1px 0 rgba(255,255,255,.28)}
+.sn-btn.active:hover{transform:translateY(-1px)}
 
 /* section panels */
 .s-panel{display:none}
@@ -323,20 +397,311 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* date toolbar */
 .date-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .date-quick{font-family:var(--font-mono);font-size:.62rem;letter-spacing:1px;
-  padding:5px 12px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
-  border-radius:6px;cursor:pointer;transition:.18s;text-transform:uppercase}
-.date-quick:hover,.date-quick.active{border-color:var(--info);color:var(--info);
-  background:linear-gradient(rgba(51,153,255,.13),rgba(51,153,255,.13)),var(--panel2)}
-.date-input{font-family:var(--font-mono);font-size:.72rem;padding:5px 10px;
-  background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;
-  outline:none;cursor:pointer;color-scheme:dark}
-.date-input:focus{border-color:var(--info);box-shadow:0 0 0 2px rgba(51,153,255,.15)}
+  padding:6px 15px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);
+  border-radius:999px;cursor:pointer;transition:transform .15s ease,.18s;text-transform:uppercase}
+.date-quick:hover{color:var(--text);transform:translateY(-1px);
+  border-color:color-mix(in srgb,var(--info) 45%,var(--border))}
+.date-quick.active{border-color:transparent;color:#fff;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--info) 78%,#000),var(--info));
+  box-shadow:0 3px 12px color-mix(in srgb,var(--info) 38%,transparent)}
+.date-input{font-family:var(--font-mono);font-size:.72rem;padding:6px 14px;
+  background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:999px;
+  outline:none;cursor:pointer;color-scheme:dark;transition:.18s}
+.date-input:focus{border-color:var(--info);box-shadow:0 0 0 3px color-mix(in srgb,var(--info) 18%,transparent)}
 .date-go{font-family:var(--font-mono);font-size:.65rem;letter-spacing:2px;
-  padding:5px 16px;border:1px solid var(--accent);color:var(--accent);
-  background:linear-gradient(rgba(255,107,0,.13),rgba(255,107,0,.13)),var(--panel2);
-  border-radius:6px;cursor:pointer;transition:.18s;text-transform:uppercase}
-.date-go:hover{background:linear-gradient(rgba(255,107,0,.22),rgba(255,107,0,.22)),var(--panel2);box-shadow:0 0 12px rgba(255,107,0,.2)}
+  padding:6px 18px;border:1px solid transparent;color:#fff;
+  background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 80%,#000),var(--accent));
+  border-radius:999px;cursor:pointer;transition:transform .15s ease,box-shadow .18s;text-transform:uppercase;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--accent) 30%,transparent)}
+.date-go:hover{transform:translateY(-1px);box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 45%,transparent)}
 .data-count{font-family:var(--font-mono);font-size:.6rem;color:var(--dim);margin-left:4px}
+
+/* ════════════ BUTTON STYLES (data-btnstyle) — 10 สไตล์ปุ่ม & เมนู ════════════
+   มีผลกับ: .sn-btn (เมนูบน) · .date-quick / .date-go / .date-input (ฟิลเตอร์ล่าง)
+   btnstyle="default" = ดีไซน์ปัจจุบัน (ไม่มี rule = ใช้ base) */
+@keyframes bs-neon-pulse{0%,100%{filter:drop-shadow(0 0 3px currentColor)}50%{filter:drop-shadow(0 0 10px currentColor)}}
+@keyframes bs-glitch{
+  0%,100%{text-shadow:1px 0 #ff00c1,-1px 0 #00fff9;transform:translate(0)}
+  25%{text-shadow:-2px 0 #ff00c1,2px 0 #00fff9;transform:translate(1px,-1px)}
+  50%{text-shadow:2px 0 #00fff9,-2px 0 #ff00c1;transform:translate(-1px,1px)}
+  75%{text-shadow:-1px 0 #00fff9,1px 0 #ff00c1;transform:translate(1px,1px)}}
+
+/* ── 1) CYBER NEON — ตัดมุมเฉียง + ขอบ/ตัวอักษรเรืองแสง ── */
+:root[data-btnstyle="cyber-neon"] .sn-btn,
+:root[data-btnstyle="cyber-neon"] .date-quick,
+:root[data-btnstyle="cyber-neon"] .date-go,
+:root[data-btnstyle="cyber-neon"] .date-input{
+  border-radius:0;border:1px solid rgba(0,229,255,.32);color:var(--dim);background:rgba(0,229,255,.04);box-shadow:none;
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  transition:color .18s,border-color .18s,background .18s}
+:root[data-btnstyle="cyber-neon"] .sn-btn:hover,
+:root[data-btnstyle="cyber-neon"] .date-quick:hover,
+:root[data-btnstyle="cyber-neon"] .date-go:hover{
+  color:#00e5ff;border-color:#00e5ff;background:rgba(0,229,255,.08);
+  text-shadow:0 0 8px rgba(0,229,255,.8);filter:drop-shadow(0 0 6px rgba(0,229,255,.55))}
+:root[data-btnstyle="cyber-neon"] .sn-btn.active,
+:root[data-btnstyle="cyber-neon"] .date-quick.active,
+:root[data-btnstyle="cyber-neon"] .date-go{
+  color:#00e5ff;border-color:#00e5ff;background:rgba(0,229,255,.12);
+  text-shadow:0 0 10px rgba(0,229,255,.9);animation:bs-neon-pulse 1.6s ease-in-out infinite}
+
+/* ── 2) ROUNDED SOFT — แคปซูล + เงาฟุ้งนุ่ม ── */
+:root[data-btnstyle="rounded-soft"] .sn-btn,
+:root[data-btnstyle="rounded-soft"] .date-quick,
+:root[data-btnstyle="rounded-soft"] .date-go,
+:root[data-btnstyle="rounded-soft"] .date-input{
+  border-radius:50px;border:1px solid var(--border);background:transparent;color:var(--dim);box-shadow:none;transition:.25s}
+:root[data-btnstyle="rounded-soft"] .sn-btn:hover,
+:root[data-btnstyle="rounded-soft"] .date-quick:hover,
+:root[data-btnstyle="rounded-soft"] .date-go:hover{
+  color:var(--text);border-color:color-mix(in srgb,var(--accent) 50%,var(--border));
+  background:color-mix(in srgb,var(--accent) 8%,transparent);transform:translateY(-1px)}
+:root[data-btnstyle="rounded-soft"] .sn-btn.active,
+:root[data-btnstyle="rounded-soft"] .date-quick.active,
+:root[data-btnstyle="rounded-soft"] .date-go{
+  border-color:transparent;color:#15151f;background:color-mix(in srgb,var(--accent) 80%,#fff);
+  box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* ── 3) FLAT MINIMAL — ขอบคม ไม่มีเงา hover=underline active=invert ── */
+:root[data-btnstyle="flat-minimal"] .sn-btn,
+:root[data-btnstyle="flat-minimal"] .date-quick,
+:root[data-btnstyle="flat-minimal"] .date-go,
+:root[data-btnstyle="flat-minimal"] .date-input{
+  border-radius:0;border:none;background:none;color:var(--dim);box-shadow:none;transition:none;letter-spacing:2px}
+:root[data-btnstyle="flat-minimal"] .date-input{border-bottom:1px solid var(--border)}
+:root[data-btnstyle="flat-minimal"] .sn-btn:hover,
+:root[data-btnstyle="flat-minimal"] .date-quick:hover,
+:root[data-btnstyle="flat-minimal"] .date-go:hover{color:var(--text);box-shadow:inset 0 -3px 0 var(--text)}
+:root[data-btnstyle="flat-minimal"] .sn-btn.active,
+:root[data-btnstyle="flat-minimal"] .date-quick.active,
+:root[data-btnstyle="flat-minimal"] .date-go{color:var(--bg);background:var(--text);box-shadow:none}
+
+/* ── 4) RETRO 8-BIT — บล็อกหนา ขอบดำ เงาทึบ 2.5D กดแล้วยุบ ── */
+:root[data-btnstyle="retro-8bit"] .sn-btn,
+:root[data-btnstyle="retro-8bit"] .date-quick,
+:root[data-btnstyle="retro-8bit"] .date-go,
+:root[data-btnstyle="retro-8bit"] .date-input{
+  font-family:'Oxanium',monospace;font-weight:800;border-radius:0;border:2px solid #000;
+  background:var(--panel2);color:var(--text);box-shadow:3px 3px 0 var(--accent);transition:transform .08s,box-shadow .08s}
+:root[data-btnstyle="retro-8bit"] .sn-btn:hover,
+:root[data-btnstyle="retro-8bit"] .date-quick:hover,
+:root[data-btnstyle="retro-8bit"] .date-go:hover{transform:translate(1px,1px);box-shadow:2px 2px 0 var(--accent)}
+:root[data-btnstyle="retro-8bit"] .sn-btn.active,
+:root[data-btnstyle="retro-8bit"] .date-quick.active,
+:root[data-btnstyle="retro-8bit"] .date-go{background:var(--accent);color:#000;transform:translate(3px,3px);box-shadow:0 0 0 #000}
+:root[data-btnstyle="retro-8bit"] .sn-btn:active{transform:translate(3px,3px);box-shadow:none}
+
+/* ── 5) GLASS FROST — กระจกฝ้า ขอบบน/ซ้ายสว่าง ── */
+:root[data-btnstyle="glass-frost"] .sn-btn,
+:root[data-btnstyle="glass-frost"] .date-quick,
+:root[data-btnstyle="glass-frost"] .date-go,
+:root[data-btnstyle="glass-frost"] .date-input{
+  border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:rgba(255,255,255,.78);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-top-color:rgba(255,255,255,.4);border-left-color:rgba(255,255,255,.22);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22);transition:.22s}
+:root[data-btnstyle="glass-frost"] .sn-btn:hover,
+:root[data-btnstyle="glass-frost"] .date-quick:hover,
+:root[data-btnstyle="glass-frost"] .date-go:hover{
+  background:rgba(255,255,255,.13);color:#fff;transform:translateY(-1px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 18px rgba(0,0,0,.3)}
+:root[data-btnstyle="glass-frost"] .sn-btn.active,
+:root[data-btnstyle="glass-frost"] .date-quick.active,
+:root[data-btnstyle="glass-frost"] .date-go{
+  color:#fff;border-color:color-mix(in srgb,var(--accent) 60%,rgba(255,255,255,.3));
+  background:color-mix(in srgb,var(--accent) 30%,rgba(255,255,255,.08));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 6px 20px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* ── 6) INDUSTRIAL TERMINAL — mono เขียว matte "> " ── */
+:root[data-btnstyle="industrial"] .sn-btn,
+:root[data-btnstyle="industrial"] .date-quick,
+:root[data-btnstyle="industrial"] .date-go,
+:root[data-btnstyle="industrial"] .date-input{
+  font-family:'IBM Plex Mono',monospace;border-radius:2px;border:1px solid #2c332c;background:#141815;
+  color:#37f0a0;box-shadow:none;text-transform:uppercase;letter-spacing:1px;position:relative}
+:root[data-btnstyle="industrial"] .sn-btn::before{content:"> ";opacity:.7}
+:root[data-btnstyle="industrial"] .sn-btn:hover,
+:root[data-btnstyle="industrial"] .date-quick:hover,
+:root[data-btnstyle="industrial"] .date-go:hover{
+  border-color:#37f0a0;background:#0e1611;color:#7dffc4;text-shadow:0 0 6px rgba(55,240,160,.5)}
+:root[data-btnstyle="industrial"] .sn-btn.active,
+:root[data-btnstyle="industrial"] .date-quick.active,
+:root[data-btnstyle="industrial"] .date-go{
+  background:#0a140e;color:#7dffc4;border-color:#37f0a0;border-left-width:3px;text-shadow:0 0 8px rgba(55,240,160,.7)}
+
+/* ── 7) LUXURY GOLD — serif ขอบทอง hover ไล่เฉดช้าๆ ── */
+:root[data-btnstyle="luxury-gold"] .sn-btn,
+:root[data-btnstyle="luxury-gold"] .date-quick,
+:root[data-btnstyle="luxury-gold"] .date-go,
+:root[data-btnstyle="luxury-gold"] .date-input{
+  font-family:Georgia,'Times New Roman',serif;font-weight:400;letter-spacing:2px;border-radius:3px;
+  border:1px solid rgba(212,175,55,.45);background:transparent;color:#d4af37;box-shadow:none;
+  padding-top:12px;padding-bottom:12px;transition:.5s}
+:root[data-btnstyle="luxury-gold"] .sn-btn:hover,
+:root[data-btnstyle="luxury-gold"] .date-quick:hover,
+:root[data-btnstyle="luxury-gold"] .date-go:hover{
+  color:#f4e3a1;border-color:#d4af37;background:linear-gradient(135deg,rgba(212,175,55,.2),rgba(0,0,0,.5))}
+:root[data-btnstyle="luxury-gold"] .sn-btn.active,
+:root[data-btnstyle="luxury-gold"] .date-quick.active,
+:root[data-btnstyle="luxury-gold"] .date-go{
+  color:#1c1505;border-color:#d4af37;background:linear-gradient(135deg,#e9cf73,#a9842f);box-shadow:0 4px 16px rgba(212,175,55,.3)}
+
+/* ── 8) SKEUOMORPHIC 3D — ปุ่มนูน ไล่เฉด กดแล้วยุบ ── */
+:root[data-btnstyle="skeuo-3d"] .sn-btn,
+:root[data-btnstyle="skeuo-3d"] .date-quick,
+:root[data-btnstyle="skeuo-3d"] .date-go,
+:root[data-btnstyle="skeuo-3d"] .date-input{
+  border-radius:9px;border:1px solid #11151c;border-top-color:#566076;color:var(--text);
+  background:linear-gradient(180deg,#3c4556,#232a36);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 3px 6px rgba(0,0,0,.45);transition:.12s}
+:root[data-btnstyle="skeuo-3d"] .sn-btn:hover,
+:root[data-btnstyle="skeuo-3d"] .date-quick:hover,
+:root[data-btnstyle="skeuo-3d"] .date-go:hover{background:linear-gradient(180deg,#465062,#2a3240)}
+:root[data-btnstyle="skeuo-3d"] .sn-btn:active,
+:root[data-btnstyle="skeuo-3d"] .date-quick:active,
+:root[data-btnstyle="skeuo-3d"] .date-go:active{
+  background:linear-gradient(180deg,#232a36,#3c4556);box-shadow:inset 0 2px 5px rgba(0,0,0,.5);transform:translateY(1px)}
+:root[data-btnstyle="skeuo-3d"] .sn-btn.active,
+:root[data-btnstyle="skeuo-3d"] .date-quick.active,
+:root[data-btnstyle="skeuo-3d"] .date-go{
+  color:#fff;border-color:color-mix(in srgb,var(--accent) 60%,#000);border-top-color:color-mix(in srgb,var(--accent) 40%,#fff);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 75%,#fff),color-mix(in srgb,var(--accent) 80%,#000));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 3px 8px color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* ── 9) NORDIC SPLIT — segmented control คั่นเส้น active=กล่องเลื่อน ── */
+:root[data-btnstyle="nordic-split"] .section-nav{
+  gap:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--panel2)}
+:root[data-btnstyle="nordic-split"] .sn-btn{
+  flex:1 1 0;border:none;border-right:1px solid var(--border);border-radius:0;background:transparent;color:var(--dim);
+  box-shadow:none;transition:background .25s ease,color .2s}
+:root[data-btnstyle="nordic-split"] .section-nav .sn-btn:last-child{border-right:none}
+:root[data-btnstyle="nordic-split"] .sn-btn:hover{color:var(--text);background:color-mix(in srgb,var(--text) 6%,transparent)}
+:root[data-btnstyle="nordic-split"] .sn-btn.active{color:var(--text);background:color-mix(in srgb,var(--info) 22%,var(--panel))}
+:root[data-btnstyle="nordic-split"] .date-quick,
+:root[data-btnstyle="nordic-split"] .date-go,
+:root[data-btnstyle="nordic-split"] .date-input{
+  border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--dim);box-shadow:none}
+:root[data-btnstyle="nordic-split"] .date-quick.active,
+:root[data-btnstyle="nordic-split"] .date-go{
+  border-color:transparent;color:var(--text);background:color-mix(in srgb,var(--info) 22%,var(--panel))}
+
+/* ── 10) CYBERPUNK GLITCH — เหลือง/ดำ บาร์โค้ดมุม + glitch ── */
+:root[data-btnstyle="cyber-glitch"] .sn-btn,
+:root[data-btnstyle="cyber-glitch"] .date-quick,
+:root[data-btnstyle="cyber-glitch"] .date-go,
+:root[data-btnstyle="cyber-glitch"] .date-input{
+  font-family:'Share Tech Mono',monospace;font-weight:700;border-radius:0;border:1px solid #f0ff00;background:#0d0d0d;
+  color:#f0ff00;text-transform:uppercase;letter-spacing:1px;box-shadow:none;position:relative;overflow:hidden}
+:root[data-btnstyle="cyber-glitch"] .sn-btn::after{content:"";position:absolute;top:4px;right:4px;width:16px;height:5px;
+  background:repeating-linear-gradient(90deg,#f0ff00 0 1px,transparent 1px 3px);opacity:.7}
+:root[data-btnstyle="cyber-glitch"] .sn-btn:hover,
+:root[data-btnstyle="cyber-glitch"] .date-quick:hover,
+:root[data-btnstyle="cyber-glitch"] .date-go:hover{background:#1a0d1f;color:#fff;animation:bs-glitch .35s steps(2,end) infinite}
+:root[data-btnstyle="cyber-glitch"] .sn-btn.active,
+:root[data-btnstyle="cyber-glitch"] .date-quick.active,
+:root[data-btnstyle="cyber-glitch"] .date-go{
+  background:#f0ff00;color:#0d0d0d;border-color:#ff00c1;animation:bs-glitch .4s steps(2,end) infinite}
+
+/* ── 11) LIQUID GLASS (Apple iOS 26) — frosted pill + specular + sweep ── */
+:root[data-btnstyle="liquid-glass"] .sn-btn,
+:root[data-btnstyle="liquid-glass"] .date-quick,
+:root[data-btnstyle="liquid-glass"] .date-go,
+:root[data-btnstyle="liquid-glass"] .date-input{
+  border-radius:999px;border:1px solid rgba(255,255,255,.5);color:var(--text);
+  background:linear-gradient(160deg,rgba(255,255,255,.32),rgba(255,255,255,.08));
+  -webkit-backdrop-filter:blur(16px) saturate(180%);backdrop-filter:blur(16px) saturate(180%);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.65),inset 0 -2px 3px rgba(0,0,0,.06),0 6px 18px rgba(30,40,80,.13);
+  position:relative;overflow:hidden;transition:transform .25s cubic-bezier(.3,.7,.3,1),box-shadow .25s,background .25s,color .2s}
+/* ขอบบนไฮไลต์เหมือนแสงสะท้อนบนกระจก */
+:root[data-btnstyle="liquid-glass"] .sn-btn::before,
+:root[data-btnstyle="liquid-glass"] .date-go::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.5),transparent 42%)}
+/* แสงกวาด (glossy sweep) ตอน hover */
+:root[data-btnstyle="liquid-glass"] .sn-btn::after{
+  content:"";position:absolute;top:0;left:-65%;width:55%;height:100%;pointer-events:none;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.55),transparent);
+  transform:skewX(-18deg);transition:left .6s ease}
+:root[data-btnstyle="liquid-glass"] .sn-btn:hover::after{left:135%}
+:root[data-btnstyle="liquid-glass"] .sn-btn:hover,
+:root[data-btnstyle="liquid-glass"] .date-quick:hover,
+:root[data-btnstyle="liquid-glass"] .date-go:hover{
+  color:var(--text);transform:translateY(-1.5px);
+  background:linear-gradient(160deg,rgba(255,255,255,.46),rgba(255,255,255,.14));
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.8),0 10px 26px rgba(30,40,80,.2)}
+:root[data-btnstyle="liquid-glass"] .sn-btn.active,
+:root[data-btnstyle="liquid-glass"] .date-quick.active,
+:root[data-btnstyle="liquid-glass"] .date-go{
+  color:#fff;border-color:rgba(255,255,255,.6);
+  background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 60%,rgba(255,255,255,.35)),color-mix(in srgb,var(--accent) 38%,transparent));
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.7),inset 0 -2px 4px color-mix(in srgb,var(--accent) 30%,transparent),0 8px 22px color-mix(in srgb,var(--accent) 45%,transparent)}
+
+/* ── 12) LIQUID GLASS DARK — frosted pill โทนมืด + specular + sweep ── */
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn,
+:root[data-btnstyle="liquid-glass-dark"] .date-quick,
+:root[data-btnstyle="liquid-glass-dark"] .date-go,
+:root[data-btnstyle="liquid-glass-dark"] .date-input{
+  border-radius:999px;border:1px solid rgba(255,255,255,.16);color:var(--text);
+  background:linear-gradient(160deg,rgba(255,255,255,.12),rgba(255,255,255,.03));
+  -webkit-backdrop-filter:blur(16px) saturate(180%);backdrop-filter:blur(16px) saturate(180%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 4px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.4);
+  position:relative;overflow:hidden;transition:transform .25s cubic-bezier(.3,.7,.3,1),box-shadow .25s,background .25s,color .2s}
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn::before,
+:root[data-btnstyle="liquid-glass-dark"] .date-go::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.22),transparent 42%)}
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn::after{
+  content:"";position:absolute;top:0;left:-65%;width:55%;height:100%;pointer-events:none;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.3),transparent);
+  transform:skewX(-18deg);transition:left .6s ease}
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn:hover::after{left:135%}
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn:hover,
+:root[data-btnstyle="liquid-glass-dark"] .date-quick:hover,
+:root[data-btnstyle="liquid-glass-dark"] .date-go:hover{
+  color:#fff;transform:translateY(-1.5px);
+  background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.05));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 10px 26px rgba(0,0,0,.5)}
+:root[data-btnstyle="liquid-glass-dark"] .sn-btn.active,
+:root[data-btnstyle="liquid-glass-dark"] .date-quick.active,
+:root[data-btnstyle="liquid-glass-dark"] .date-go{
+  color:#fff;border-color:color-mix(in srgb,var(--accent) 50%,rgba(255,255,255,.3));
+  background:linear-gradient(160deg,color-mix(in srgb,var(--accent) 55%,rgba(255,255,255,.16)),color-mix(in srgb,var(--accent) 30%,transparent));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 0 -2px 5px color-mix(in srgb,var(--accent) 25%,transparent),0 8px 24px color-mix(in srgb,var(--accent) 50%,transparent)}
+
+/* ── 13) LIQUID GLASS BLACK — graphite frosted pill (monochrome) ── */
+:root[data-btnstyle="liquid-glass-black"] .sn-btn,
+:root[data-btnstyle="liquid-glass-black"] .date-quick,
+:root[data-btnstyle="liquid-glass-black"] .date-go,
+:root[data-btnstyle="liquid-glass-black"] .date-input{
+  border-radius:999px;border:1px solid rgba(255,255,255,.14);color:var(--text);
+  background:linear-gradient(160deg,rgba(255,255,255,.1),rgba(255,255,255,.025));
+  -webkit-backdrop-filter:blur(16px) saturate(150%);backdrop-filter:blur(16px) saturate(150%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -2px 4px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.5);
+  position:relative;overflow:hidden;transition:transform .25s cubic-bezier(.3,.7,.3,1),box-shadow .25s,background .25s,color .2s}
+:root[data-btnstyle="liquid-glass-black"] .sn-btn::before,
+:root[data-btnstyle="liquid-glass-black"] .date-go::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.2),transparent 42%)}
+:root[data-btnstyle="liquid-glass-black"] .sn-btn::after{
+  content:"";position:absolute;top:0;left:-65%;width:55%;height:100%;pointer-events:none;
+  background:linear-gradient(105deg,transparent,rgba(255,255,255,.28),transparent);
+  transform:skewX(-18deg);transition:left .6s ease}
+:root[data-btnstyle="liquid-glass-black"] .sn-btn:hover::after{left:135%}
+:root[data-btnstyle="liquid-glass-black"] .sn-btn:hover,
+:root[data-btnstyle="liquid-glass-black"] .date-quick:hover,
+:root[data-btnstyle="liquid-glass-black"] .date-go:hover{
+  color:#fff;transform:translateY(-1.5px);
+  background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.04));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 10px 26px rgba(0,0,0,.6)}
+:root[data-btnstyle="liquid-glass-black"] .sn-btn.active,
+:root[data-btnstyle="liquid-glass-black"] .date-quick.active,
+:root[data-btnstyle="liquid-glass-black"] .date-go{
+  color:#fff;border-color:color-mix(in srgb,var(--accent) 55%,rgba(255,255,255,.35));
+  background:linear-gradient(160deg,rgba(255,255,255,.22),rgba(255,255,255,.06));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 8px 24px rgba(0,0,0,.65),0 0 18px color-mix(in srgb,var(--accent) 30%,transparent)}
+
+/* เคารพ no-anim — ปิด glitch/neon-pulse */
+:root.no-anim .sn-btn,:root.no-anim .date-quick,:root.no-anim .date-go{animation:none!important}
 
 /* summary mini */
 .sum-mini{display:flex;gap:14px;flex-wrap:wrap}
@@ -463,6 +828,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sk-tile{height:74px}
 .sk-bar{height:62px;margin-top:12px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* skeleton: ค่าใน info-row + แถวใน list/table */
+.sk-val,.sk-line{display:inline-block;border-radius:6px;
+  background:linear-gradient(90deg,var(--panel2) 25%,var(--border) 50%,var(--panel2) 75%);
+  background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+.sk-val{width:84px;height:11px;vertical-align:middle}
+.sk-line{display:block;height:40px;margin-bottom:8px}
+.sk-line:last-child{margin-bottom:0}
+.sk-cell{padding:2px 0!important}
 .ag-ico{width:44px;height:44px;border-radius:10px;display:grid;place-items:center;flex-shrink:0}
 .ag-ico svg{width:22px;height:22px}
 .ag-ico.total{background:rgba(51,153,255,.12)}   .ag-ico.total svg{color:var(--info)}
@@ -527,7 +900,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .note-title-input{font-family:var(--font-sans);font-size:.82rem;font-weight:600;
   background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;
   padding:9px 13px;outline:none;width:100%}
-.note-title-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.12)}
+.note-title-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 16%,transparent)}
 .note-title{font-family:var(--font-sans);font-size:.92rem;font-weight:700;color:var(--accent);
   display:flex;align-items:center;gap:7px}
 .note-title svg{width:1em;height:1em;flex-shrink:0}
@@ -535,11 +908,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   font-family:var(--font-sans);font-size:.82rem;line-height:1.5;
   background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;
   padding:11px 13px;outline:none}
-.note-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,0,.12)}
+.note-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 16%,transparent)}
 .note-add{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:.66rem;
-  letter-spacing:1px;text-transform:uppercase;padding:11px 16px;border:none;border-radius:10px;cursor:pointer;
-  color:#fff;background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);transition:.2s;white-space:nowrap}
-.note-add:hover{box-shadow:0 0 16px rgba(255,107,0,.3)}
+  letter-spacing:1px;text-transform:uppercase;padding:11px 16px;border:none;border-radius:var(--btn-radius);cursor:pointer;
+  color:#fff;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 80%,#000),var(--accent),color-mix(in srgb,var(--accent) 78%,#fff));
+  transition:.2s;white-space:nowrap}
+.note-add:hover{box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 38%,transparent)}
 .note-add svg{width:1.1em;height:1.1em}
 .notes-toolbar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
 .notes-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;
@@ -553,7 +927,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   color:var(--dim);border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
 .note-sort:hover{color:var(--accent);border-color:var(--accent)}
 .note-sort.active{color:var(--accent);border-color:var(--accent);
-  background:linear-gradient(rgba(255,107,0,.12),rgba(255,107,0,.12)),var(--panel2)}
+  background:linear-gradient(color-mix(in srgb,var(--accent) 12%,transparent),color-mix(in srgb,var(--accent) 12%,transparent)),var(--panel2)}
 .note-sort svg{width:1.1em;height:1.1em}
 .notes-list{display:flex;flex-direction:column;gap:12px;margin-top:14px}
 .note-card{background:var(--panel2);border:1px solid var(--border);border-left:3px solid var(--accent);
@@ -618,7 +992,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ft-btn.dl:hover{color:var(--info);border-color:var(--info)}
 .ft-btn.rn:hover{color:var(--accent);border-color:var(--accent)}
 .ft-btn.del:hover{color:var(--danger);border-color:var(--danger)}
-@media(max-width:600px){.files-table .hide-sm{display:none}}
+@media(max-width:600px){
+  .files-table .hide-sm{display:none}
+  /* มือถือ: แต่ละไฟล์เป็นการ์ด — บรรทัด 1 ชื่อเต็ม, บรรทัด 2 ขนาด+ปุ่ม */
+  .files-table thead{display:none}
+  .files-table,.files-table tbody{display:block;width:100%}
+  .files-table tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;
+    padding:11px 2px;border-bottom:1px solid rgba(120,140,175,.14)}
+  .files-table td{display:block;border:none;padding:0}
+  /* ชื่อไฟล์เต็มบรรทัดบนสุด ยาวเท่าไรก็ได้ */
+  .files-table td.ft-name{flex:1 1 100%;order:1;font-size:.78rem;line-height:1.35;
+    word-break:break-all;color:var(--text)}
+  /* บรรทัด 2: ขนาดชิดซ้าย ดันปุ่มไปขวา */
+  .files-table td.num{order:2;margin-right:auto;font-size:.66rem;color:var(--dim);white-space:nowrap}
+  .files-table td:last-child{order:3}
+  .files-table .ft-act{gap:6px;justify-content:flex-end}
+  /* ปุ่มโหลดเหลือไอคอนบนมือถือ ประหยัดที่ */
+  .ft-btn{padding:6px 8px}
+  .ft-btn.dl{font-size:0}
+  .ft-btn.dl svg{width:15px;height:15px}
+  /* แถว empty/proc-empty ที่ใช้ colspan ไม่ต้องเป็น flex */
+  .files-table tr:has(.proc-empty){display:block;text-align:center}
+}
 
 /* terminal quick commands */
 .term-quick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
@@ -793,8 +1188,12 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <button class="icon-btn" onclick="closeSettings()"><i data-lucide="x"></i></button>
     </div>
     <div class="set-row">
-      <div class="set-lbl">ธีม (Theme) — เลือก 1 ใน 10</div>
+      <div class="set-lbl">ธีม (Theme) — เลือกสีหน้าจอ</div>
       <div class="theme-grid" id="setTheme"></div>
+    </div>
+    <div class="set-row">
+      <div class="set-lbl">สไตล์ปุ่ม &amp; เมนู (Button Style) — 10 แบบ</div>
+      <div class="set-opts" id="setBtnStyle"></div>
     </div>
     <div class="set-row">
       <div class="set-lbl">ขนาดตัวอักษร · <span id="setScaleVal">23.5px</span></div>
@@ -897,6 +1296,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" id="navGrafana" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
     <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
+    <button class="sn-btn" onclick="switchPanel('history',this)"><i data-lucide="activity"></i>History</button>
     <button class="sn-btn" onclick="switchPanel('device',this)"><i data-lucide="server"></i>System</button>
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
     <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
@@ -910,24 +1310,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="stat-grid">
     <div class="stat-card sc-temp">
       <div class="sc-bar"></div>
-      <div class="sc-label"><i data-lucide="thermometer"></i>Temperature</div>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sTempRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
+      <div class="sc-label"><i data-lucide="thermometer"></i><span class="lbl-full">Temperature</span><span class="lbl-short">Temp</span></div>
       <div class="sc-value" id="sTemp">--.-°</div>
       <div class="sc-sub" id="sTempSub">--</div>
     </div>
     <div class="stat-card sc-cpu">
       <div class="sc-bar"></div>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sCpuRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="cpu"></i>CPU</div>
       <div class="sc-value" id="sCpu">--.-%</div>
       <div class="sc-sub">Processing</div>
     </div>
     <div class="stat-card sc-ram">
       <div class="sc-bar"></div>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sRamRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="memory-stick"></i>RAM</div>
       <div class="sc-value" id="sRam">--.-%</div>
       <div class="sc-sub" id="sRamSub">ว่าง -- MB</div>
     </div>
     <div class="stat-card sc-disk">
       <div class="sc-bar"></div>
+      <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="15.5" pathLength="100"/><circle class="sc-ring-fg" id="sDiskRing" cx="18" cy="18" r="15.5" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="hard-drive"></i>Disk</div>
       <div class="sc-value" id="sDisk">--.-%</div>
       <div class="sc-sub" id="sDiskSub">ว่าง -- GB</div>
@@ -964,6 +1368,15 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="info-row"><span class="ir-label"><i data-lucide="refresh-cw"></i>Last Update</span><span class="ir-val" id="iLastSeen">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="layers"></i>Mode</span><span class="ir-val" id="iMode">--</span></div>
     </div>
+  </div>
+
+  <!-- การ์ด อุณหภูมิ 24 ชม. (ใช้ข้อมูลจากระบบ History) -->
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="cc-head">
+      <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิ — 24 ชม.</div>
+      <div class="sum-mini" id="dash24Sum"></div>
+    </div>
+    <div class="chart-wrap" style="height:200px"><canvas id="dash24Chart"></canvas></div>
   </div>
 
   </div><!-- /dashHead -->
@@ -1191,42 +1604,74 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
+  <!-- Panel: History (24h / 7d / 30d) -->
+  <div id="panel-history" class="s-panel">
+    <div class="date-toolbar">
+      <button class="date-quick active" id="hq-24h" onclick="loadHistory('24h')">24 ชม.</button>
+      <button class="date-quick" id="hq-7d" onclick="loadHistory('7d')">7 วัน</button>
+      <button class="date-quick" id="hq-30d" onclick="loadHistory('30d')">30 วัน</button>
+      <span class="data-count" id="histCount"></span>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิ — <span id="histRangeLabel">24 ชม.</span></div>
+        <div class="sum-mini" id="histTempSum"></div>
+      </div>
+      <div class="chart-wrap" style="height:230px">
+        <div class="no-data" id="histNoData" style="display:none">ยังไม่มีข้อมูลในช่วงนี้</div>
+        <canvas id="histTempChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="cpu"></i>CPU %</div><div class="sum-mini" id="histCpuSum"></div></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="histCpuChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="memory-stick"></i>RAM %</div><div class="sum-mini" id="histRamSum"></div></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="histRamChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="hard-drive"></i>DISK %</div><div class="sum-mini" id="histDiskSum"></div></div>
+      <div class="chart-wrap" style="height:200px"><canvas id="histDiskChart"></canvas></div>
+    </div>
+  </div>
+
   <!-- Panel: Device (network / OS / processes) -->
   <div id="panel-device" class="s-panel">
     <div class="info-grid">
       <div class="chart-card info-card">
         <div class="cc-head" style="margin-bottom:8px"><div class="cc-title"><i data-lucide="hard-drive"></i>OS &amp; Hardware</div></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="cpu"></i>Model</span><span class="ir-val" id="dModel">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="disc"></i>OS</span><span class="ir-val" id="dOS">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="square-terminal"></i>Kernel</span><span class="ir-val" id="dKernel">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="tag"></i>Hostname</span><span class="ir-val" id="dHost">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="code"></i>Python</span><span class="ir-val" id="dPy">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="clock"></i>Uptime</span><span class="ir-val online" id="dUptime">--</span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="cpu"></i>Model</span><span class="ir-val" id="dModel"><i class="sk-val" style="width:120px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="disc"></i>OS</span><span class="ir-val" id="dOS"><i class="sk-val" style="width:96px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="square-terminal"></i>Kernel</span><span class="ir-val" id="dKernel"><i class="sk-val" style="width:130px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="tag"></i>Hostname</span><span class="ir-val" id="dHost"><i class="sk-val" style="width:74px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="code"></i>Python</span><span class="ir-val" id="dPy"><i class="sk-val" style="width:58px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="clock"></i>Uptime</span><span class="ir-val online" id="dUptime"><i class="sk-val" style="width:88px"></i></span></div>
       </div>
       <div class="chart-card info-card">
         <div class="cc-head" style="margin-bottom:8px"><div class="cc-title"><i data-lucide="wifi"></i>Network</div></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="globe"></i>Internet</span><span class="ir-val" id="dNet">--</span></div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="dIP">--</span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="globe"></i>Internet</span><span class="ir-val" id="dNet"><i class="sk-val" style="width:78px"></i></span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="dIP"><i class="sk-val" style="width:110px"></i></span></div>
         <div id="dIfaces"></div>
         <div class="info-row">
           <span class="ir-label"><i data-lucide="gauge"></i>Speed</span>
           <span class="ir-val">
-            <span style="color:var(--ok)" id="dDown">↓ -- </span>&nbsp;
-            <span style="color:var(--info)" id="dUp">↑ --</span>
+            <span style="color:var(--ok)" id="dDown"><i class="sk-val" style="width:62px"></i></span>&nbsp;
+            <span style="color:var(--info)" id="dUp"></span>
           </span>
         </div>
-        <div class="info-row"><span class="ir-label"><i data-lucide="arrow-down-up"></i>Total</span><span class="ir-val" id="dTotal">--</span></div>
+        <div class="info-row"><span class="ir-label"><i data-lucide="arrow-down-up"></i>Total</span><span class="ir-val" id="dTotal"><i class="sk-val" style="width:130px"></i></span></div>
       </div>
     </div>
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="settings-2"></i>Services</div><span class="data-count" id="svcNote"></span></div>
-      <div id="svcList" class="svc-list"><div class="proc-empty">กำลังโหลด…</div></div>
+      <div id="svcList" class="svc-list"><div class="sk-line" style="height:56px"></div><div class="sk-line" style="height:56px"></div><div class="sk-line" style="height:56px"></div></div>
     </div>
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="list-tree"></i>Top Processes</div><span class="data-count" id="dProcNote"></span></div>
       <table class="proc-table">
         <thead><tr><th>PID</th><th>Process</th><th class="num">CPU %</th><th class="num">MEM %</th></tr></thead>
-        <tbody id="dProcBody"><tr><td colspan="4" class="proc-empty">กำลังโหลด…</td></tr></tbody>
+        <tbody id="dProcBody"><tr><td colspan="4" class="sk-cell"><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div></td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1369,5 +1814,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
 <script src="app.js"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
+<script>
+/* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
+  });
+}
+</script>
 </body>
 </html>
