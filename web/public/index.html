@@ -191,25 +191,20 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .topbar{position:sticky;top:0;z-index:50;background:var(--topbar-bg);
   border-bottom:1px solid var(--border);backdrop-filter:blur(8px);
   padding:calc(16px + env(safe-area-inset-top,0px)) 0 16px}
-.topbar-inner{width:100%;padding:0 16px;min-height:38px;position:relative;
+.topbar-inner{width:100%;max-width:1280px;margin:0 auto;padding:0 16px;min-height:38px;position:relative;
   display:flex;align-items:center;gap:9px;flex-wrap:wrap;row-gap:7px}
 @media(max-width:640px){.topbar-inner{padding:0 10px}}
-/* เมนู tabs ที่ฝังในแถบ topbar */
-.topbar .section-nav{flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;gap:7px;margin:0;padding:0;
+/* เมนู tabs ฝังในแถบ topbar — อยู่แถวล่างเต็มกว้างเสมอ (brand ซ้าย/ปุ่มขวา อยู่แถวบน ไม่ทับกัน) */
+.topbar-inner>.spacer{display:block}   /* ดันปุ่ม action ไปขวาสุดของแถวบน */
+.topbar .section-nav{flex:1 1 100%;order:99;min-width:0;display:flex;flex-wrap:nowrap;gap:7px;margin:0;
+  padding:9px 0 0;border-top:1px solid color-mix(in srgb,var(--border) 55%,transparent);
   position:static;background:none;z-index:auto;-webkit-backdrop-filter:none;backdrop-filter:none}
-.topbar .section-nav .sn-btn{flex:1 1 0;min-width:0;padding:10px 8px;font-size:.68rem;letter-spacing:1px;gap:7px;white-space:nowrap}
+.topbar .section-nav .sn-btn{flex:1 1 0;min-width:0;padding:10px 8px;font-size:.68rem;letter-spacing:1px;gap:7px;
+  white-space:nowrap;justify-content:center}
 .topbar .section-nav .sn-btn svg{width:1.05em;height:1.05em;flex-shrink:0}
-.topbar-inner>.spacer{display:none}   /* default (จอแคบ): เมนูยืดเต็ม ไม่ต้องมี spacer */
-/* จอกว้าง: เมนูลอยกึ่งกลาง กว้างเท่าคอลัมน์การ์ด (1280) — brand/ปุ่ม action อยู่ขอบจอ */
-@media(min-width:1500px){
-  .topbar-inner>.spacer{display:block}      /* คืน spacer ดันปุ่ม action ไปขวาสุด */
-  .topbar-inner>.section-nav{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:100%;max-width:1280px;padding:0 16px;flex:0 1 auto}
-}
 @media(max-width:640px){
-  .topbar-inner>.spacer{display:block}
-  .topbar .section-nav{flex:1 1 100%;order:99;gap:6px}
-  .topbar .section-nav .sn-btn{flex:1 1 0;padding:10px 0;font-size:0;letter-spacing:0;justify-content:center;gap:0}
+  .topbar .section-nav{gap:6px}
+  .topbar .section-nav .sn-btn{padding:10px 0;font-size:0;letter-spacing:0;gap:0}
   .topbar .section-nav .sn-btn svg{width:19px;height:19px}
 }
 .dot-live{width:8px;height:8px;border-radius:50%;background:var(--ok);flex-shrink:0;position:relative;
@@ -217,10 +212,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .dot-live::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--ok);
   animation:liveRing 1.6s ease-out infinite}
 @keyframes blink{0%,100%{opacity:1;box-shadow:0 0 6px var(--ok)}50%{opacity:.35;box-shadow:none}}
-.brand-mono{font-family:var(--font-mono);color:var(--accent);font-size:1rem;letter-spacing:2px}
-.brand-sub{font-family:var(--font-mono);color:var(--dim);font-size:.7rem;letter-spacing:1px;margin-left:2px}
+.brand{display:inline-flex;align-items:center;gap:6px;line-height:1}
+.brand-mono{font-family:var(--font-mono);color:var(--accent);font-size:1rem;letter-spacing:2px;line-height:1}
+.brand-sub{font-family:var(--font-mono);color:var(--dim);font-size:.7rem;letter-spacing:1px;line-height:1}
 .mode-badge{font-family:var(--font-mono);font-size:.62rem;padding:2px 9px;border-radius:20px;
-  border:1px solid var(--border);color:var(--dim);letter-spacing:1px;text-transform:uppercase;flex-shrink:0;
+  border:1px solid var(--border);color:var(--dim);letter-spacing:1px;text-transform:none;flex-shrink:0;
   display:inline-flex;align-items:center;gap:5px}
 .mode-badge svg{width:1.15em;height:1.15em}
 .mode-badge.local{color:var(--ok);border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.06)}
@@ -1266,7 +1262,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <header class="topbar">
  <div class="topbar-inner">
   <div class="dot-live" id="dotLive"></div>
-  <div>
+  <div class="brand">
     <span class="brand-mono">RPi</span>
     <span class="brand-sub">AJPAO-Monitor</span>
   </div>
