@@ -463,6 +463,17 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .rb-when{font-family:var(--font-mono);color:var(--text);flex:1;min-width:0}
 .rb-dur{font-family:var(--font-mono);color:var(--dim);font-size:.92em;white-space:nowrap}
 .rb-row.cur .rb-dur{color:var(--ok)}
+.dsk-list{display:flex;flex-direction:column;gap:13px}
+.dsk-item{display:flex;flex-direction:column;gap:5px}
+.dsk-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-family:var(--font-mono);font-size:.78rem;flex-wrap:wrap}
+.dsk-mount{color:var(--text);font-weight:600}
+.dsk-dev{color:var(--dim);font-size:.86em}
+.dsk-stat{color:var(--dim);font-size:.84em;white-space:nowrap}
+.dsk-bar{height:8px;border-radius:6px;background:var(--panel2);overflow:hidden}
+.dsk-fill{height:100%;border-radius:6px;transition:width .4s}
+.log-box{font-family:var(--font-mono);font-size:.68rem;line-height:1.55;color:var(--dim);background:var(--panel2);
+  border:1px solid var(--border);border-radius:10px;padding:12px;margin:0;max-height:380px;overflow:auto;
+  white-space:pre-wrap;word-break:break-word}
 
 /* date toolbar */
 .date-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
@@ -1782,6 +1793,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
     <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="hard-drive"></i>Disk Partitions</div><span class="data-count" id="dskNote"></span></div>
+      <div id="dskList" class="dsk-list"><div class="sk-line" style="height:46px"></div><div class="sk-line" style="height:46px"></div></div>
+    </div>
+    <div class="chart-card">
       <div class="cc-head">
         <div class="cc-title"><i data-lucide="globe"></i>Internet Speedtest</div>
         <button class="st-btn" id="stBtn" onclick="runSpeedtest()"><i data-lucide="zap"></i>วัดความเร็ว</button>
@@ -1808,6 +1823,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="rotate-ccw"></i>Reboot History</div><span class="data-count" id="rbNote"></span></div>
       <div id="rbList" class="rb-list"><div class="sk-line" style="height:42px"></div><div class="sk-line" style="height:42px"></div><div class="sk-line" style="height:42px"></div></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="scroll-text"></i>Service Logs</div>
+        <button class="st-btn" id="logBtn" onclick="loadLogs()"><i data-lucide="refresh-cw"></i>โหลด log</button>
+      </div>
+      <pre id="logBox" class="log-box">กดปุ่ม "โหลด log" เพื่อดู journalctl ล่าสุดของ service (LAN only)</pre>
     </div>
   </div>
 

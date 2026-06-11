@@ -836,6 +836,11 @@ function activeAlerts(){
     const v = m==='temp'?d.temp : m==='cpu'?d.cpu : m==='ram'?d.ram : d.disk;
     if(v!=null && c[m]!=null && v>=c[m]) out.push({metric:m, value:v, thr:c[m]});
   });
+  const t=d.throttle;                       // throttle/undervoltage = สถานะ boolean (ไม่มี threshold)
+  if(t && t.now){
+    const tb=[]; if(t.now.undervoltage)tb.push('ไฟไม่พอ'); if(t.now.throttled||t.now.freq_capped)tb.push('ลดสปีด'); if(t.now.soft_temp)tb.push('ร้อนเกิน');
+    if(tb.length) out.push({metric:'throttle', value:tb.join(', '), thr:null});
+  }
   return out;
 }
 function updateBell(){
@@ -850,7 +855,10 @@ function renderActive(){
   if(ALERTS.cfg && ALERTS.cfg.enabled===false){ el.innerHTML='<span class="al-ok" style="color:var(--dim)">⏸ ระบบแจ้งเตือนปิดอยู่</span>'; return; }
   const act=activeAlerts();
   if(!act.length){ el.innerHTML='<span class="al-ok"><i data-lucide="check-circle"></i> ทุกอย่างปกติ</span>'; if(window.lucide)lucide.createIcons(); return; }
-  el.innerHTML=act.map(a=>`<span class="al-chip">${AL_NAMES[a.metric]} ${a.value.toFixed(1)}${AL_UNITS[a.metric]} ≥ ${a.thr}${AL_UNITS[a.metric]}</span>`).join('');
+  el.innerHTML=act.map(a=> a.metric==='throttle'
+    ? `<span class="al-chip" style="border-color:var(--danger);color:var(--danger)">⚡ ${a.value}</span>`
+    : `<span class="al-chip">${AL_NAMES[a.metric]} ${a.value.toFixed(1)}${AL_UNITS[a.metric]} ≥ ${a.thr}${AL_UNITS[a.metric]}</span>`
+  ).join('');
 }
 
 function openAlerts(){
@@ -1124,6 +1132,21 @@ function renderDeviceLocal(d){
   setText('dTotal',`↓ ${n.total_recv_mb} MB · ↑ ${n.total_sent_mb} MB`);
   renderProcs(d.procs);
   setText('dProcNote', (d.procs?.length||0)+' procs · live');
+  renderPartitions(d.disks);
+}
+
+function renderPartitions(disks){
+  const el=document.getElementById('dskList'); if(!el) return;
+  const note=document.getElementById('dskNote');
+  if(!disks||!disks.length){ el.innerHTML='<div class="proc-empty">ไม่มีข้อมูล</div>'; if(note)note.textContent=''; return; }
+  if(note) note.textContent=disks.length+' partitions';
+  el.innerHTML=disks.map(p=>{
+    const col=p.pct>=90?C.danger:p.pct>=75?C.warn:C.ok;
+    return `<div class="dsk-item"><div class="dsk-top">`
+      +`<span><span class="dsk-mount">${p.mount}</span> <span class="dsk-dev">${p.device} · ${p.fstype}</span></span>`
+      +`<span class="dsk-stat">${p.used_gb}/${p.total_gb} GB · ว่าง ${p.free_gb} GB · <b style="color:${col}">${p.pct}%</b></span>`
+      +`</div><div class="dsk-bar"><div class="dsk-fill" style="width:${Math.min(100,p.pct)}%;background:${col}"></div></div></div>`;
+  }).join('');
 }
 
 function renderProcs(procs){
@@ -1146,6 +1169,9 @@ function renderDeviceCloud(){
   setText('dDown','—'); setText('dUp','—'); setText('dTotal','—');
   document.getElementById('dProcBody').innerHTML='<tr><td colspan="4" class="proc-empty">⚠ ดู process / speed สดได้เฉพาะตอนเปิดใน LAN</td></tr>';
   setText('dProcNote','LAN only');
+  const dsk=document.getElementById('dskList'); if(dsk) dsk.innerHTML='<div class="proc-empty">⚠ ดู partition ได้เฉพาะตอนเปิดใน LAN</div>';
+  setText('dskNote','LAN only');
+  const lb=document.getElementById('logBox'); if(lb) lb.textContent='⚠ ดู log ได้เฉพาะตอนเปิดใน LAN';
 }
 
 // ─── service manager ───────────────────────────────────────────────────────────
@@ -1274,6 +1300,19 @@ async function exportCSV(){
     toast('ดาวน์โหลด CSV แล้ว ('+snap.size+' แถว)','ok');
   }catch(e){ toast('export ไม่สำเร็จ: '+(e?.message||e),'error'); }
   finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; if(window.lucide) lucide.createIcons(); } }
+}
+
+async function loadLogs(){
+  if(MODE!=='local'){ toast('ดู log ได้เฉพาะตอนเปิดใน LAN','error'); return; }
+  const box=document.getElementById('logBox'), btn=document.getElementById('logBtn'), orig=btn.innerHTML;
+  btn.disabled=true; btn.innerHTML='<i data-lucide="loader"></i>โหลด…'; if(window.lucide) lucide.createIcons();
+  box.textContent='กำลังโหลด…';
+  try{
+    const d=await fetch('/api/logs?lines=200').then(r=>r.json());
+    box.textContent = d.ok ? (d.log||'(ว่าง)') : ('error: '+(d.error||''));
+    box.scrollTop=box.scrollHeight;   // เลื่อนไปบรรทัดล่าสุด
+  }catch(e){ box.textContent='โหลด log ไม่สำเร็จ: '+(e?.message||e); }
+  finally{ btn.disabled=false; btn.innerHTML=orig; if(window.lucide) lucide.createIcons(); }
 }
 
 // ─── web terminal (full PTY ผ่าน WebSocket — ไม่มี timeout) ───────────────────────

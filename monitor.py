@@ -245,7 +245,7 @@ def log_event(etype, metric, value, severity, message):
             print(f"[events] push ล้มเหลว: {e}")
 
 
-_alert_state = {"temp": False, "cpu": False, "ram": False, "disk": False}
+_alert_state = {"temp": False, "cpu": False, "ram": False, "disk": False, "throttle": False}
 _ALERT_NAMES = {"temp": "อุณหภูมิ", "cpu": "CPU", "ram": "RAM", "disk": "Disk"}
 _ALERT_UNITS = {"temp": "°C", "cpu": "%", "ram": "%", "disk": "%"}
 
@@ -270,6 +270,27 @@ def check_alerts(now, temp, cpu, ram_pct, disk_pct):
             log_event("recovery", m, val, "ok", f"{name} กลับสู่ปกติ {val:.1f}{u}")
             if cfg.get("telegram", True):
                 broadcast(f"✅ <b>{name}กลับสู่ปกติ</b>\n{name}: <b>{val:.1f}{u}</b>\n🕐 {now.strftime('%d/%m/%Y %H:%M')}")
+
+    # throttle / undervoltage — สถานะ boolean (ไม่ใช่ threshold) แต่สำคัญสุด: ไฟไม่พอทำ SD พังได้
+    th = get_throttle_status()
+    if th is not None:
+        n_ = th["now"]
+        bad = []
+        if n_["undervoltage"]:               bad.append("ไฟไม่พอ (undervoltage)")
+        if n_["throttled"] or n_["freq_capped"]: bad.append("ลดสปีด (throttled)")
+        if n_["soft_temp"]:                  bad.append("ร้อนเกิน (soft temp limit)")
+        if bad and not _alert_state["throttle"]:
+            _alert_state["throttle"] = True
+            msg = " · ".join(bad)
+            log_event("alert", "throttle", None, "danger", f"⚡ ฮาร์ดแวร์: {msg}")
+            if cfg.get("telegram", True):
+                broadcast(f"⚡ <b>แจ้งเตือน: ปัญหาไฟ/ฮาร์ดแวร์</b>\nสถานะ: <b>{msg}</b>\n"
+                          f"🕐 {now.strftime('%d/%m/%Y %H:%M')}\n⚠️ ตรวจอะแดปเตอร์/สายไฟ — ไฟไม่พอเสี่ยง SD card พัง")
+        elif not bad and _alert_state["throttle"]:
+            _alert_state["throttle"] = False
+            log_event("recovery", "throttle", None, "ok", "⚡ ไฟ/ฮาร์ดแวร์กลับสู่ปกติ")
+            if cfg.get("telegram", True):
+                broadcast(f"✅ <b>ไฟ/ฮาร์ดแวร์กลับสู่ปกติ</b>\n🕐 {now.strftime('%d/%m/%Y %H:%M')}")
 
 
 def cleanup_old_data():
@@ -554,6 +575,29 @@ def get_net_speed():
     return {"down_kbps": round(max(0.0, down), 1), "up_kbps": round(max(0.0, up), 1)}
 
 
+def get_disk_partitions():
+    """รายการ partition จริง + การใช้งาน (ข้าม pseudo/loop/overlay) — เรียงตาม % มาก→น้อย"""
+    out = []
+    for p in psutil.disk_partitions(all=False):
+        if p.fstype in ("", "squashfs", "overlay", "tmpfs", "devtmpfs"):
+            continue
+        try:
+            u = psutil.disk_usage(p.mountpoint)
+        except Exception:
+            continue
+        out.append({
+            "mount":    p.mountpoint,
+            "device":   p.device,
+            "fstype":   p.fstype,
+            "pct":      round(u.percent, 1),
+            "used_gb":  round(u.used  / 1073741824, 1),
+            "total_gb": round(u.total / 1073741824, 1),
+            "free_gb":  round(u.free  / 1073741824, 1),
+        })
+    out.sort(key=lambda x: x["pct"], reverse=True)
+    return out
+
+
 def get_sysinfo(n_proc=8, sample=0.8):
     """รวมข้อมูลสด: network (IP/speed/internet) + OS + top processes (อ่านอย่างเดียว)"""
     # prime per-process cpu (ครั้งแรก cpu_percent คืน 0 — ต้องวัดเป็นช่วง)
@@ -613,6 +657,7 @@ def get_sysinfo(n_proc=8, sample=0.8):
             "total_sent_mb": round(io2.bytes_sent / 1048576, 1),
         },
         "procs": rows[:n_proc],
+        "disks": get_disk_partitions(),
     }
 
 
@@ -1745,6 +1790,23 @@ def get_reboot_history(limit=15):
 @require_auth
 def api_reboots():
     return jsonify({"reboots": get_reboot_history(), "uptime": int(psutil.boot_time())})
+
+
+@flask_app.route("/api/logs")
+@require_auth
+def api_logs():
+    """log ของ service จาก journalctl (ajpao อยู่ group adm → อ่านได้ไม่ต้อง sudo)"""
+    try:
+        n = max(20, min(int(request.args.get("lines", "200")), 1000))
+    except Exception:
+        n = 200
+    try:
+        r = subprocess.run(["journalctl", "-u", "ajpao-monitor", "-n", str(n),
+                            "--no-pager", "--output", "short-iso"],
+                           capture_output=True, text=True, timeout=8)
+        return jsonify({"ok": True, "log": (r.stdout or r.stderr or "").strip()})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 _speedtest_lock = threading.Lock()   # กัน speedtest ซ้อนกัน (เปลืองแบนด์วิดท์ + ผลเพี้ยน)
