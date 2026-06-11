@@ -18,6 +18,8 @@ AJPAO-Monitor — single-file Raspberry Pi monitor.
 
 import os
 import io
+import re
+import csv
 import time
 import socket
 import platform
@@ -35,7 +37,7 @@ import struct
 import fcntl
 import termios
 from functools import wraps
-from flask import Flask, jsonify, send_from_directory, request, session
+from flask import Flask, jsonify, send_from_directory, request, session, Response
 from flask_sock import Sock
 from dotenv import load_dotenv
 
@@ -341,6 +343,55 @@ def get_cpu_temp():
         return 0.0
 
 
+def _vcgencmd(*args):
+    """เรียก vcgencmd แล้วคืน stdout (str) — คืน None ถ้าไม่ใช่ Pi / สั่งไม่ได้"""
+    try:
+        r = subprocess.run(["vcgencmd", *args], capture_output=True, text=True, timeout=4)
+        return r.stdout.strip()
+    except Exception:
+        return None
+
+
+def get_throttle_status():
+    """อ่านสถานะ throttle / undervoltage จาก vcgencmd get_throttled (เฉพาะ Pi)
+
+    bit map ของ get_throttled:
+        0x1     under-voltage ตอนนี้        0x10000  under-voltage เคยเกิดตั้งแต่บูต
+        0x2     ARM freq ถูกจำกัดตอนนี้      0x20000  freq capping เคยเกิด
+        0x4     throttled ตอนนี้            0x40000  throttling เคยเกิด
+        0x8     soft temp limit ตอนนี้      0x80000  soft temp limit เคยเกิด
+
+    คืน None ถ้าไม่ใช่ Pi/อ่านไม่ได้ — ตัวเรียกจะข้ามไป (ส่ง throttle=None)
+    """
+    raw = _vcgencmd("get_throttled")                 # เช่น "throttled=0x0"
+    if not raw or "=" not in raw:
+        return None
+    try:
+        val = int(raw.split("=")[1], 16)
+    except Exception:
+        return None
+
+    now  = {"undervoltage": bool(val & 0x1),     "freq_capped": bool(val & 0x2),
+            "throttled":    bool(val & 0x4),     "soft_temp":   bool(val & 0x8)}
+    past = {"undervoltage": bool(val & 0x10000), "freq_capped": bool(val & 0x20000),
+            "throttled":    bool(val & 0x40000), "soft_temp":   bool(val & 0x80000)}
+
+    volts = None                                     # แรงดันไฟ core (V)
+    vraw = _vcgencmd("measure_volts")                # "volt=0.8625V"
+    if vraw and "=" in vraw:
+        try: volts = round(float(vraw.split("=")[1].replace("V", "")), 3)
+        except Exception: pass
+
+    clock = None                                     # ความเร็ว CPU จริง (MHz)
+    craw = _vcgencmd("measure_clock", "arm")         # "frequency(48)=1500398464"
+    if craw and "=" in craw:
+        try: clock = int(craw.split("=")[1]) // 1000000
+        except Exception: pass
+
+    return {"raw": val, "healthy": (val == 0), "now": now, "past": past,
+            "volts": volts, "clock_mhz": clock}
+
+
 def collect_metrics():
     temp = get_cpu_temp()
     cpu  = psutil.cpu_percent(interval=1)
@@ -602,6 +653,9 @@ def push_reading(now, temp, cpu, ram, disk):
             "updated_at":   fs.SERVER_TIMESTAMP,
             **get_net_speed(),               # down_kbps, up_kbps
         }
+        thr = get_throttle_status()          # throttle/undervoltage (เฉพาะ Pi) — ข้ามถ้าไม่ใช่ Pi
+        if thr is not None:
+            status_doc["throttle"] = thr
         ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
         if ag is not None:
             status_doc["adguard"] = ag
@@ -1025,6 +1079,7 @@ def api_status():
         "model": oi["model"], "os": oi["os"], "kernel": oi["kernel"],
         "hostname": oi["hostname"], "ip": get_primary_ip(),
         **get_net_speed(),                  # down_kbps, up_kbps (เน็ตเวิร์ก speed)
+        "throttle": get_throttle_status(),  # None ถ้าไม่ใช่ Pi/อ่านไม่ได้
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
     })
 
@@ -1628,6 +1683,100 @@ def api_shutdown():
     # LAN ถือว่า trusted — สั่งปิดเครื่อง (ต้องเปิดเองที่เครื่องถึงจะกลับมา)
     subprocess.Popen(["sudo", "shutdown", "-h", "now"])
     return jsonify({"ok": True})
+
+
+# ─── export CSV / reboot history / speedtest ─────────────────────────────────────
+
+@flask_app.route("/api/export.csv")
+@require_auth
+def api_export_csv():
+    """ดาวน์โหลดข้อมูล temp/cpu/ram/disk เป็น CSV (ค่าเริ่มต้น 30 วันล่าสุด)"""
+    try:
+        days = max(1, min(int(request.args.get("days", "30")), 3650))
+    except Exception:
+        days = 30
+    since = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+    rows = query("SELECT timestamp, temp_c, cpu_pct, ram_pct, disk_pct FROM temperature "
+                 "WHERE timestamp >= ? ORDER BY timestamp", (since,))
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["timestamp", "temp_c", "cpu_pct", "ram_pct", "disk_pct"])
+    for r in rows:
+        w.writerow(["" if v is None else v for v in r])
+    fname = f"ajpao-monitor_{datetime.now():%Y%m%d_%H%M}.csv"
+    return Response(buf.getvalue(), mimetype="text/csv",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
+def get_reboot_history(limit=15):
+    """ประวัติการบูตจาก `last -F reboot` (/var/log/wtmp) — คำนวณช่วง uptime ของแต่ละบูตเอง"""
+    try:
+        r = subprocess.run(["last", "-F", "reboot"], capture_output=True, text=True, timeout=5)
+    except Exception:
+        return []
+    pat = re.compile(r"([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\s+(\d{4})")  # Mon DD HH:MM:SS YYYY
+    boots = []
+    for ln in r.stdout.splitlines():
+        if not ln.startswith("reboot"):
+            continue
+        m = pat.search(ln)
+        if not m:
+            continue
+        try:
+            boots.append(datetime.strptime(f"{m.group(1)} {m.group(2)} {m.group(3)} {m.group(4)}",
+                                           "%b %d %H:%M:%S %Y"))
+        except Exception:
+            pass
+    boots = sorted(set(boots), reverse=True)
+    now = datetime.now()
+    out = []
+    for i, b in enumerate(boots[:limit]):
+        end = now if i == 0 else boots[i - 1]
+        out.append({
+            "boot": b.strftime("%Y-%m-%d %H:%M:%S"),
+            "end":  None if i == 0 else end.strftime("%Y-%m-%d %H:%M:%S"),
+            "duration_sec": max(0, int((end - b).total_seconds())),
+            "current": i == 0,
+        })
+    return out
+
+
+@flask_app.route("/api/reboots")
+@require_auth
+def api_reboots():
+    return jsonify({"reboots": get_reboot_history(), "uptime": int(psutil.boot_time())})
+
+
+_speedtest_lock = threading.Lock()   # กัน speedtest ซ้อนกัน (เปลืองแบนด์วิดท์ + ผลเพี้ยน)
+
+@flask_app.route("/api/speedtest", methods=["POST"])
+@require_auth
+def api_speedtest():
+    """วัดความเร็วเน็ตด้วย speedtest-cli (~30 วิ) — รันได้ทีละ 1 ครั้ง"""
+    if not _speedtest_lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "กำลังวัดความเร็วอยู่ รอสักครู่"}), 409
+    try:
+        import speedtest
+        st = speedtest.Speedtest(secure=True)
+        st.get_best_server()
+        down = st.download()
+        up = st.upload(pre_allocate=False)
+        res = st.results.dict()
+        return jsonify({
+            "ok": True,
+            "down_mbps": round(down / 1e6, 2),
+            "up_mbps":   round(up / 1e6, 2),
+            "ping_ms":   round(res.get("ping", 0), 1),
+            "server": (res.get("server") or {}).get("sponsor", ""),
+            "isp":    (res.get("client") or {}).get("isp", ""),
+            "ts": datetime.now().strftime("%H:%M:%S"),
+        })
+    except ImportError:
+        return jsonify({"ok": False, "error": "ยังไม่ได้ติดตั้ง speedtest-cli บน Pi"}), 500
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        _speedtest_lock.release()
 
 
 # ─── background loops ───────────────────────────────────────────────────────────

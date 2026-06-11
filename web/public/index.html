@@ -168,7 +168,7 @@ html.no-bg body::before,html.no-bg body::after{display:none!important}
   radial-gradient(ellipse 46% 40% at 60% 50%,rgba(150,165,200,.05),transparent 66%)}
 :root[data-theme="liquidglassblack"] .sc-value{text-shadow:0 0 12px color-mix(in srgb,currentColor 25%,transparent)}
 html.no-anim *,html.no-anim *::before,html.no-anim *::after{animation:none!important;transition:none!important}
-html{scroll-behavior:smooth;font-size:23.5px}
+html{scroll-behavior:smooth;font-size:23.5px;background:var(--bg)}
 body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;font-variant-numeric:tabular-nums;background:var(--bg);color:var(--text);min-height:100vh;font-size:1rem;line-height:1.6;overflow-x:hidden}
 
 /* subtle static grid bg (minimal) */
@@ -308,7 +308,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .brand-sub{display:none}
   .topbar{gap:5px;min-height:0;padding:calc(5px + env(safe-area-inset-top,0px)) 8px 5px}
   .brand-mono{font-size:.92rem;letter-spacing:1px}
-  .mode-badge{padding:2px 7px;font-size:.55rem}
+  .mode-badge{display:none}   /* ซ่อน badge บนมือถือ — รู้โหมดจาก URL อยู่แล้ว ให้ปุ่มพอดีแถวเดียว */
   .icon-btn{width:30px;height:30px}
   .btn-reboot{width:30px;height:30px}
 }
@@ -331,7 +331,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   color:var(--dim);text-transform:uppercase;margin-bottom:8px}
 .sc-value{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.2rem);
   font-weight:800;line-height:1;margin-bottom:6px;letter-spacing:-.5px}
-.sc-sub{font-family:var(--font-mono);font-size:.65rem;color:var(--dim)}
+.sc-sub{font-family:var(--font-mono);font-size:.65rem;color:var(--dim);
+  line-height:1.3;min-height:1.1em;display:flex;align-items:center;gap:4px}
 .sc-temp .sc-bar{background:var(--ok)}  .sc-temp .sc-value{color:var(--ok)}
 .sc-cpu .sc-bar{background:var(--info)}   .sc-cpu .sc-value{color:var(--info)}
 .sc-ram .sc-bar{background:var(--purple)} .sc-ram .sc-value{color:var(--purple)}
@@ -439,52 +440,29 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .s-panel{display:none}
 .s-panel.active{display:block}
 
-/* ── Grafana-style page (page 2) ── */
-.gf-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-  padding:8px 12px;margin-bottom:12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--card-shadow)}
-.gf-bar-title{display:flex;align-items:center;gap:8px;font-weight:700;color:var(--text);font-size:.98rem}
-.gf-bar-title svg{width:1.05em;height:1.05em;color:var(--accent)}
-.gf-star{color:var(--warn)!important;fill:var(--warn);width:.95em!important;height:.95em!important}
-.gf-bar-right{display:flex;align-items:center;gap:8px}
-.gf-chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);font-size:.72rem;
-  padding:4px 9px;border-radius:7px;border:1px solid var(--border);color:var(--dim);background:var(--panel2)}
-.gf-chip svg{width:.9em;height:.9em}
-.gf-live{color:var(--ok)}
-.gf-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
-.gf-grid .s3{grid-column:span 3}.gf-grid .s4{grid-column:span 4}.gf-grid .s8{grid-column:span 8}
-@media(max-width:1000px){.gf-grid .s3{grid-column:span 6}.gf-grid .s4,.gf-grid .s8{grid-column:span 12}}
-@media(max-width:560px){.gf-grid .s3{grid-column:span 6}}
-.gpanel{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
-  box-shadow:var(--card-shadow);backdrop-filter:var(--panel-blur);overflow:hidden;display:flex;flex-direction:column}
-.gp-head{display:flex;align-items:center;gap:6px;padding:7px 11px;font-size:.74rem;font-weight:600;
-  letter-spacing:.3px;color:var(--dim);border-bottom:1px solid var(--border);background:var(--panel2)}
-.gp-head svg{width:.95em;height:.95em;color:var(--accent)}
-.gp-unit,.gp-head .gp-unit{margin-left:auto;font-weight:400;font-family:var(--font-mono);color:var(--dim);font-size:.92em}
-.gp-body{padding:12px;flex:1;display:flex;align-items:center;justify-content:center}
-.gp-tri::before{content:'';position:absolute;top:0;left:0;border-width:13px;border-style:solid;
-  border-color:var(--danger) transparent transparent var(--danger);z-index:3}
-/* gauge */
-.gf-gauge{position:relative;width:100%;max-width:170px;aspect-ratio:1/.82}
-.gf-gauge canvas{position:absolute;inset:0}
-.gf-gval{position:absolute;left:0;right:0;bottom:14%;text-align:center;font-family:var(--font-display);
-  font-size:clamp(1.3rem,3.4vw,1.9rem);font-weight:700;color:var(--text);line-height:1}
-.gf-gval small{font-size:.5em;color:var(--dim);font-weight:500;margin-left:1px}
-/* stat + sparkline */
-.gp-stat{flex-direction:column;align-items:stretch;gap:6px;justify-content:space-between;padding:10px 12px}
-.gf-big{font-family:var(--font-display);font-size:clamp(1.5rem,4vw,2.1rem);font-weight:700;color:var(--ok);line-height:1}
-.gf-big small{font-size:.42em;color:var(--dim);font-weight:500}
-.gf-big.gf-up{color:var(--info)}
-.gf-substat{font-size:.72rem;color:var(--dim);font-family:var(--font-mono)}
-.gf-sparkwrap{height:46px;margin:-2px -2px -4px}
-.gf-tswrap{height:210px;width:100%}
-/* node info */
-.gp-info{flex-direction:column;align-items:stretch;gap:0;padding:4px 12px}
-.gi-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px dashed var(--border);font-size:.8rem}
-.gi-row:last-child{border-bottom:none}
-.gi-row span{display:flex;align-items:center;gap:7px;color:var(--dim)}
-.gi-row span svg{width:.95em;height:.95em}
-.gi-row b{font-family:var(--font-mono);color:var(--text);font-weight:600;font-size:.92em}
-.gi-online{color:var(--ok)!important;display:flex;align-items:center;gap:6px}
+/* speedtest + reboot history (System page) */
+.st-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:.72rem;font-weight:600;
+  padding:7px 14px;border-radius:9px;cursor:pointer;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);transition:all .2s}
+.st-btn:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 26%,transparent);box-shadow:0 0 16px color-mix(in srgb,var(--accent) 30%,transparent)}
+.st-btn:disabled{opacity:.55;cursor:wait}
+.st-btn svg{width:1em;height:1em}
+.st-empty{color:var(--dim);font-family:var(--font-mono);font-size:.82rem;text-align:center;padding:18px 0}
+.st-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:6px 0 2px}
+.st-item{text-align:center;padding:12px 6px;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}
+.st-ico svg{width:1.5em;height:1.5em}
+.st-val{font-family:var(--font-display);font-size:clamp(1.4rem,4vw,2rem);font-weight:800;color:var(--text);line-height:1.1;margin-top:4px}
+.st-lbl{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase;margin-top:3px}
+.st-meta{text-align:center;font-family:var(--font-mono);font-size:.72rem;color:var(--dim);margin-top:10px;min-height:1em}
+@media(max-width:520px){.st-grid{gap:8px}.st-item{padding:10px 4px}}
+.rb-list{display:flex;flex-direction:column;gap:0}
+.rb-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px dashed var(--border);font-size:.82rem}
+.rb-row:last-child{border-bottom:none}
+.rb-dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex-shrink:0}
+.rb-row.cur .rb-dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.rb-when{font-family:var(--font-mono);color:var(--text);flex:1;min-width:0}
+.rb-dur{font-family:var(--font-mono);color:var(--dim);font-size:.92em;white-space:nowrap}
+.rb-row.cur .rb-dur{color:var(--ok)}
 
 /* date toolbar */
 .date-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
@@ -1270,7 +1248,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <!-- Toolsbar (tabs) — รวมอยู่ใน topbar -->
   <div class="section-nav">
     <button class="sn-btn active" onclick="switchPanel('temp',this)"><i data-lucide="layout-dashboard"></i>Dashboard</button>
-    <button class="sn-btn" id="navGrafana" onclick="switchPanel('grafana',this)"><i data-lucide="layout-grid"></i>Grafana</button>
     <button class="sn-btn" onclick="switchPanel('system',this)"><i data-lucide="gauge"></i>Usage</button>
     <button class="sn-btn" onclick="switchPanel('monthly',this)"><i data-lucide="calendar-days"></i>Monthly</button>
     <button class="sn-btn" onclick="switchPanel('history',this)"><i data-lucide="activity"></i>History</button>
@@ -1366,13 +1343,6 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="set-opts" id="setAnim">
         <button data-v="on" onclick="setUI('anim',true)">เปิด</button>
         <button data-v="off" onclick="setUI('anim',false)">ปิด</button>
-      </div>
-    </div>
-    <div class="set-row set-row-inline">
-      <div class="set-lbl" style="margin:0">หน้า Grafana (เมนู Page 2)</div>
-      <div class="set-opts" id="setGfPage">
-        <button data-v="on" onclick="setUI('gfPage',true)">เปิด</button>
-        <button data-v="off" onclick="setUI('gfPage',false)">ปิด</button>
       </div>
     </div>
 
@@ -1538,6 +1508,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="info-row"><span class="ir-label"><i data-lucide="tag"></i>Hostname</span><span class="ir-val" id="iHostname">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="iIP">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="gauge"></i>Speed</span><span class="ir-val" id="iSpeed">--</span></div>
+      <div class="info-row" id="iPowerRow" style="display:none"><span class="ir-label"><i data-lucide="zap"></i>Power</span><span class="ir-val" id="iPower">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="clock"></i>Uptime</span><span class="ir-val online" id="iUptime">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="refresh-cw"></i>Last Update</span><span class="ir-val" id="iLastSeen">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="layers"></i>Mode</span><span class="ir-val" id="iMode">--</span></div>
@@ -1561,74 +1532,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   </div><!-- /dashHead -->
 
-  <!-- Panel: Temperature -->
-  <div id="panel-temp" class="s-panel active">
-    <div class="date-toolbar">
-      <button class="date-quick active" id="tq-today-temp" onclick="quickDate('temp','today')">วันนี้</button>
-      <button class="date-quick" id="tq-yest-temp" onclick="quickDate('temp','yesterday')">เมื่อวาน</button>
-      <input type="date" id="tempDate" class="date-input">
-      <button class="date-go" onclick="loadDatePanel('temp')">ดู ›</button>
-      <span class="data-count" id="tempCount"></span>
-    </div>
-    <div class="chart-card">
-      <div class="cc-head">
-        <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิรายชั่วโมง — <span id="tempDateLabel">วันนี้</span></div>
-        <div class="sum-mini" id="tempSum"></div>
-      </div>
-      <div class="chart-wrap" style="height:280px">
-        <div class="no-data" id="tempNoData" style="display:none">ไม่มีข้อมูลสำหรับวันที่นี้</div>
-        <canvas id="tempChart"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Panel: Grafana (experimental page 2) -->
-  <div id="panel-grafana" class="s-panel">
-    <div class="gf-bar">
-      <div class="gf-bar-title"><i data-lucide="layout-grid"></i><span>System Overview</span><i data-lucide="star" class="gf-star"></i></div>
-      <div class="gf-bar-right">
-        <span class="gf-chip"><i data-lucide="clock"></i>Live</span>
-        <span class="gf-chip gf-live"><span class="live-dot"></span>5s</span>
-      </div>
-    </div>
-
-    <div class="gf-grid">
-      <!-- 4 gauges -->
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="thermometer"></i>Temperature</div>
-        <div class="gp-body"><div class="gf-gauge"><canvas id="gfgTemp"></canvas><div class="gf-gval" id="gfgTempV">--<small>°C</small></div></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="cpu"></i>CPU</div>
-        <div class="gp-body"><div class="gf-gauge"><canvas id="gfgCpu"></canvas><div class="gf-gval" id="gfgCpuV">--<small>%</small></div></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="memory-stick"></i>RAM</div>
-        <div class="gp-body"><div class="gf-gauge"><canvas id="gfgRam"></canvas><div class="gf-gval" id="gfgRamV">--<small>%</small></div></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="hard-drive"></i>Disk</div>
-        <div class="gp-body"><div class="gf-gauge"><canvas id="gfgDisk"></canvas><div class="gf-gval" id="gfgDiskV">--<small>%</small></div></div></div></div>
-
-      <!-- stat + sparkline -->
-      <div class="gpanel s3 gp-tri"><div class="gp-head"><i data-lucide="download"></i>Download</div>
-        <div class="gp-body gp-stat"><div class="gf-big" id="gfDown">--<small> kB/s</small></div><div class="gf-sparkwrap"><canvas id="gfSpDown"></canvas></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="upload"></i>Upload</div>
-        <div class="gp-body gp-stat"><div class="gf-big" id="gfUp">--<small> kB/s</small></div><div class="gf-sparkwrap"><canvas id="gfSpUp"></canvas></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="activity"></i>CPU trend</div>
-        <div class="gp-body gp-stat"><div class="gf-big" id="gfCpuBig">--<small>%</small></div><div class="gf-sparkwrap"><canvas id="gfSpCpu"></canvas></div></div></div>
-      <div class="gpanel s3"><div class="gp-head"><i data-lucide="timer"></i>Uptime</div>
-        <div class="gp-body gp-stat"><div class="gf-big gf-up" id="gfUptime">--</div><div class="gf-substat" id="gfHost">--</div></div></div>
-
-      <!-- wide timeseries -->
-      <div class="gpanel s8"><div class="gp-head"><i data-lucide="trending-up"></i>Temperature — live<span class="gp-unit" id="gfTsCount"></span></div>
-        <div class="gp-body"><div class="gf-tswrap"><canvas id="gfTempTs"></canvas></div></div></div>
-      <div class="gpanel s4"><div class="gp-head"><i data-lucide="server"></i>Node</div>
-        <div class="gp-body gp-info">
-          <div class="gi-row"><span><i data-lucide="circle"></i>Status</span><b class="gi-online" id="gfStatus"><span class="live-dot"></span>ONLINE</b></div>
-          <div class="gi-row"><span><i data-lucide="cpu"></i>Model</span><b id="gfModel">--</b></div>
-          <div class="gi-row"><span><i data-lucide="network"></i>IP</span><b id="gfIP">--</b></div>
-          <div class="gi-row"><span><i data-lucide="layers"></i>Mode</span><b id="gfMode">--</b></div>
-          <div class="gi-row"><span><i data-lucide="refresh-cw"></i>Updated</span><b id="gfSeen">--</b></div>
-        </div></div>
-    </div>
-  </div>
+  <!-- Panel: Dashboard (เนื้อหาหลักอยู่ใน #dashHead ด้านบน + การ์ด AdGuard ด้านล่าง) -->
+  <div id="panel-temp" class="s-panel active"></div>
 
   <!-- Panel: System -->
   <div id="panel-system" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="arrow-down-up"></i>Network throughput — live</div>
+        <div class="legend-row">
+          <span><span class="leg-dot" style="background:rgba(51,153,255,.7)"></span>Download</span>
+          <span><span class="leg-dot" style="background:rgba(0,229,160,.7)"></span>Upload</span>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:220px"><canvas id="netTsChart"></canvas></div>
+    </div>
     <div class="chart-card">
       <div class="cc-head">
         <div class="cc-title"><i data-lucide="cpu"></i>CPU วันนี้ vs เมื่อวาน</div>
@@ -1791,6 +1709,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <button class="date-quick" id="hq-7d" onclick="loadHistory('7d')">7 วัน</button>
       <button class="date-quick" id="hq-30d" onclick="loadHistory('30d')">30 วัน</button>
       <span class="data-count" id="histCount"></span>
+      <button class="date-go" id="csvBtn" style="margin-left:auto" onclick="exportCSV()" title="ดาวน์โหลดข้อมูล 30 วันล่าสุดเป็น CSV"><i data-lucide="download"></i>CSV</button>
     </div>
     <div class="chart-card">
       <div class="cc-head">
@@ -1813,6 +1732,25 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="hard-drive"></i>DISK %</div><div class="sum-mini" id="histDiskSum"></div></div>
       <div class="chart-wrap" style="height:200px"><canvas id="histDiskChart"></canvas></div>
+    </div>
+
+    <!-- อุณหภูมิรายชั่วโมง แยกตามวัน (ย้ายมาจากหน้า Dashboard) -->
+    <div class="date-toolbar" style="margin-top:18px">
+      <button class="date-quick active" id="tq-today-temp" onclick="quickDate('temp','today')">วันนี้</button>
+      <button class="date-quick" id="tq-yest-temp" onclick="quickDate('temp','yesterday')">เมื่อวาน</button>
+      <input type="date" id="tempDate" class="date-input">
+      <button class="date-go" onclick="loadDatePanel('temp')">ดู ›</button>
+      <span class="data-count" id="tempCount"></span>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="thermometer"></i>อุณหภูมิรายชั่วโมง — <span id="tempDateLabel">วันนี้</span></div>
+        <div class="sum-mini" id="tempSum"></div>
+      </div>
+      <div class="chart-wrap" style="height:280px">
+        <div class="no-data" id="tempNoData" style="display:none">ไม่มีข้อมูลสำหรับวันที่นี้</div>
+        <canvas id="tempChart"></canvas>
+      </div>
     </div>
   </div>
 
@@ -1844,6 +1782,19 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       </div>
     </div>
     <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="globe"></i>Internet Speedtest</div>
+        <button class="st-btn" id="stBtn" onclick="runSpeedtest()"><i data-lucide="zap"></i>วัดความเร็ว</button>
+      </div>
+      <div class="st-empty" id="stEmpty">กดปุ่มเพื่อวัดความเร็วเน็ต (ใช้เวลา ~30 วินาที)</div>
+      <div class="st-grid" id="stGrid" style="display:none">
+        <div class="st-item"><div class="st-ico" style="color:var(--info)"><i data-lucide="download"></i></div><div class="st-val" id="stDown">--</div><div class="st-lbl">Download Mbps</div></div>
+        <div class="st-item"><div class="st-ico" style="color:var(--ok)"><i data-lucide="upload"></i></div><div class="st-val" id="stUp">--</div><div class="st-lbl">Upload Mbps</div></div>
+        <div class="st-item"><div class="st-ico" style="color:var(--warn)"><i data-lucide="activity"></i></div><div class="st-val" id="stPing">--</div><div class="st-lbl">Ping ms</div></div>
+      </div>
+      <div class="st-meta" id="stMeta"></div>
+    </div>
+    <div class="chart-card">
       <div class="cc-head"><div class="cc-title"><i data-lucide="settings-2"></i>Services</div><span class="data-count" id="svcNote"></span></div>
       <div id="svcList" class="svc-list"><div class="sk-line" style="height:56px"></div><div class="sk-line" style="height:56px"></div><div class="sk-line" style="height:56px"></div></div>
     </div>
@@ -1853,6 +1804,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <thead><tr><th>PID</th><th>Process</th><th class="num">CPU %</th><th class="num">MEM %</th></tr></thead>
         <tbody id="dProcBody"><tr><td colspan="4" class="sk-cell"><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div><div class="sk-line" style="height:30px"></div></td></tr></tbody>
       </table>
+    </div>
+    <div class="chart-card">
+      <div class="cc-head"><div class="cc-title"><i data-lucide="rotate-ccw"></i>Reboot History</div><span class="data-count" id="rbNote"></span></div>
+      <div id="rbList" class="rb-list"><div class="sk-line" style="height:42px"></div><div class="sk-line" style="height:42px"></div><div class="sk-line" style="height:42px"></div></div>
     </div>
   </div>
 

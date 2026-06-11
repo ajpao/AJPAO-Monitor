@@ -116,8 +116,6 @@ function applySettings(){
   if(UI.accent) r.style.setProperty('--accent', UI.accent); else r.style.removeProperty('--accent');
   r.classList.toggle('no-bg', UI.bgFx===false);
   r.classList.toggle('no-anim', UI.anim===false);
-  const nav=document.getElementById('navGrafana');
-  if(nav) nav.style.display = (UI.gfPage===false) ? 'none' : '';
   r.setAttribute('data-btnstyle', BTN_STYLE_IDS.includes(UI.btnStyle)?UI.btnStyle:'default');
   requestAnimationFrame(syncTopbarH);   // ความสูง topbar เปลี่ยนตาม scale → อัปเดต sticky-top ของเมนู
 }
@@ -147,11 +145,10 @@ function rerenderCharts(){
   syncChartColors();
   if(typeof loadCompare==='function') loadCompare();
   if(typeof loadDash24==='function') loadDash24();
-  if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); }
+  if(currentPanel==='system'){ loadUsageCompare(); loadDatePanel('system'); destroyNetChart(); renderNetChart(); }
   else if(currentPanel==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
   else if(currentPanel==='temp') loadDatePanel('temp');
   else if(currentPanel==='history') loadHistory(histRange);
-  else if(currentPanel==='grafana') gfRerender();
 }
 
 // เรียกเมื่อ settings เปลี่ยน — apply + บันทึก (local + cloud) + วาดกราฟใหม่
@@ -179,9 +176,6 @@ function setUI(key, val){
   UI[key]=val;
   if(key==='theme'){ UI.accent=''; if(LIGHT_THEMES.has(val)) _lastLight=val; else _lastDark=val; }
   if(key==='scale') document.getElementById('setScaleVal').textContent=val+'px';
-  if(key==='gfPage' && val===false && currentPanel==='grafana'){
-    const btn=document.querySelector('.sn-btn[onclick*="\'temp\'"]'); if(btn) switchPanel('temp', btn);
-  }
   commitSettings(); renderSettingsControls();
 }
 function resetSettings(){ UI=Object.assign({},UI_DEFAULT); commitSettings(); renderSettingsControls(); }
@@ -200,7 +194,6 @@ function renderSettingsControls(){
   document.querySelectorAll('#setUiFont button').forEach(b=>b.classList.toggle('on', b.dataset.v===UI.uiFont));
   document.querySelectorAll('#setBgFx button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.bgFx!==false)));
   document.querySelectorAll('#setAnim button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.anim!==false)));
-  document.querySelectorAll('#setGfPage button').forEach(b=>b.classList.toggle('on', (b.dataset.v==='on')===(UI.gfPage!==false)));
   const bs=document.getElementById('setBtnStyle');
   if(bs){ bs.innerHTML = BTN_STYLES.map(s=>`<button data-v="${s.id}" onclick="setUI('btnStyle','${s.id}')">${s.name}</button>`).join('');
     bs.querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.v===(UI.btnStyle||'default'))); }
@@ -307,6 +300,28 @@ function uptimeFmt(bootTs){
 function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
 
 function tempColor(v){ return v>=70?C.danger:v>=55?C.accent:v>=50?C.warn:C.info; }
+
+// ─── heat ramp: ไล่เฉดสีตามอุณหภูมิแบบต่อเนื่อง (เย็น→ฟ้า, ร้อน→แดง) ───
+// ใช้กับกราฟแท่ง temp เพื่ออ่าน "ช่วงไหนร้อน" ได้ไว — ยึดสี theme (info→ok→warn→danger)
+function _colRgb(col){
+  const x=_colRgb._x||(_colRgb._x=document.createElement('canvas').getContext('2d'));
+  x.fillStyle='#000'; x.fillStyle=col; const s=x.fillStyle;          // canvas normalize → #rrggbb / rgb()
+  if(s[0]==='#'){ let h=s.slice(1); if(h.length===3)h=h.split('').map(c=>c+c).join('');
+    const n=parseInt(h,16); return [n>>16&255, n>>8&255, n&255]; }
+  const m=s.match(/[\d.]+/g)||[0,0,0]; return [+m[0],+m[1],+m[2]];
+}
+const _hxByte=n=>Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');
+function _mixCol(a,b,t){ const A=_colRgb(a),B=_colRgb(b);
+  return '#'+_hxByte(A[0]+(B[0]-A[0])*t)+_hxByte(A[1]+(B[1]-A[1])*t)+_hxByte(A[2]+(B[2]-A[2])*t); }
+function tempHeat(v){
+  if(v==null) return C.info;
+  const s=[[38,C.info],[50,C.ok],[62,C.warn],[75,C.danger]];          // °C → สี
+  if(v<=s[0][0])               return _mixCol(s[0][1], s[0][1], 0);
+  if(v>=s[s.length-1][0])      return _mixCol(s[s.length-1][1], s[s.length-1][1], 0);
+  for(let i=0;i<s.length-1;i++) if(v<=s[i+1][0])
+    return _mixCol(s[i][1], s[i+1][1], (v-s[i][0])/(s[i+1][0]-s[i][0]));
+  return _mixCol(s[s.length-1][1], s[s.length-1][1], 0);
+}
 function sysColor(v){ return v>=80?C.danger:v>=50?C.accent:null; }
 
 // จัดแกน Y ให้ min/max หาร step ลงตัว → เส้น grid ห่างเท่ากันทุกช่อง
@@ -395,7 +410,7 @@ function makeCompareChart(todayByHour, yestByHour){
       labels:hours24,
       datasets:[
         { type:'bar', label:'วันนี้', data:todayData, order:2,
-          backgroundColor:todayData.map(v=>v==null?'transparent':tempColor(v)+'cc'),
+          backgroundColor:todayData.map(v=>v==null?'transparent':tempHeat(v)+'cc'),
           borderRadius:3, borderSkipped:false },
         { type:'line', label:'เมื่อวาน', data:yestData, order:1,
           borderColor:'rgba(123,140,174,.55)', backgroundColor:'transparent',
@@ -414,9 +429,13 @@ function makeCompareChart(todayByHour, yestByHour){
           titleColor:C.dim,bodyColor:C.text,padding:10,
           callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'°C':'--'}`},
         },
-        datalabels:{display:false},
+        datalabels:{   // โชว์ตัวเลขเฉพาะแท่ง "วันนี้" (ข้ามเส้นเมื่อวาน + ช่องว่าง)
+          display:ctx=>ctx.dataset.type==='bar' && ctx.dataset.data[ctx.dataIndex]!=null,
+          anchor:'end', align:'end', offset:1, color:C.dim,
+          font:{size:10,weight:'bold',family:'Inter'},
+          formatter:v=>v==null?'':v.toFixed(1)},
       },
-      layout:{padding:{top:8}},
+      layout:{padding:{top:18}},
       scales:{
         x:{ticks:{color:C.dim,font:{size:15,family:'Inter'},maxRotation:0,maxTicksLimit:12},
            grid:{color:C.grid}},
@@ -597,7 +616,7 @@ function mkCmpCfg(prefix, span, metric, colorKey){
     idx:isHour?Array.from({length:24},(_,i)=>i):Array.from({length:31},(_,i)=>i+1),
     labels:isHour?Array.from({length:24},(_,i)=>`${pad(i)}:00`):Array.from({length:31},(_,i)=>String(i+1)),
     unit:isTemp?'°C':'%', axis:isTemp?'°':'%',
-    barColor:isTemp?(v=>tempColor(v)+'cc'):(v=>(v>=80?C.danger:v>=50?C.accent:C[colorKey])+'cc'),
+    barColor:isTemp?(v=>tempHeat(v)+'cc'):(v=>(v>=80?C.danger:v>=50?C.accent:C[colorKey])+'cc'),
     todayLabel:today, yestLabel:yest, todayWord:today, yestWord:yest, ins,
   };
 }
@@ -920,7 +939,7 @@ async function loadDatePanel(type){
         document.getElementById('tempSum').innerHTML=''; return;
       }
       noData.style.display='none'; canvas.style.display='block';
-      makeBarChart('tempChart', d.labels, d.temp, tempColor, '°C', 5);
+      makeBarChart('tempChart', d.labels, d.temp, tempHeat, '°C', 5);
       document.getElementById('tempSum').innerHTML = summaryHtml(d.temp,'°C');
     } else {
       const noData = document.getElementById('sysNoData');
@@ -953,7 +972,7 @@ async function loadMonthly(){
   try {
     const {temp, sys} = await fetchMonthly();
     if(temp.month) document.getElementById('mTempTitle').textContent=temp.month;
-    makeBarChart('mTempChart', temp.labels, temp.data, tempColor, '°C', 3);
+    makeBarChart('mTempChart', temp.labels, temp.data, tempHeat, '°C', 3);
     makeBarChart('mCpuChart',  sys.labels,  sys.cpu,   v=>sysColor(v)||C.info, '%');
     makeBarChart('mRamChart',  sys.labels,  sys.ram,   v=>sysColor(v)||C.purple, '%');
     makeBarChart('mDiskChart', sys.labels,  sys.disk,  v=>sysColor(v)||C.warn, '%');
@@ -1176,6 +1195,85 @@ async function svcAction(name, action, btn){
     else toast(action+' '+name+' สำเร็จ','ok');
   }catch(e){ toast('error: '+(e?.message||e),'error'); }
   setTimeout(loadServices, 700);   // รอ systemd อัปเดตสถานะ
+}
+
+// ─── reboot history / speedtest / CSV export ─────────────────────────────────────
+
+async function loadReboots(){
+  const el=document.getElementById('rbList'); if(!el) return;
+  const note=document.getElementById('rbNote');
+  if(MODE!=='local'){
+    el.innerHTML='<div class="proc-empty">⚠ ดูประวัติการบูตได้เฉพาะตอนเปิดใน LAN</div>';
+    if(note) note.textContent='LAN only'; return;
+  }
+  try{
+    const d=await fetch('/api/reboots').then(r=>r.json());
+    const rb=d.reboots||[];
+    if(note) note.textContent=rb.length?rb.length+' boots':'';
+    if(!rb.length){ el.innerHTML='<div class="proc-empty">ไม่มีข้อมูล</div>'; return; }
+    el.innerHTML=rb.map(r=>{
+      const tag=r.current?`ทำงานอยู่ · ${durFmt(r.duration_sec)}`:`uptime ${durFmt(r.duration_sec)}`;
+      return `<div class="rb-row${r.current?' cur':''}"><span class="rb-dot"></span>`
+        +`<span class="rb-when">${fmtRbTime(r.boot)}</span><span class="rb-dur">${tag}</span></div>`;
+    }).join('');
+  }catch(e){ el.innerHTML='<div class="proc-empty">โหลดประวัติไม่สำเร็จ</div>'; }
+}
+function fmtRbTime(s){   // "2026-06-07 15:29:06" → "07/06 15:29"
+  const m=(s||'').match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  return m?`${m[3]}/${m[2]} ${m[4]}:${m[5]}`:(s||'--');
+}
+function durFmt(sec){
+  sec=Math.max(0,sec|0); const d=Math.floor(sec/86400), h=Math.floor(sec%86400/3600), mn=Math.floor(sec%3600/60);
+  return d>0?`${d}d ${h}h`:h>0?`${h}h ${mn}m`:`${mn}m`;
+}
+
+async function runSpeedtest(){
+  if(MODE!=='local'){ toast('Speedtest ใช้ได้เฉพาะตอนเปิดใน LAN','error'); return; }
+  const btn=document.getElementById('stBtn'), orig=btn.innerHTML;
+  btn.disabled=true; btn.innerHTML='<i data-lucide="loader"></i>กำลังวัด… ~30 วิ'; if(window.lucide) lucide.createIcons();
+  document.getElementById('stMeta').textContent='กำลังทดสอบ — อย่าปิดหน้านี้';
+  try{
+    const d=await fetch('/api/speedtest',{method:'POST'}).then(r=>r.json());
+    if(!d.ok){ toast('Speedtest: '+(d.error||'ไม่สำเร็จ'),'error'); document.getElementById('stMeta').textContent=''; }
+    else{
+      document.getElementById('stEmpty').style.display='none';
+      document.getElementById('stGrid').style.display='';
+      document.getElementById('stDown').textContent=d.down_mbps;
+      document.getElementById('stUp').textContent=d.up_mbps;
+      document.getElementById('stPing').textContent=d.ping_ms;
+      const bits=[]; if(d.server) bits.push('เซิร์ฟเวอร์: '+d.server); if(d.isp) bits.push(d.isp);
+      bits.push('วัดเมื่อ '+(d.ts||''));
+      document.getElementById('stMeta').textContent=bits.join(' · ');
+    }
+  }catch(e){ toast('Speedtest error: '+(e?.message||e),'error'); document.getElementById('stMeta').textContent=''; }
+  finally{ btn.disabled=false; btn.innerHTML=orig; if(window.lucide) lucide.createIcons(); }
+}
+
+function downloadBlob(content, mime, fname){
+  const url=URL.createObjectURL(new Blob([content],{type:mime}));
+  const a=document.createElement('a'); a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+function fmtCsvTs(dt){
+  return `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())} `
+    +`${pad(dt.getHours())}:${pad(dt.getMinutes())}:${pad(dt.getSeconds())}`;
+}
+async function exportCSV(){
+  if(MODE==='local'){ window.location.href='/api/export.csv?days=30'; return; }   // LAN: ให้ backend stream ไฟล์
+  const btn=document.getElementById('csvBtn'), orig=btn?btn.innerHTML:'';          // cloud: สร้างจาก Firestore readings
+  try{
+    if(btn){ btn.disabled=true; btn.innerHTML='<i data-lucide="loader"></i>'; if(window.lucide) lucide.createIcons(); }
+    const since=new Date(Date.now()-30*864e5);
+    const snap=await db.collection('readings').where('ts','>=',since).orderBy('ts').get();
+    let csv='timestamp,temp_c,cpu_pct,ram_pct,disk_pct\n';
+    snap.forEach(doc=>{ const x=doc.data();
+      const t=(x.ts&&x.ts.toDate)?fmtCsvTs(x.ts.toDate()):'';
+      csv+=`${t},${x.temp_c??''},${x.cpu_pct??''},${x.ram_pct??''},${x.disk_pct??''}\n`; });
+    const n=new Date();
+    downloadBlob(csv,'text/csv',`ajpao-monitor_${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}_${pad(n.getHours())}${pad(n.getMinutes())}.csv`);
+    toast('ดาวน์โหลด CSV แล้ว ('+snap.size+' แถว)','ok');
+  }catch(e){ toast('export ไม่สำเร็จ: '+(e?.message||e),'error'); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=orig; if(window.lucide) lucide.createIcons(); } }
 }
 
 // ─── web terminal (full PTY ผ่าน WebSocket — ไม่มี timeout) ───────────────────────
@@ -1705,6 +1803,26 @@ function updateCards(d){
   if(d.ip)       setText('iIP', d.ip);
   if(d.down_kbps!=null || d.up_kbps!=null)
     setText('iSpeed', `↓ ${fmtSpeed(d.down_kbps||0)} · ↑ ${fmtSpeed(d.up_kbps||0)}`);
+
+  // Power / Throttle (เฉพาะ Pi) — undervoltage/throttle เป็นต้นเหตุยอดฮิตที่ทำ Pi รวน
+  const tRow=document.getElementById('iPowerRow'), tEl=document.getElementById('iPower');
+  if(tRow && tEl){
+    const t=d.throttle;
+    if(!t){ tRow.style.display='none'; }
+    else {
+      tRow.style.display='';
+      const extra=[];
+      if(t.volts!=null)     extra.push(t.volts.toFixed(2)+'V');
+      if(t.clock_mhz!=null) extra.push((t.clock_mhz/1000).toFixed(1)+' GHz');
+      const sub=extra.length?` <span style="color:var(--dim);font-size:.82em;margin-left:5px">${extra.join(' · ')}</span>`:'';
+      const flags=o=>{const a=[]; if(o.undervoltage)a.push('ไฟไม่พอ'); if(o.throttled||o.freq_capped)a.push('ลดสปีด'); if(o.soft_temp)a.push('ร้อนเกิน'); return a;};
+      const nowBad=flags(t.now), pastBad=flags(t.past);
+      if(nowBad.length)       tEl.innerHTML=`<b style="color:${C.danger}">⚠ ${nowBad.join(', ')}</b>${sub}`;
+      else if(pastBad.length) tEl.innerHTML=`<b style="color:${C.warn}">เคย: ${pastBad.join(', ')}</b>${sub}`;
+      else                    tEl.innerHTML=`<b style="color:${C.ok}">ปกติ</b>${sub}`;
+    }
+  }
+
   const now = new Date();
   document.getElementById('iLastSeen').textContent =
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -1718,106 +1836,42 @@ function updateCards(d){
       const col=hs>=85?C.ok:hs>=70?C.info:hs>=50?C.warn:C.danger;
       el.innerHTML=`<b style="color:${col}">${hs}</b><span style="color:var(--dim);font-size:.82em;margin-left:6px">${lab}</span>`; }
   }
-  gfPush(d);
-  if(gfReady) gfRender(d);
+  netPush(d);
+  if(currentPanel==='system') renderNetChart();
 }
 
-// ─── Grafana-style page (page 2) ────────────────────────────────────────────────
+// ─── Network throughput (live) — กราฟ in/out บนหน้า Usage ────────────────────────
 
-const GF = { cpu:[], down:[], up:[], temp:[], t:[], MAX:40, _seen:'' };
-let gfReady = false;
-function setHtml(id,h){ const e=document.getElementById(id); if(e) e.innerHTML=h; }
-function gfColor(m,v){
-  if(m==='temp') return v>=70?C.danger:v>=55?C.accent:v>=50?C.warn:C.info;
-  if(m==='cpu')  return v>=80?C.danger:v>=50?C.accent:C.info;
-  if(m==='ram')  return v>=80?C.danger:v>=60?C.accent:C.purple;
-  return v>=90?C.danger:v>=70?C.accent:C.warn;   // disk
+const NET = { down:[], up:[], t:[], MAX:40 };        // buffer วนสำหรับกราฟสด (เก็บ ≤40 จุด)
+function netPush(d){
+  if(!d) return;
+  const n=new Date(), lbl=`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+  NET.down.push(d.down_kbps||0); NET.up.push(d.up_kbps||0); NET.t.push(lbl);
+  ['down','up','t'].forEach(k=>{ while(NET[k].length>NET.MAX) NET[k].shift(); });
 }
-function gfFade(el,color){
-  const ctx=el.getContext('2d'); const h=el.clientHeight||el.height||50;
+function netFade(el,color){
+  const ctx=el.getContext('2d'); const h=el.clientHeight||el.height||60;
   const g=ctx.createLinearGradient(0,0,0,h);
   g.addColorStop(0,color+'55'); g.addColorStop(1,color+'08'); return g;
 }
-function gfGauge(id,value,max,color){
-  const el=document.getElementById(id); if(!el) return;
-  const track=getComputedStyle(document.documentElement).getPropertyValue('--border').trim()||'rgba(255,255,255,.08)';
-  const v=Math.max(0,Math.min(value,max));
-  if(charts[id]){ const ds=charts[id].data.datasets[0]; ds.data=[v,max-v]; ds.backgroundColor=[color,track]; charts[id].update('none'); return; }
-  charts[id]=new Chart(el,{type:'doughnut',
-    data:{datasets:[{data:[v,max-v],backgroundColor:[color,track],borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,rotation:-126,circumference:252,cutout:'73%',
-      events:[],animation:{duration:350},
-      plugins:{legend:{display:false},tooltip:{enabled:false},datalabels:{display:false}}}});
-}
-function gfSpark(id,arr,color){
-  const el=document.getElementById(id); if(!el) return;
-  if(charts[id]){ const c=charts[id]; c.data.labels=arr.map((_,i)=>i);
-    c.data.datasets[0].data=arr.slice(); c.data.datasets[0].borderColor=color;
-    c.data.datasets[0].backgroundColor=gfFade(el,color); c.update('none'); return; }
+function renderNetChart(){
+  const id='netTsChart', el=document.getElementById(id); if(!el) return;
+  if(charts[id]){ const c=charts[id]; c.data.labels=NET.t.slice();
+    c.data.datasets[0].data=NET.down.slice(); c.data.datasets[1].data=NET.up.slice(); c.update('none'); return; }
   charts[id]=new Chart(el,{type:'line',
-    data:{labels:arr.map((_,i)=>i),datasets:[{data:arr.slice(),borderColor:color,borderWidth:1.7,
-      fill:true,backgroundColor:gfFade(el,color),tension:.35,pointRadius:0}]},
-    options:{responsive:true,maintainAspectRatio:false,events:[],animation:false,
-      scales:{x:{display:false},y:{display:false,grace:'10%'}},
-      plugins:{legend:{display:false},tooltip:{enabled:false},datalabels:{display:false}}}});
-}
-function gfTs(){
-  const id='gfTempTs', el=document.getElementById(id); if(!el) return;
-  const col=C.ok;
-  if(charts[id]){ const c=charts[id]; c.data.labels=GF.t.slice(); c.data.datasets[0].data=GF.temp.slice(); c.update('none'); return; }
-  charts[id]=new Chart(el,{type:'line',
-    data:{labels:GF.t.slice(),datasets:[{data:GF.temp.slice(),borderColor:col,borderWidth:2,
-      fill:true,backgroundColor:gfFade(el,col),tension:.3,pointRadius:0}]},
+    data:{labels:NET.t.slice(),datasets:[
+      {label:'Download',data:NET.down.slice(),borderColor:C.info,backgroundColor:netFade(el,C.info),
+        borderWidth:2,fill:true,tension:.3,pointRadius:0},
+      {label:'Upload',  data:NET.up.slice(),  borderColor:C.ok,  backgroundColor:netFade(el,C.ok),
+        borderWidth:2,fill:true,tension:.3,pointRadius:0},
+    ]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,interaction:{intersect:false,mode:'index'},
-      scales:{x:{grid:{display:false},ticks:{color:C.dim,font:{size:10},maxTicksLimit:6,maxRotation:0}},
-              y:{grid:{color:C.grid},ticks:{color:C.dim,font:{size:10}}}},
-      plugins:{legend:{display:false},datalabels:{display:false},tooltip:{enabled:true}}}});
+      scales:{x:{grid:{display:false},ticks:{color:C.dim,font:{size:11},maxTicksLimit:6,maxRotation:0}},
+              y:{grid:{color:C.grid},grace:'10%',ticks:{color:C.dim,font:{size:11},maxTicksLimit:5,callback:v=>fmtSpeed(v)}}},
+      plugins:{legend:{display:false},datalabels:{display:false},
+        tooltip:{enabled:true,callbacks:{label:ctx=>` ${ctx.dataset.label}: ${fmtSpeed(ctx.parsed.y||0)}`}}}}});
 }
-function gfPush(d){
-  if(!d) return;
-  const n=new Date(), lbl=`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
-  GF.cpu.push(d.cpu); GF.temp.push(d.temp); GF.down.push(d.down_kbps||0); GF.up.push(d.up_kbps||0); GF.t.push(lbl);
-  ['cpu','temp','down','up','t'].forEach(k=>{ while(GF[k].length>GF.MAX) GF[k].shift(); });
-  GF._seen=lbl;
-}
-function gfRender(d){
-  if(!d) return;
-  gfGauge('gfgTemp',d.temp,90,gfColor('temp',d.temp));
-  gfGauge('gfgCpu', d.cpu, 100,gfColor('cpu', d.cpu));
-  gfGauge('gfgRam', d.ram, 100,gfColor('ram', d.ram));
-  gfGauge('gfgDisk',d.disk,100,gfColor('disk',d.disk));
-  setHtml('gfgTempV',d.temp.toFixed(1)+'<small>°C</small>');
-  setHtml('gfgCpuV', d.cpu.toFixed(0)+'<small>%</small>');
-  setHtml('gfgRamV', d.ram.toFixed(0)+'<small>%</small>');
-  setHtml('gfgDiskV',d.disk.toFixed(0)+'<small>%</small>');
-  const down=document.getElementById('gfDown'); if(down) down.textContent=fmtSpeed(d.down_kbps||0);
-  const up=document.getElementById('gfUp');     if(up)   up.textContent=fmtSpeed(d.up_kbps||0);
-  setHtml('gfCpuBig',d.cpu.toFixed(0)+'<small>%</small>');
-  gfSpark('gfSpDown',GF.down,C.info);
-  gfSpark('gfSpUp',  GF.up,  C.ok);
-  gfSpark('gfSpCpu', GF.cpu, C.accent);
-  gfTs();
-  setText('gfTsCount',GF.temp.length+' pts');
-  if(d.uptime) setText('gfUptime',uptimeFmt(d.uptime));
-  setText('gfHost', d.hostname||'--');
-  if(d.model) setText('gfModel',shortModel(d.model));
-  if(d.ip)    setText('gfIP',d.ip);
-  setText('gfMode',MODE==='cloud'?'CLOUD':'LAN');
-  setText('gfSeen',GF._seen||'--');
-}
-function setupGrafana(){
-  gfReady=true;
-  if(window.lastData) gfRender(window.lastData);
-  else { gfGauge('gfgTemp',0,90,C.info); gfGauge('gfgCpu',0,100,C.info);
-         gfGauge('gfgRam',0,100,C.purple); gfGauge('gfgDisk',0,100,C.warn); gfTs(); }
-  if(window.lucide) lucide.createIcons();
-}
-function gfRerender(){
-  if(!gfReady) return;
-  ['gfgTemp','gfgCpu','gfgRam','gfgDisk','gfSpDown','gfSpUp','gfSpCpu','gfTempTs']
-    .forEach(id=>{ if(charts[id]){ charts[id].destroy(); delete charts[id]; } });
-  gfRender(window.lastData);
-}
+function destroyNetChart(){ if(charts['netTsChart']){ charts['netTsChart'].destroy(); delete charts['netTsChart']; } }
 
 // ─── AdGuard widget ─────────────────────────────────────────────────────────────
 
@@ -1938,22 +1992,22 @@ function switchPanel(name, btn){
 
   if(!panelLoaded[name]){
     panelLoaded[name]=true;
-    if(name==='temp') loadDatePanel('temp');
-    else if(name==='grafana') setupGrafana();
-    else if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
+    if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
     else if(name==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
-    else if(name==='history') setupHistory();
-    else if(name==='device'){ loadDevice(); loadServices(); }
+    else if(name==='history'){ setupHistory(); loadDatePanel('temp'); }   // history = range trends + อุณหภูมิรายชั่วโมง/วัน
+    else if(name==='device'){ loadDevice(); loadServices(); loadReboots(); }
     else if(name==='terminal') setupTerminal();
     else if(name==='files') setupFiles();
     else if(name==='notes') setupNotes();
   } else if(name==='device'){
-    loadDevice(); loadServices();
+    loadDevice(); loadServices(); loadReboots();
   } else if(name==='files'){
     setupFiles();
   } else if(name==='notes'){
     setupNotes();
   }
+
+  if(name==='system') renderNetChart();   // กราฟ throughput สด — วาด/อัปเดตทันทีที่เปิดหน้า Usage
 
   if(name==='device' && MODE==='local'){
     deviceTimer = setInterval(loadDevice, 5000);   // refresh speed/processes สด
@@ -2145,7 +2199,7 @@ function startCloudData(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
-      down_kbps:x.down_kbps, up_kbps:x.up_kbps,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
