@@ -5,7 +5,7 @@
  *   • /api, /ws และ cross-origin (cdn/fonts/firestore) → ไม่แตะ ปล่อยไปเน็ตปกติ (ข้อมูลต้องสด)
  * เพิ่มเลข VER ทุกครั้งที่อยากบังคับล้าง cache เก่า
  */
-const VER = 'ajpao-v1';
+const VER = 'ajpao-v2';
 const SHELL = [
   './', './index.html', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png',

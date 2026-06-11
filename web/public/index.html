@@ -246,7 +246,10 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 @keyframes bellShake{0%,88%,100%{transform:rotate(0)}90%{transform:rotate(12deg)}94%{transform:rotate(-10deg)}97%{transform:rotate(6deg)}}
 .bell-badge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;
   background:var(--danger);color:#fff;font-family:var(--font-mono);font-size:.58rem;font-weight:700;
-  display:inline-flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--bg)}
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 2px var(--bg);
+  animation:badgePulse 1.6s ease-in-out infinite}
+@keyframes badgePulse{0%,100%{box-shadow:0 0 0 2px var(--bg),0 0 0 0 color-mix(in srgb,var(--danger) 70%,transparent)}
+  70%{box-shadow:0 0 0 2px var(--bg),0 0 0 7px transparent}}
 /* alerts modal pieces */
 .al-active{display:flex;flex-wrap:wrap;gap:8px}
 .al-ok{display:inline-flex;align-items:center;gap:6px;color:var(--ok);font-size:.78rem;font-family:var(--font-mono)}

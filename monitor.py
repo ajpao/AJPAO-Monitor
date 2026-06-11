@@ -1056,6 +1056,26 @@ def _client_ip():
     return (request.headers.get("X-Forwarded-For") or request.remote_addr or "?").split(",")[0].strip()
 
 
+# ─── rate-limit login (กัน brute-force รหัส LAN) ──────────────────────────────────
+_login_attempts = {}        # ip -> {"fails": int, "until": epoch}
+_LOGIN_MAX  = 5             # ผิดได้กี่ครั้งก่อนเริ่มล็อก
+_LOGIN_LOCK = 300          # วินาทีต่อรอบล็อก (escalate ทุกครั้งที่ผิดเพิ่ม)
+
+def _login_locked(ip):
+    rec = _login_attempts.get(ip)
+    return int(rec["until"] - time.time()) if rec and rec["until"] > time.time() else 0
+
+def _login_fail(ip):
+    rec = _login_attempts.setdefault(ip, {"fails": 0, "until": 0})
+    rec["fails"] += 1
+    if rec["fails"] >= _LOGIN_MAX:                          # 5 นาที → 10 → 15 … สูงสุด 1 ชม.
+        rec["until"] = time.time() + min(3600, _LOGIN_LOCK * (rec["fails"] - _LOGIN_MAX + 1))
+    return rec["fails"]
+
+def _login_ok(ip):
+    _login_attempts.pop(ip, None)
+
+
 @flask_app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
@@ -1063,10 +1083,22 @@ def api_login():
     ip = _client_ip()
     ua = (request.headers.get("User-Agent") or "")[:140]
 
-    if not (WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD)):
-        log_event("login", "auth", None, "danger", f"เข้าสู่ระบบล้มเหลว (รหัสผิด) — {ip}")
-        return jsonify({"ok": False, "error": "รหัสผ่านไม่ถูกต้อง"}), 401
+    locked = _login_locked(ip)
+    if locked:
+        log_event("login", "auth", None, "danger", f"ถูกล็อก (ลองผิดเกินกำหนด) — {ip} เหลือ {locked}s")
+        return jsonify({"ok": False, "locked": True, "retry": locked,
+                        "error": f"ลองผิดเกินกำหนด — รอ {locked} วินาทีแล้วลองใหม่"}), 429
 
+    if not (WEB_PASSWORD and hmac.compare_digest(pw, WEB_PASSWORD)):
+        fails = _login_fail(ip)
+        left = max(0, _LOGIN_MAX - fails)
+        wait = _login_locked(ip)
+        msg = (f"รหัสผ่านไม่ถูกต้อง — เหลืออีก {left} ครั้งก่อนถูกล็อก" if left
+               else f"ลองผิดเกินกำหนด — รอ {wait} วินาที")
+        log_event("login", "auth", None, "danger", f"เข้าสู่ระบบล้มเหลว (รหัสผิด ครั้งที่ {fails}) — {ip}")
+        return jsonify({"ok": False, "error": msg, "left": left, "retry": wait}), 401
+
+    _login_ok(ip)                              # สำเร็จ — รีเซ็ตตัวนับของ IP นี้
     sid = session_create(ip, ua)
     session["authed"] = True
     session["sid"] = sid
