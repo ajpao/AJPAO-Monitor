@@ -1484,8 +1484,15 @@ async function uploadFiles(fileList){
 }
 
 async function loadFiles(){
-  try{ renderFiles(await fetch('/api/files').then(r=>r.json())); }
+  try{ renderFiles(await fetch('/api/files',{cache:'no-store'}).then(r=>r.json())); }
   catch(e){ document.getElementById('filesBody').innerHTML='<tr><td colspan="4" class="proc-empty">โหลดรายการไม่สำเร็จ</td></tr>'; }
+}
+
+async function refreshFiles(){
+  const ic=document.getElementById('filesRefresh')?.querySelector('i');
+  if(ic) ic.classList.add('spin');
+  await loadFiles();
+  setTimeout(()=>{ if(ic) ic.classList.remove('spin'); }, 400);
 }
 
 let filesData=[], filesSearch='', filesSort='new';

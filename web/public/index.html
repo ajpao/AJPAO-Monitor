@@ -1016,6 +1016,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .note-add:hover{box-shadow:0 4px 16px color-mix(in srgb,var(--accent) 38%,transparent)}
 .note-add svg{width:1.1em;height:1.1em}
 .notes-toolbar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.note-sort i.spin{animation:fspin .6s linear infinite}
+@keyframes fspin{to{transform:rotate(360deg)}}
 .notes-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;
   background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:7px 11px}
 .notes-search:focus-within{border-color:var(--accent)}
@@ -1882,6 +1884,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button class="note-sort active" id="filesSortDate" onclick="filesToggleSort('date')"><i data-lucide="arrow-down-wide-narrow"></i>ใหม่สุด</button>
         <button class="note-sort" id="filesSortName" onclick="filesToggleSort('name')"><i data-lucide="arrow-down-a-z"></i>A→Z</button>
         <button class="note-sort" id="filesSortSize" onclick="filesToggleSort('size')"><i data-lucide="arrow-down-wide-narrow"></i>ใหญ่สุด</button>
+        <button class="note-sort" id="filesRefresh" onclick="refreshFiles()" title="รีเฟรชรายการไฟล์"><i data-lucide="refresh-cw"></i>รีเฟรช</button>
       </div>
       <table class="files-table">
         <thead><tr><th>ชื่อไฟล์</th><th class="num">ขนาด</th><th class="hide-sm">แก้ไขล่าสุด</th><th></th></tr></thead>
