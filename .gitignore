@@ -38,3 +38,6 @@ node_modules/
 Thumbs.db
 .vscode/
 .idea/
+
+# ─── สำรองไอคอนชุดเดิมไว้ในเครื่อง (ของจริงกู้จาก git history ได้) ───
+web/public/icons/_original_backup/
