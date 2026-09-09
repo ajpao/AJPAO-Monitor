@@ -2131,30 +2131,65 @@ async function detectMode(){
 
 // ─── login gate (LAN) ──────────────────────────────────────────────────────────
 
+let _pinBuf = '';       // ตัวเลขที่กดอยู่
+let _pinLock = false;   // กันกดซ้ำระหว่างเช็ค PIN
+
 function showLogin(){
   const g = document.getElementById('loginGate');
   g.style.display = 'flex';
-  const pw = document.getElementById('loginPw');
-  pw.focus();
-  pw.onkeydown = e => { if(e.key==='Enter') doLogin(); };
+  _pinBuf=''; _pinLock=false; renderPin();
+  document.getElementById('loginErr').textContent='';
+  const pad = document.getElementById('pinPad');
+  if(pad && !pad._wired){
+    pad.addEventListener('click', e=>{
+      const b=e.target.closest('.pin-key'); if(b) pinInput(b.dataset.d);
+    });
+    pad._wired=true;
+  }
+  if(!document._pinKeys){
+    document.addEventListener('keydown', e=>{
+      if(document.getElementById('loginGate').style.display!=='flex') return;
+      if(e.key>='0' && e.key<='9') pinInput(e.key);
+      else if(e.key==='Backspace'){ e.preventDefault(); pinInput('del'); }
+      else if(e.key==='Escape') pinInput('clr');
+    });
+    document._pinKeys=true;
+  }
 }
 function hideLogin(){ document.getElementById('loginGate').style.display='none'; }
 
+function renderPin(shake){
+  document.querySelectorAll('#pinDots .pin-dot').forEach((d,i)=>d.classList.toggle('on', i<_pinBuf.length));
+  if(shake){
+    const w=document.getElementById('pinDots');
+    w.classList.remove('shake'); void w.offsetWidth; w.classList.add('shake');
+  }
+}
+
+function pinInput(d){
+  if(_pinLock) return;
+  if(d==='clr'){ _pinBuf=''; renderPin(); return; }
+  if(d==='del'){ _pinBuf=_pinBuf.slice(0,-1); renderPin(); return; }
+  if(!/^[0-9]$/.test(d) || _pinBuf.length>=4) return;
+  _pinBuf += d;
+  document.getElementById('loginErr').textContent='';
+  renderPin();
+  if(_pinBuf.length===4) doLogin();
+}
+
 async function doLogin(){
-  const pw   = document.getElementById('loginPw').value;
-  const err  = document.getElementById('loginErr');
-  const btn  = document.getElementById('loginBtn');
-  btn.disabled = true; err.textContent = '';
+  const err = document.getElementById('loginErr');
+  _pinLock = true;
   try {
     const r = await fetch('/api/login',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({password:pw}),
+      body:JSON.stringify({password:_pinBuf}),
     });
     if(r.ok){ hideLogin(); startLocal(); return; }
     const d=await r.json().catch(()=>({}));
-    err.textContent = d.error || 'เข้าสู่ระบบไม่สำเร็จ';
-    btn.disabled=false;
-  } catch(e){ err.textContent='เชื่อมต่อไม่ได้'; btn.disabled=false; }
+    err.textContent = d.error || 'PIN ไม่ถูกต้อง';
+    _pinBuf=''; renderPin(true); _pinLock=false;
+  } catch(e){ err.textContent='เชื่อมต่อไม่ได้'; _pinBuf=''; renderPin(true); _pinLock=false; }
 }
 
 async function doLogout(){

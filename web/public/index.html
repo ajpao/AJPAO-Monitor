@@ -1158,6 +1158,21 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(90deg,#c84e00,#ff6b00,#ff8c2a);color:#fff;transition:.2s;text-transform:uppercase}
 .login-btn:hover{box-shadow:0 0 22px rgba(255,107,0,.35)}
 .login-btn:disabled{opacity:.5;cursor:not-allowed}
+/* PIN pad */
+.pin-dots{display:flex;justify-content:center;gap:16px;margin:8px 0 4px}
+.pin-dots.shake{animation:pinShake .4s}
+.pin-dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border);
+  background:transparent;transition:.15s}
+.pin-dot.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 10px rgba(255,107,0,.5)}
+@keyframes pinShake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+.pin-key{font-family:var(--font-mono);font-size:1.4rem;padding:16px 0;cursor:pointer;
+  background:var(--panel2);border:1px solid var(--border);border-radius:12px;color:var(--text);
+  transition:.12s;display:grid;place-items:center;-webkit-user-select:none;user-select:none}
+.pin-key:hover{border-color:var(--accent);color:var(--accent)}
+.pin-key:active{transform:scale(.94);background:rgba(255,107,0,.12)}
+.pin-key.pin-fn{font-size:1rem;color:var(--dim)}
+.pin-key.pin-fn svg{width:1.2em;height:1.2em}
 
 /* device tab */
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
@@ -1234,10 +1249,26 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   <div class="login-box">
     <div class="login-logo"><i data-lucide="shield-check"></i></div>
     <div class="login-brand"><span class="brand-mono">RPi</span> <span class="brand-sub">AJPAO-Monitor</span></div>
-    <div class="login-sub">ใส่รหัสผ่านเพื่อเข้าใช้งาน</div>
-    <input type="password" id="loginPw" class="login-input" placeholder="รหัสผ่าน" autocomplete="current-password">
+    <div class="login-sub">ใส่ PIN 4 หลักเพื่อเข้าใช้งาน</div>
+    <div class="pin-dots" id="pinDots">
+      <span class="pin-dot"></span><span class="pin-dot"></span>
+      <span class="pin-dot"></span><span class="pin-dot"></span>
+    </div>
     <div class="login-err" id="loginErr"></div>
-    <button class="login-btn" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="pin-pad" id="pinPad">
+      <button type="button" class="pin-key" data-d="1">1</button>
+      <button type="button" class="pin-key" data-d="2">2</button>
+      <button type="button" class="pin-key" data-d="3">3</button>
+      <button type="button" class="pin-key" data-d="4">4</button>
+      <button type="button" class="pin-key" data-d="5">5</button>
+      <button type="button" class="pin-key" data-d="6">6</button>
+      <button type="button" class="pin-key" data-d="7">7</button>
+      <button type="button" class="pin-key" data-d="8">8</button>
+      <button type="button" class="pin-key" data-d="9">9</button>
+      <button type="button" class="pin-key pin-fn" data-d="clr" title="ล้าง">C</button>
+      <button type="button" class="pin-key" data-d="0">0</button>
+      <button type="button" class="pin-key pin-fn" data-d="del" title="ลบ"><i data-lucide="delete"></i></button>
+    </div>
   </div>
 </div>
 
