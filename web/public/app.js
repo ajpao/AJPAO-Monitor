@@ -1191,14 +1191,14 @@ async function loadBlackbox(){
       renderBlackbox(d);
     }else{
       const s = await db.collection('status').doc('heartbeat').get();
-      if(!s.exists){ bbEmpty('ยังไม่มีข้อมูล heartbeat'); return; }
+      if(!s.exists){ bbEmpty('no heartbeat data'); return; }
       const v = s.data();
       // cloud ใช้ updated_at ที่เป็น server timestamp ของ Firestore (UTC จริง) เทียบตรง ๆ ได้
       const upd = v.updated_at && v.updated_at.toDate ? v.updated_at.toDate() : null;
       renderBlackbox({ latest:v, recent:v.recent||[], smart:v.smart||{}, watchdog:null,
                        age_sec: upd ? Math.max(0, Math.round((Date.now()-upd.getTime())/1000)) : null });
     }
-  }catch(e){ console.error('blackbox error',e); bbEmpty('โหลดไม่สำเร็จ'); }
+  }catch(e){ console.error('blackbox error',e); bbEmpty('load failed'); }
 }
 
 // ต่างกันกี่วินาที ระหว่างเวลา 2 ค่าที่มาจากเครื่องเดียวกัน (รูปแบบ "YYYY-MM-DD HH:MM:SS")
@@ -1224,9 +1224,9 @@ function bbAgeSec(ts){
   return isNaN(t) ? null : Math.max(0, Math.round((Date.now()-t)/1000));
 }
 function bbAgo(sec){
-  if(sec<60) return sec+' วิที่แล้ว';
+  if(sec<60) return sec+'s ago';
   const m=Math.floor(sec/60);
-  return m<60 ? m+' นาทีที่แล้ว' : Math.floor(m/60)+' ชม.ที่แล้ว';
+  return m<60 ? m+'m ago' : Math.floor(m/60)+'h ago';
 }
 function bbSet(id, text, cls){
   const el=document.getElementById(id); if(!el) return;
@@ -1242,17 +1242,17 @@ function renderBlackbox(d){
   const dead = (age===null||age>BB_STALE_SEC);
   bbSet('bbBeat', `<span class="live-dot${dead?' off':''}"></span><span class="t">${dead?'STALE':'LIVE'}</span>`,
         dead?'bb-bad':'bb-ok');
-  setText('bbBeatSub', age===null ? 'ไม่มี timestamp'
-                                  : `อัปเดต ${bbAgo(age)} · ทุก ${d.interval||60}s`);
+  setText('bbBeatSub', age===null ? 'no timestamp'
+                                  : `updated ${bbAgo(age)} · every ${d.interval||60}s`);
 
   // 2) ไฟเลี้ยง — ตัวที่สงสัยว่าทำให้เครื่องแฮงก์
   const raw=s.throttle_raw;
   const now_bad=s.uv_now||s.thr_now||s.cap_now, ever_bad=s.uv_boot||s.thr_boot;
   let pTxt='—', pCls='bb-idle';
   if(raw!==undefined&&raw!==null){
-    if(now_bad){ pTxt='ไฟตกอยู่'; pCls='bb-bad'; }
-    else if(ever_bad){ pTxt='เคยตก'; pCls='bb-warn'; }
-    else { pTxt='ปกติ'; pCls='bb-ok'; }
+    if(now_bad){ pTxt='UNDERVOLT'; pCls='bb-bad'; }
+    else if(ever_bad){ pTxt='RECOVERED'; pCls='bb-warn'; }
+    else { pTxt='NORMAL'; pCls='bb-ok'; }
   }
   bbSet('bbPower', `<span class="t">${pTxt}</span>`, pCls);
   setText('bbPowerSub', [
@@ -1267,24 +1267,24 @@ function renderBlackbox(d){
   bbSet('bbDisk', `<span class="t">${cur==null?'—':cur.toFixed(2)+' ms'}</span>`,
         cur==null?'bb-idle': cur>500?'bb-bad' : cur>100?'bb-warn':'bb-ok');
   setText('bbDiskSub', ms.length
-    ? `ต่ำ ${Math.min(...ms).toFixed(2)} · เฉลี่ย ${(ms.reduce((a,b)=>a+b,0)/ms.length).toFixed(2)} · สูง ${Math.max(...ms).toFixed(2)} ms`
+    ? `min ${Math.min(...ms).toFixed(2)} · avg ${(ms.reduce((a,b)=>a+b,0)/ms.length).toFixed(2)} · max ${Math.max(...ms).toFixed(2)} ms`
     : '—');
 
   // 4) watchdog — เกราะที่ทำให้เครื่องรีบูตเองเวลาค้าง (อ่านได้เฉพาะ LAN)
   if(!wd){
-    bbSet('bbGuard','<span class="t">LAN only</span>','bb-idle');
-    setText('bbGuardSub','ดูสถานะ watchdog ได้ตอนเปิดใน LAN');
+    bbSet('bbGuard','<span class="t">LAN ONLY</span>','bb-idle');
+    setText('bbGuardSub','watchdog state is available on LAN only');
   }else{
     const armed = (wd.armed===true && wd.daemon==='active');
-    bbSet('bbGuard', `<span class="t">${armed?'ARMED':'ไม่ทำงาน'}</span>`, armed?'bb-ok':'bb-bad');
-    setText('bbGuardSub', armed ? `ค้างเมื่อไหร่รีเซ็ตเองใน ${wd.timeout||'?'}s`
+    bbSet('bbGuard', `<span class="t">${armed?'ARMED':'DISARMED'}</span>`, armed?'bb-ok':'bb-bad');
+    setText('bbGuardSub', armed ? `auto-resets in ${wd.timeout||'?'}s if it hangs`
                                 : `daemon=${wd.daemon||'?'} · device=${wd.armed?'active':'inactive'}`);
   }
 
   bbSpark(rec);
   bbNvme(sm);
-  setText('bbNote', dead ? 'heartbeat หยุดเต้น'
-                         : (rec.length ? rec.length+' ตัวอย่างล่าสุด' : 'กำลังเก็บข้อมูล'));
+  setText('bbNote', dead ? 'heartbeat stopped'
+                         : (rec.length ? rec.length+' samples' : 'collecting…'));
   if(window.lucide) lucide.createIcons();
 }
 
@@ -1292,7 +1292,7 @@ function bbSpark(rec){
   const el=document.getElementById('bbSpark'), lbl=document.getElementById('bbSparkRange');
   if(!el) return;
   const pts=rec.map(r=>r.disk_ms).filter(v=>typeof v==='number');
-  if(pts.length<2){ el.innerHTML=''; if(lbl) lbl.textContent='ข้อมูลไม่พอวาด'; return; }
+  if(pts.length<2){ el.innerHTML=''; if(lbl) lbl.textContent='not enough data'; return; }
   const W=300,H=40, max=Math.max(...pts), min=Math.min(...pts), span=(max-min)||1;
   const X=i=>i*(W/(pts.length-1)), Y=v=>H-2-((v-min)/span)*(H-6);
   const line=pts.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
@@ -1301,7 +1301,7 @@ function bbSpark(rec){
     `<path d="${line} L${W},${H} L0,${H} Z" fill="${col}" opacity=".13"/>`+
     `<path d="${line}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke" `+
     `stroke-linejoin="round" stroke-linecap="round"/>`;
-  if(lbl) lbl.textContent=`${min.toFixed(2)}–${max.toFixed(2)} ms · ${pts.length} จุด`;
+  if(lbl) lbl.textContent=`${min.toFixed(2)}–${max.toFixed(2)} ms · ${pts.length} pts`;
 }
 
 function bbNvme(sm){
@@ -1312,12 +1312,12 @@ function bbNvme(sm){
   const err=Number(sm.nvme_media_errors||0), crit=sm.nvme_crit_warn||'0x00';
   const out=[];
   if(t!=null)     out.push(chip('NVMe', t+'°C', t>=70?'bad':t>=60?'warn':''));
-  if(used!=null)  out.push(chip('สึกหรอ', used+'%', used>=80?'warn':''));
+  if(used!=null)  out.push(chip('wear', used+'%', used>=80?'warn':''));
   if(spare!=null) out.push(chip('spare', spare+'%', spare<=20?'warn':''));
   out.push(chip('media err', err, err>0?'bad':''));
   out.push(chip('crit', crit, (crit&&crit!=='0x00')?'bad':''));
-  if(sm.nvme_unsafe_shutdowns!=null) out.push(chip('ดับผิดปกติ', sm.nvme_unsafe_shutdowns));
-  if(sm.nvme_power_on_hours!=null)   out.push(chip('ชม.ทำงาน', Number(sm.nvme_power_on_hours).toLocaleString()));
+  if(sm.nvme_unsafe_shutdowns!=null) out.push(chip('unsafe', sm.nvme_unsafe_shutdowns));
+  if(sm.nvme_power_on_hours!=null)   out.push(chip('hours', Number(sm.nvme_power_on_hours).toLocaleString()));
   el.innerHTML=out.join('');
 }
 
