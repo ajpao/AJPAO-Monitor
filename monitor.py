@@ -34,6 +34,7 @@ import json
 import pty
 import select
 import struct
+import mmap
 import fcntl
 import termios
 from functools import wraps
@@ -1991,14 +1992,220 @@ def reboot_poll_loop():
 
 # ─── main ───────────────────────────────────────────────────────────────────────
 
+# ─── กล่องดำ: ไฟ / ดิสก์ / SMART ─────────────────────────────────────────────────
+# เพิ่ม 2026-09-10 หลังไล่หาสาเหตุเครื่องแฮงก์เงียบเป็นระยะจน DNS ทั้งบ้านล่ม
+#
+# ปัญหาของ log เดิมคือมันเขียนลง SQLite บน "ดิสก์ที่กำลังจะตาย" พอเครื่องค้าง
+# ข้อมูลช่วงวิกฤตจึงหายไปด้วย — ค่าสุดท้ายก่อนดับห่างจากเวลาตายตั้ง 9 นาที
+# ตรงนี้จึงดันขึ้น Firestore ทุกนาทีเป็น doc เดียวที่เขียนทับตัวเอง (status/heartbeat)
+# พร้อม array ย้อนหลัง HEARTBEAT_KEEP ตัวอย่าง = คลาวด์ถือนาทีสุดท้ายไว้เสมอ
+# เขียนทับ doc เดิมจึงไม่กิน storage เพิ่ม และเป็น ~1,440 writes/วัน (โควตาฟรี 20,000)
+#
+# flag ไฟตก/throttle กับแรงดัน core ใช้ get_throttle_status() ที่มีอยู่แล้วด้านบน
+# ไม่เขียนซ้ำ — ของใหม่ในไฟล์นี้มีแค่ latency ดิสก์, SMART, และตัว heartbeat เอง
+
+HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
+HEARTBEAT_KEEP     = int(os.getenv("HEARTBEAT_KEEP", "15"))
+SMART_INTERVAL     = int(os.getenv("SMART_INTERVAL", "1800"))
+SMART_DEVICE       = os.getenv("SMART_DEVICE", "/dev/sda")
+SMART_DEV_TYPE     = os.getenv("SMART_DEV_TYPE", "sntrealtek")  # กล่อง RTL9210B ต้องใช้ตัวนี้ (-d sat ไม่ผ่าน)
+PROBE_PATH         = os.path.join(BASE_DIR, ".io_probe")
+
+
+def _read_direct():
+    """อ่านแบบ O_DIRECT — mmap ให้บัฟเฟอร์ align หน้า ซึ่ง O_DIRECT บังคับ"""
+    fd = os.open(PROBE_PATH, os.O_RDONLY | getattr(os, "O_DIRECT", 0))
+    try:
+        buf = mmap.mmap(-1, 4096)
+        try:
+            os.preadv(fd, [buf], 0)
+        finally:
+            buf.close()
+    finally:
+        os.close(fd)
+
+
+def _read_uncached():
+    """ทางสำรองถ้า O_DIRECT ใช้ไม่ได้ — ไล่ cache ออกก่อนแล้วค่อยอ่าน"""
+    fd = os.open(PROBE_PATH, os.O_RDONLY)
+    try:
+        os.posix_fadvise(fd, 0, 4096, os.POSIX_FADV_DONTNEED)
+        os.pread(fd, 4096, 0)
+    finally:
+        os.close(fd)
+
+
+def disk_probe_ms():
+    """จับเวลาอ่านจริง 4KB โดยข้าม page cache
+
+    ถ้าอ่านผ่าน cache ดิสก์ตายไปแล้วก็ยังตอบได้จาก RAM ตัวเลขจะสวยหลอกตา
+    latency ที่ไต่ขึ้นเรื่อย ๆ ก่อนแฮงก์ = กล่อง USB/NVMe กำลังจะหลุด
+    ส่วนถ้านิ่งแล้วเครื่องดับพรวด = ไฟตกฉับพลัน — สองกรณีนี้แก้คนละทาง
+    """
+    try:
+        if not os.path.exists(PROBE_PATH) or os.path.getsize(PROBE_PATH) < 4096:
+            with open(PROBE_PATH, "wb") as f:
+                f.write(os.urandom(4096))
+                f.flush()
+                os.fsync(f.fileno())
+        t0 = time.perf_counter()
+        try:
+            _read_direct()
+        except OSError:
+            _read_uncached()
+        return round((time.perf_counter() - t0) * 1000, 2)
+    except Exception:
+        return None
+
+
+_smart_cache = {"ts": 0.0, "data": {}}
+_SMART_FIELDS = {
+    "Temperature":                     ("nvme_temp_c",           r"(\d+)"),
+    "Percentage Used":                 ("nvme_used_pct",         r"(\d+)"),
+    "Available Spare":                 ("nvme_spare_pct",        r"(\d+)"),
+    "Critical Warning":                ("nvme_crit_warn",        r"(0x[0-9a-fA-F]+)"),
+    "Unsafe Shutdowns":                ("nvme_unsafe_shutdowns", r"([\d,]+)"),
+    "Media and Data Integrity Errors": ("nvme_media_errors",     r"([\d,]+)"),
+    "Power Cycles":                    ("nvme_power_cycles",     r"([\d,]+)"),
+    "Power On Hours":                  ("nvme_power_on_hours",   r"([\d,]+)"),
+}
+
+
+def get_smart(force=False):
+    """SMART ของ NVMe ผ่านกล่อง USB — เรียกหนักกว่าตัวอื่น เลย cache ไว้ SMART_INTERVAL วินาที
+
+    nvme_unsafe_shutdowns เป็นตัวนับสะสมของการดับแบบไม่ปกติ = นับจำนวนครั้งที่แฮงก์ได้ตรง ๆ
+    """
+    now = time.time()
+    if not force and _smart_cache["data"] and now - _smart_cache["ts"] < SMART_INTERVAL:
+        return _smart_cache["data"]
+    d = {}
+    try:
+        out = subprocess.run(["sudo", "-n", "smartctl", "-A", "-d", SMART_DEV_TYPE, SMART_DEVICE],
+                             capture_output=True, text=True, timeout=30).stdout
+        for line in out.splitlines():
+            key, sep, val = line.partition(":")
+            if not sep:
+                continue
+            spec = _SMART_FIELDS.get(key.strip())
+            if not spec:
+                continue
+            name, pat = spec
+            m = re.search(pat, val.strip())
+            if not m:
+                continue
+            raw = m.group(1).replace(",", "")
+            d[name] = raw if raw.startswith("0x") else int(raw)
+    except Exception as e:
+        print(f"[smart] อ่านไม่สำเร็จ: {e}")
+    if d:
+        _smart_cache.update(ts=now, data=d)
+    return _smart_cache["data"]
+
+
+_hb_samples = []
+
+
+def _sample():
+    """หนึ่งจุดข้อมูล — ตั้งใจให้เบา เพราะยิงทุก HEARTBEAT_INTERVAL วินาที"""
+    thr  = get_throttle_status() or {}
+    cur  = thr.get("now")  or {}
+    past = thr.get("past") or {}
+    return {
+        "ts":           datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "temp_c":       get_cpu_temp(),
+        "cpu_pct":      round(psutil.cpu_percent(interval=None), 1),
+        "ram_pct":      round(psutil.virtual_memory().percent, 1),
+        "load1":        round(os.getloadavg()[0], 2),
+        "disk_ms":      disk_probe_ms(),
+        "volts_core":   thr.get("volts"),
+        "clock_mhz":    thr.get("clock_mhz"),
+        "throttle_raw": thr.get("raw"),
+        "power_ok":     thr.get("healthy"),
+        "uv_now":       cur.get("undervoltage"),
+        "cap_now":      cur.get("freq_capped"),
+        "thr_now":      cur.get("throttled"),
+        "uv_boot":      past.get("undervoltage"),
+        "thr_boot":     past.get("throttled"),
+    }
+
+
+def check_power_alert(s):
+    """เตือนทันทีที่ไฟตก/โดน throttle — เดิมรู้ได้ต่อเมื่อมานั่งชันสูตรทีหลัง"""
+    bad = bool(s.get("uv_now") or s.get("thr_now") or s.get("cap_now"))
+    if bad and not _alert_state["throttle"]:
+        _alert_state["throttle"] = True
+        broadcast(f"⚡ <b>ไฟเลี้ยงมีปัญหา</b>\n"
+                  f"🕐 {s['ts']}\n"
+                  f"throttled = <code>0x{(s.get('throttle_raw') or 0):x}</code>\n"
+                  f"🔋 แรงดัน core: <b>{s.get('volts_core')} V</b>\n"
+                  f"⚙️ CPU clock: <b>{s.get('clock_mhz')} MHz</b>\n"
+                  f"🌡️ อุณหภูมิ: <b>{s.get('temp_c')}°C</b>")
+        log_event("warning", "power", s.get("volts_core"), "warning",
+                  f"ไฟตก/throttle: 0x{(s.get('throttle_raw') or 0):x}")
+    elif not bad and _alert_state["throttle"]:
+        _alert_state["throttle"] = False
+        broadcast(f"✅ <b>ไฟเลี้ยงกลับมาปกติ</b>\n🕐 {s['ts']}")
+        log_event("info", "power", s.get("volts_core"), "info", "ไฟกลับมาปกติ")
+
+
+def record_boot_forensics():
+    """ตอนสตาร์ต ดูว่า boot ก่อนหน้าจบยังไง — ปิดปกติ หรือดับกลางอากาศ
+
+    ตอบคำถามว่า watchdog ที่ติดตั้งไว้ 2026-09-10 ทำงานจริงในสนามกี่ครั้ง
+    (ถ้าเครื่องแฮงก์ journal จะขาดกลางคันโดยไม่มีบรรทัด shutdown)
+    """
+    try:
+        out = subprocess.run(["journalctl", "-b", "-1", "-n", "40", "--no-pager", "-o", "short"],
+                             capture_output=True, text=True, timeout=30).stdout
+    except Exception as e:
+        print(f"[boot] อ่าน journal ไม่สำเร็จ: {e}")
+        return
+    if not out.strip():
+        return
+    if re.search(r"Reached target.*[Ss]hutdown|systemd-shutdown|Power(ing)? off|Rebooting", out):
+        log_event("info", "system", None, "info", "boot ที่แล้วปิดแบบปกติ")
+        return
+    last = next((l.strip()[:160] for l in reversed(out.strip().splitlines()) if l.strip()), "")
+    unsafe = get_smart(force=True).get("nvme_unsafe_shutdowns")
+    log_event("warning", "system", None, "warning",
+              f"boot ที่แล้วดับกลางอากาศ (unsafe shutdowns สะสม={unsafe}) บรรทัดสุดท้าย: {last}")
+    broadcast(f"⚠️ <b>เครื่องดับผิดปกติ</b>\n"
+              f"boot ที่แล้วไม่มีขั้นตอน shutdown — แฮงก์แล้ว watchdog รีเซ็ต หรือไฟดับ\n"
+              f"💾 unsafe shutdowns สะสม: <b>{unsafe}</b>\n"
+              f"<code>{last}</code>")
+
+
+def heartbeat_loop():
+    while True:
+        try:
+            s = _sample()
+            _hb_samples.append(s)
+            del _hb_samples[:-HEARTBEAT_KEEP]
+            check_power_alert(s)
+            if db_fs:
+                doc = dict(s)
+                doc["boot_time"]  = int(psutil.boot_time())
+                doc["recent"]     = list(_hb_samples)
+                doc["smart"]      = get_smart()
+                doc["updated_at"] = fs.SERVER_TIMESTAMP
+                db_fs.collection("status").document("heartbeat").set(doc)
+        except Exception as e:
+            print(f"[heartbeat] error: {e}")
+        time.sleep(HEARTBEAT_INTERVAL)
+
+
+
 def main():
     init_db()
     init_firestore()
     push_alert_config(load_alert_config())                      # sync เกณฑ์แจ้งเตือนขึ้น cloud
     log_event("info", "system", None, "info", "ระบบเริ่มทำงาน")  # โผล่ใน Event Log = proxy ของการรีบูต
+    record_boot_forensics()
     threading.Thread(target=collector_loop, daemon=True).start()
     threading.Thread(target=bot_loop, daemon=True).start()
     threading.Thread(target=reboot_poll_loop, daemon=True).start()
+    threading.Thread(target=heartbeat_loop, daemon=True).start()
     print(f"🌐 LAN dashboard: http://0.0.0.0:{PORT}")
     # HTTPS ขนาน — เปิดเฉพาะเมื่อมี cert/key (สำหรับเข้าจากนอกบ้านผ่าน port-forward, รหัสผ่านไม่วิ่ง cleartext)
     if os.path.exists(SSL_CERT) and os.path.exists(SSL_KEY):
