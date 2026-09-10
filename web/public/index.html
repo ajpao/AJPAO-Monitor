@@ -458,6 +458,30 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .st-lbl{font-family:var(--font-mono);font-size:.62rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase;margin-top:3px}
 .st-meta{text-align:center;font-family:var(--font-mono);font-size:.72rem;color:var(--dim);margin-top:10px;min-height:1em}
 @media(max-width:520px){.st-grid{gap:8px}.st-item{padding:10px 4px}}
+/* Blackbox — เฝ้าไฟ/ดิสก์/NVMe (หน้า System) */
+.bb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:4px 0 2px}
+.bb-item{padding:11px 10px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);
+  display:flex;flex-direction:column;gap:3px;min-width:0}
+.bb-lbl{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.8px;color:var(--dim);
+  text-transform:uppercase;display:flex;align-items:center;gap:5px}
+.bb-lbl svg{width:1.05em;height:1.05em}
+.bb-val{font-family:var(--font-display);font-size:clamp(.95rem,2.6vw,1.25rem);font-weight:800;
+  line-height:1.15;display:flex;align-items:center;gap:7px;min-width:0}
+.bb-val span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bb-sub{font-family:var(--font-mono);font-size:.62rem;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bb-ok{color:var(--ok)}.bb-bad{color:var(--danger)}.bb-warn{color:var(--warn)}.bb-idle{color:var(--dim)}
+.bb-spark{margin-top:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);padding:10px 12px 4px}
+.bb-spark-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  font-family:var(--font-mono);font-size:.6rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase}
+.bb-spark svg{display:block;width:100%;height:56px;margin-top:4px;overflow:visible}
+.bb-nvme{display:flex;flex-wrap:wrap;gap:6px 8px;margin-top:12px}
+.bb-chip{font-family:var(--font-mono);font-size:.66rem;padding:5px 9px;border-radius:999px;
+  border:1px solid var(--border);background:var(--panel2);color:var(--dim);white-space:nowrap}
+.bb-chip b{color:var(--text);font-weight:700}
+.bb-chip.warn{border-color:color-mix(in srgb,var(--warn) 55%,var(--border))}
+.bb-chip.bad{border-color:color-mix(in srgb,var(--danger) 60%,var(--border))}
+@media(max-width:760px){.bb-grid{grid-template-columns:repeat(2,1fr)}}
 .rb-list{display:flex;flex-direction:column;gap:0}
 .rb-row{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px dashed var(--border);font-size:.82rem}
 .rb-row:last-child{border-bottom:none}
@@ -1803,6 +1827,42 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 
   <!-- Panel: Device (network / OS / processes) -->
   <div id="panel-device" class="s-panel">
+    <div class="chart-card">
+      <div class="cc-head">
+        <div class="cc-title"><i data-lucide="shield-check"></i>Blackbox</div>
+        <span class="data-count" id="bbNote">—</span>
+      </div>
+      <div class="bb-grid">
+        <div class="bb-item">
+          <div class="bb-lbl"><i data-lucide="activity"></i>Heartbeat</div>
+          <div class="bb-val" id="bbBeat"><i class="sk-val" style="width:72px"></i></div>
+          <div class="bb-sub" id="bbBeatSub">—</div>
+        </div>
+        <div class="bb-item">
+          <div class="bb-lbl"><i data-lucide="zap"></i>ไฟเลี้ยง</div>
+          <div class="bb-val" id="bbPower"><i class="sk-val" style="width:62px"></i></div>
+          <div class="bb-sub" id="bbPowerSub">—</div>
+        </div>
+        <div class="bb-item">
+          <div class="bb-lbl"><i data-lucide="hard-drive"></i>ดิสก์ตอบสนอง</div>
+          <div class="bb-val" id="bbDisk"><i class="sk-val" style="width:66px"></i></div>
+          <div class="bb-sub" id="bbDiskSub">—</div>
+        </div>
+        <div class="bb-item">
+          <div class="bb-lbl"><i data-lucide="shield"></i>Watchdog</div>
+          <div class="bb-val" id="bbGuard"><i class="sk-val" style="width:60px"></i></div>
+          <div class="bb-sub" id="bbGuardSub">—</div>
+        </div>
+      </div>
+      <div class="bb-spark">
+        <div class="bb-spark-head">
+          <span>disk latency ย้อนหลัง</span>
+          <span id="bbSparkRange">—</span>
+        </div>
+        <svg id="bbSpark" viewBox="0 0 300 40" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </div>
+      <div class="bb-nvme" id="bbNvme"></div>
+    </div>
     <div class="info-grid">
       <div class="chart-card info-card">
         <div class="cc-head" style="margin-bottom:8px"><div class="cc-title"><i data-lucide="hard-drive"></i>OS &amp; Hardware</div></div>

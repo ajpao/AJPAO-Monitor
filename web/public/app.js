@@ -22,7 +22,7 @@ const C = {
 
 const charts = {};
 let MODE = null, db = null, auth = null;
-let cloudStatus = null, deviceTimer = null;
+let cloudStatus = null, deviceTimer = null, bbTimer = null;
 
 // ─── UI settings (theme / สี / ฟอนต์ / ขนาด) ─────────────────────────────────────
 
@@ -1174,6 +1174,153 @@ function renderDeviceCloud(){
   const lb=document.getElementById('logBox'); if(lb) lb.textContent='⚠ ดู log ได้เฉพาะตอนเปิดใน LAN';
 }
 
+// ─── blackbox: เฝ้าไฟ / ดิสก์ / NVMe ───────────────────────────────────────────
+// LOCAL : /api/blackbox — ค่าสดจาก process ที่รันอยู่
+// CLOUD : status/heartbeat ที่ heartbeat_loop ดันขึ้นทุกนาที
+// doc นั้นคือกล่องดำที่รอดตอนเครื่องแฮงก์ เพราะ SQLite ในเครื่องตายไปพร้อมดิสก์
+
+const BB_STALE_SEC = 180;   // heartbeat เต้นทุก 60s — เงียบเกิน 3 นาที = ตายแล้ว
+
+async function loadBlackbox(){
+  try{
+    if(MODE==='local'){
+      const d = await fetch('/api/blackbox').then(r=>r.json());
+      // เทียบ ts กับ server_ts ของ Pi เอง — ทั้งคู่เป็นเวลาท้องถิ่นเครื่องเดียวกัน
+      // timezone จึงหักล้างกันหมด ไม่ต้องพึ่งนาฬิกา/โซนเวลาของเบราว์เซอร์
+      d.age_sec = bbDiffSec(d.latest && d.latest.ts, d.server_ts);
+      renderBlackbox(d);
+    }else{
+      const s = await db.collection('status').doc('heartbeat').get();
+      if(!s.exists){ bbEmpty('ยังไม่มีข้อมูล heartbeat'); return; }
+      const v = s.data();
+      // cloud ใช้ updated_at ที่เป็น server timestamp ของ Firestore (UTC จริง) เทียบตรง ๆ ได้
+      const upd = v.updated_at && v.updated_at.toDate ? v.updated_at.toDate() : null;
+      renderBlackbox({ latest:v, recent:v.recent||[], smart:v.smart||{}, watchdog:null,
+                       age_sec: upd ? Math.max(0, Math.round((Date.now()-upd.getTime())/1000)) : null });
+    }
+  }catch(e){ console.error('blackbox error',e); bbEmpty('โหลดไม่สำเร็จ'); }
+}
+
+// ต่างกันกี่วินาที ระหว่างเวลา 2 ค่าที่มาจากเครื่องเดียวกัน (รูปแบบ "YYYY-MM-DD HH:MM:SS")
+function bbDiffSec(then, now){
+  if(!then || !now) return null;
+  const a=Date.parse(String(then).replace(' ','T')), b=Date.parse(String(now).replace(' ','T'));
+  return (isNaN(a)||isNaN(b)) ? null : Math.max(0, Math.round((b-a)/1000));
+}
+
+function bbEmpty(msg){
+  setText('bbNote', msg);
+  ['bbBeat','bbPower','bbDisk','bbGuard'].forEach(id=>{
+    const el=document.getElementById(id); if(el){ el.className='bb-val bb-idle'; el.textContent='—'; }
+  });
+  ['bbBeatSub','bbPowerSub','bbDiskSub','bbGuardSub'].forEach(id=>setText(id,'—'));
+  const sp=document.getElementById('bbSpark'); if(sp) sp.innerHTML='';
+  const nv=document.getElementById('bbNvme'); if(nv) nv.innerHTML='';
+}
+
+function bbAgeSec(ts){
+  if(!ts) return null;
+  const t=Date.parse(String(ts).replace(' ','T'));   // เวลาท้องถิ่นของ Pi ไม่มี tz
+  return isNaN(t) ? null : Math.max(0, Math.round((Date.now()-t)/1000));
+}
+function bbAgo(sec){
+  if(sec<60) return sec+' วิที่แล้ว';
+  const m=Math.floor(sec/60);
+  return m<60 ? m+' นาทีที่แล้ว' : Math.floor(m/60)+' ชม.ที่แล้ว';
+}
+function bbSet(id, text, cls){
+  const el=document.getElementById(id); if(!el) return;
+  el.className='bb-val'+(cls?' '+cls:'');
+  el.innerHTML=text;
+}
+
+function renderBlackbox(d){
+  const s=d.latest||{}, rec=d.recent||[], sm=d.smart||{}, wd=d.watchdog;
+
+  // 1) กล่องดำยังหายใจอยู่ไหม
+  const age = (d.age_sec!==undefined && d.age_sec!==null) ? d.age_sec : bbAgeSec(s.ts);
+  const dead = (age===null||age>BB_STALE_SEC);
+  bbSet('bbBeat', `<span class="live-dot${dead?' off':''}"></span><span class="t">${dead?'STALE':'LIVE'}</span>`,
+        dead?'bb-bad':'bb-ok');
+  setText('bbBeatSub', age===null ? 'ไม่มี timestamp'
+                                  : `อัปเดต ${bbAgo(age)} · ทุก ${d.interval||60}s`);
+
+  // 2) ไฟเลี้ยง — ตัวที่สงสัยว่าทำให้เครื่องแฮงก์
+  const raw=s.throttle_raw;
+  const now_bad=s.uv_now||s.thr_now||s.cap_now, ever_bad=s.uv_boot||s.thr_boot;
+  let pTxt='—', pCls='bb-idle';
+  if(raw!==undefined&&raw!==null){
+    if(now_bad){ pTxt='ไฟตกอยู่'; pCls='bb-bad'; }
+    else if(ever_bad){ pTxt='เคยตก'; pCls='bb-warn'; }
+    else { pTxt='ปกติ'; pCls='bb-ok'; }
+  }
+  bbSet('bbPower', `<span class="t">${pTxt}</span>`, pCls);
+  setText('bbPowerSub', [
+    s.volts_core!=null ? s.volts_core+' V' : null,
+    s.clock_mhz!=null  ? s.clock_mhz+' MHz' : null,
+    raw!=null ? '0x'+Number(raw).toString(16) : null
+  ].filter(Boolean).join(' · ') || '—');
+
+  // 3) ดิสก์ตอบสนอง — latency ที่ไต่ขึ้นคือกล่อง USB/NVMe กำลังจะหลุด
+  const ms=rec.map(r=>r.disk_ms).filter(v=>typeof v==='number');
+  const cur=(typeof s.disk_ms==='number')?s.disk_ms:null;
+  bbSet('bbDisk', `<span class="t">${cur==null?'—':cur.toFixed(2)+' ms'}</span>`,
+        cur==null?'bb-idle': cur>500?'bb-bad' : cur>100?'bb-warn':'bb-ok');
+  setText('bbDiskSub', ms.length
+    ? `ต่ำ ${Math.min(...ms).toFixed(2)} · เฉลี่ย ${(ms.reduce((a,b)=>a+b,0)/ms.length).toFixed(2)} · สูง ${Math.max(...ms).toFixed(2)} ms`
+    : '—');
+
+  // 4) watchdog — เกราะที่ทำให้เครื่องรีบูตเองเวลาค้าง (อ่านได้เฉพาะ LAN)
+  if(!wd){
+    bbSet('bbGuard','<span class="t">LAN only</span>','bb-idle');
+    setText('bbGuardSub','ดูสถานะ watchdog ได้ตอนเปิดใน LAN');
+  }else{
+    const armed = (wd.armed===true && wd.daemon==='active');
+    bbSet('bbGuard', `<span class="t">${armed?'ARMED':'ไม่ทำงาน'}</span>`, armed?'bb-ok':'bb-bad');
+    setText('bbGuardSub', armed ? `ค้างเมื่อไหร่รีเซ็ตเองใน ${wd.timeout||'?'}s`
+                                : `daemon=${wd.daemon||'?'} · device=${wd.armed?'active':'inactive'}`);
+  }
+
+  bbSpark(rec);
+  bbNvme(sm);
+  setText('bbNote', dead ? 'heartbeat หยุดเต้น'
+                         : (rec.length ? rec.length+' ตัวอย่างล่าสุด' : 'กำลังเก็บข้อมูล'));
+  if(window.lucide) lucide.createIcons();
+}
+
+function bbSpark(rec){
+  const el=document.getElementById('bbSpark'), lbl=document.getElementById('bbSparkRange');
+  if(!el) return;
+  const pts=rec.map(r=>r.disk_ms).filter(v=>typeof v==='number');
+  if(pts.length<2){ el.innerHTML=''; if(lbl) lbl.textContent='ข้อมูลไม่พอวาด'; return; }
+  const W=300,H=40, max=Math.max(...pts), min=Math.min(...pts), span=(max-min)||1;
+  const X=i=>i*(W/(pts.length-1)), Y=v=>H-2-((v-min)/span)*(H-6);
+  const line=pts.map((v,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join(' ');
+  const col = max>500?'var(--danger)' : max>100?'var(--warn)' : 'var(--ok)';
+  el.innerHTML =
+    `<path d="${line} L${W},${H} L0,${H} Z" fill="${col}" opacity=".13"/>`+
+    `<path d="${line}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke" `+
+    `stroke-linejoin="round" stroke-linecap="round"/>`;
+  if(lbl) lbl.textContent=`${min.toFixed(2)}–${max.toFixed(2)} ms · ${pts.length} จุด`;
+}
+
+function bbNvme(sm){
+  const el=document.getElementById('bbNvme'); if(!el) return;
+  if(!sm || !Object.keys(sm).length){ el.innerHTML=''; return; }
+  const chip=(l,v,c)=>`<span class="bb-chip${c?' '+c:''}">${l} <b>${v}</b></span>`;
+  const t=sm.nvme_temp_c, used=sm.nvme_used_pct, spare=sm.nvme_spare_pct;
+  const err=Number(sm.nvme_media_errors||0), crit=sm.nvme_crit_warn||'0x00';
+  const out=[];
+  if(t!=null)     out.push(chip('NVMe', t+'°C', t>=70?'bad':t>=60?'warn':''));
+  if(used!=null)  out.push(chip('สึกหรอ', used+'%', used>=80?'warn':''));
+  if(spare!=null) out.push(chip('spare', spare+'%', spare<=20?'warn':''));
+  out.push(chip('media err', err, err>0?'bad':''));
+  out.push(chip('crit', crit, (crit&&crit!=='0x00')?'bad':''));
+  if(sm.nvme_unsafe_shutdowns!=null) out.push(chip('ดับผิดปกติ', sm.nvme_unsafe_shutdowns));
+  if(sm.nvme_power_on_hours!=null)   out.push(chip('ชม.ทำงาน', Number(sm.nvme_power_on_hours).toLocaleString()));
+  el.innerHTML=out.join('');
+}
+
 // ─── service manager ───────────────────────────────────────────────────────────
 
 async function loadServices(){
@@ -2035,18 +2182,19 @@ function switchPanel(name, btn){
   applyAdguardVisibility();   // โชว์ AdGuard เฉพาะแท็บ "อุณหภูมิ"
 
   if(deviceTimer){ clearInterval(deviceTimer); deviceTimer=null; }
+  if(bbTimer){ clearInterval(bbTimer); bbTimer=null; }
 
   if(!panelLoaded[name]){
     panelLoaded[name]=true;
     if(name==='system'){ loadUsageCompare(); loadDatePanel('system'); }
     else if(name==='monthly'){ loadMonthlyCompare(); loadMonthly(); }
     else if(name==='history'){ setupHistory(); loadDatePanel('temp'); }   // history = range trends + อุณหภูมิรายชั่วโมง/วัน
-    else if(name==='device'){ loadDevice(); loadServices(); loadReboots(); }
+    else if(name==='device'){ loadBlackbox(); loadDevice(); loadServices(); loadReboots(); }
     else if(name==='terminal') setupTerminal();
     else if(name==='files') setupFiles();
     else if(name==='notes') setupNotes();
   } else if(name==='device'){
-    loadDevice(); loadServices(); loadReboots();
+    loadBlackbox(); loadDevice(); loadServices(); loadReboots();
   } else if(name==='files'){
     setupFiles();
   } else if(name==='notes'){
@@ -2057,6 +2205,10 @@ function switchPanel(name, btn){
 
   if(name==='device' && MODE==='local'){
     deviceTimer = setInterval(loadDevice, 5000);   // refresh speed/processes สด
+  }
+  if(name==='device'){
+    // heartbeat เต้นทุก 60s อยู่แล้ว — 20s พอให้เห็นว่ามันหยุดเต้นเร็ว ๆ โดยไม่เรียกถี่เกิน
+    bbTimer = setInterval(loadBlackbox, 20000);
   }
   if(name==='terminal' && MODE==='local'){
     const t=document.getElementById('termIn'); if(t && !t.disabled) t.focus();

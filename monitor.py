@@ -2176,6 +2176,46 @@ def record_boot_forensics():
               f"<code>{last}</code>")
 
 
+def get_watchdog_state():
+    """สถานะ hardware watchdog — บอกว่าเครื่องยังมีเกราะกันแฮงก์อยู่ไหม
+
+    ถ้า armed=False แปลว่าเครื่องค้างแล้วจะค้างยาวจนกว่าจะมีคนถอดปลั๊ก
+    """
+    d = {"armed": None, "timeout": None, "daemon": None}
+    try:
+        with open("/sys/class/watchdog/watchdog0/state") as f:
+            d["armed"] = (f.read().strip() == "active")
+        with open("/sys/class/watchdog/watchdog0/timeout") as f:
+            d["timeout"] = int(f.read().strip())
+    except Exception:
+        pass
+    try:
+        r = subprocess.run(["systemctl", "is-active", "watchdog"],
+                           capture_output=True, text=True, timeout=5)
+        d["daemon"] = r.stdout.strip() or None
+    except Exception:
+        pass
+    return d
+
+
+@flask_app.route("/api/blackbox")
+@require_auth
+def api_blackbox():
+    """ป้อนหน้า System (LAN) — ค่าล่าสุด + ประวัติในหน่วยความจำ + SMART + watchdog
+
+    cloud อ่านชุดเดียวกันได้จาก Firestore status/heartbeat โดยตรง
+    """
+    return jsonify({
+        "latest":    (_hb_samples[-1] if _hb_samples else _sample()),
+        "recent":    list(_hb_samples),
+        "smart":     get_smart(),
+        "watchdog":  get_watchdog_state(),
+        "interval":  HEARTBEAT_INTERVAL,
+        "keep":      HEARTBEAT_KEEP,
+        "server_ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    })
+
+
 def heartbeat_loop():
     while True:
         try:
