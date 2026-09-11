@@ -45,3 +45,4 @@ web/public/icons/_original_backup/
 # ─── ไฟล์ทำงานของ monitor ───
 .io_probe
 *.bak-*
+.last_boot_id

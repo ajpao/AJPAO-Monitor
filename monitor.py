@@ -2149,31 +2149,140 @@ def check_power_alert(s):
         log_event("info", "power", s.get("volts_core"), "info", "ไฟกลับมาปกติ")
 
 
-def record_boot_forensics():
-    """ตอนสตาร์ต ดูว่า boot ก่อนหน้าจบยังไง — ปิดปกติ หรือดับกลางอากาศ
+BOOT_MARK = os.path.join(BASE_DIR, ".last_boot_id")   # boot ที่รายงานไปแล้ว — กันรายงานซ้ำตอน restart service
 
-    ตอบคำถามว่า watchdog ที่ติดตั้งไว้ 2026-09-10 ทำงานจริงในสนามกี่ครั้ง
-    (ถ้าเครื่องแฮงก์ journal จะขาดกลางคันโดยไม่มีบรรทัด shutdown)
+
+def _read_boot_id():
+    try:
+        with open("/proc/sys/kernel/random/boot_id") as f:
+            return f.read().strip()
+    except Exception:
+        return None
+
+
+_BOOT_ID = _read_boot_id()
+
+
+def get_reset_reason():
+    """เหตุผลของการรีเซ็ตครั้งล่าสุดจาก PM_RSTS (vcgencmd get_rsts)
+
+    register นี้เป็นตัวเดียวที่ค้างค่าข้ามการรีเซ็ต:
+      0x1000 HADPOR — ไฟ 5V ดับทั้งเส้น (ถอดปลั๊ก หรือไฟตกจนบอร์ดดับ)
+      0x0020 HADWRF — watchdog รีเซ็ต; reboot ปกติของ kernel ก็วิ่งทางนี้ (ได้ 0x1020)
+    ต้องเช็ค 0x20 ก่อน เพราะ reboot ปกติมีทั้งสอง bit
+    ยืนยันกับบอร์ดนี้แล้ว: ถอดปลั๊ก 2026-09-10 22:21 ได้ 0x1000
     """
+    raw = _vcgencmd("get_rsts")
+    try:
+        v = int(raw.split("=", 1)[1], 16)
+    except Exception:
+        return {"rsts": None, "reason": "unknown"}
+    if v & 0x20:
+        reason = "watchdog"
+    elif v & 0x1000:
+        reason = "power_loss"
+    else:
+        reason = "unknown"
+    return {"rsts": "0x%x" % v, "reason": reason}
+
+
+_BOOT_RESET = get_reset_reason()
+
+_BOOT_KIND_TEXT = {
+    "reboot":     "รีบูตปกติ",
+    "power_loss": "ไฟดับ / ถอดปลั๊ก",
+    "watchdog":   "เครื่องค้าง — watchdog รีเซ็ต",
+    "unclean":    "ดับผิดปกติ (ระบุสาเหตุไม่ได้)",
+}
+
+
+def _archive_prev_heartbeat(rec):
+    """เก็บ status/heartbeat ของ boot ก่อนหน้าไว้ที่ boots/<id> ก่อนถูกเขียนทับ
+
+    heartbeat_loop เขียนทับ doc เดิมตั้งแต่รอบแรกของ boot ใหม่ (~60 วิหลังสตาร์ต)
+    ถ้าไม่ copy ตรงนี้ 15 นาทีสุดท้ายก่อนดับ — ข้อมูลที่กล่องดำมีไว้เก็บ — จะหายทุกครั้ง
+    คืน "same_boot" ถ้า doc เป็นของ boot ปัจจุบันอยู่แล้ว (แปลว่าแค่ restart service)
+    """
+    if not db_fs:
+        return None
+    try:
+        snap = db_fs.collection("status").document("heartbeat").get()
+        prev = snap.to_dict() if snap.exists else {}
+    except Exception as e:
+        print(f"[boot] อ่าน heartbeat เดิมไม่สำเร็จ: {e}")
+        prev = {}
+    pb = prev.get("boot_time")
+    if pb and abs(int(pb) - int(psutil.boot_time())) < 5:
+        return "same_boot"
+    doc_id = prev.get("boot_id") or (f"boot-{pb}" if pb else f"boot-unknown-{int(time.time())}")
+    rec = dict(rec, prev_boot_time=pb, last_heartbeat_ts=prev.get("ts"),
+               recent=prev.get("recent", []), smart_before=prev.get("smart", {}),
+               recorded_at=fs.SERVER_TIMESTAMP)
+    try:
+        db_fs.collection("boots").document(doc_id).set(rec)
+        return doc_id
+    except Exception as e:
+        print(f"[boot] เก็บ boots/{doc_id} ไม่สำเร็จ: {e}")
+        return None
+
+
+def record_boot_forensics():
+    """ตอนสตาร์ต ดูว่า boot ก่อนหน้าจบยังไง แล้วเก็บกล่องดำของมันไว้ถาวร
+
+    ต้องรันก่อน heartbeat thread เสมอ (main() เรียกแบบ synchronous ก่อนสตาร์ต thread)
+    รายงานครั้งเดียวต่อ boot — restart service ใน boot เดิมจะข้าม (BOOT_MARK)
+    """
+    try:
+        with open(BOOT_MARK) as f:
+            if _BOOT_ID and f.read().strip() == _BOOT_ID:
+                return
+    except FileNotFoundError:
+        pass
+
     try:
         out = subprocess.run(["journalctl", "-b", "-1", "-n", "40", "--no-pager", "-o", "short"],
                              capture_output=True, text=True, timeout=30).stdout
     except Exception as e:
         print(f"[boot] อ่าน journal ไม่สำเร็จ: {e}")
-        return
-    if not out.strip():
-        return
-    if re.search(r"Reached target.*[Ss]hutdown|systemd-shutdown|Power(ing)? off|Rebooting", out):
-        log_event("info", "system", None, "info", "boot ที่แล้วปิดแบบปกติ")
-        return
+        out = ""
+    clean = bool(re.search(r"Reached target.*[Ss]hutdown|systemd-shutdown|Power(ing)? off|Rebooting", out))
     last = next((l.strip()[:160] for l in reversed(out.strip().splitlines()) if l.strip()), "")
+
+    if clean:
+        kind = "reboot"
+    elif _BOOT_RESET["reason"] in ("power_loss", "watchdog"):
+        kind = _BOOT_RESET["reason"]
+    else:
+        kind = "unclean"
     unsafe = get_smart(force=True).get("nvme_unsafe_shutdowns")
-    log_event("warning", "system", None, "warning",
-              f"boot ที่แล้วดับกลางอากาศ (unsafe shutdowns สะสม={unsafe}) บรรทัดสุดท้าย: {last}")
-    broadcast(f"⚠️ <b>เครื่องดับผิดปกติ</b>\n"
-              f"boot ที่แล้วไม่มีขั้นตอน shutdown — แฮงก์แล้ว watchdog รีเซ็ต หรือไฟดับ\n"
+
+    archived = _archive_prev_heartbeat({
+        "kind": kind, "clean": clean,
+        "rsts": _BOOT_RESET["rsts"], "rsts_reason": _BOOT_RESET["reason"],
+        "next_boot_time": int(psutil.boot_time()), "next_boot_id": _BOOT_ID,
+        "last_journal_line": last, "unsafe_shutdowns": unsafe,
+    })
+
+    try:
+        with open(BOOT_MARK, "w") as f:
+            f.write(_BOOT_ID or "")
+    except Exception as e:
+        print(f"[boot] เขียน {BOOT_MARK} ไม่สำเร็จ: {e}")
+
+    if archived == "same_boot":
+        return      # heartbeat ของ boot นี้เขียนไปแล้ว = แค่ restart service ไม่ใช่บูตใหม่
+
+    where = f" · กล่องดำเก็บที่ boots/{archived}" if archived else ""
+    msg = f"boot ที่แล้ว: {_BOOT_KIND_TEXT[kind]} (rsts={_BOOT_RESET['rsts']}, unsafe={unsafe}){where}"
+    if kind == "reboot":
+        log_event("info", "system", None, "info", msg)
+        return
+    log_event("warning", "system", None, "warning", f"{msg} บรรทัดสุดท้าย: {last}")
+    broadcast(f"⚠️ <b>เครื่องดับผิดปกติ — {_BOOT_KIND_TEXT[kind]}</b>\n"
+              f"🔌 reset: <code>{_BOOT_RESET['rsts']}</code>\n"
               f"💾 unsafe shutdowns สะสม: <b>{unsafe}</b>\n"
-              f"<code>{last}</code>")
+              + (f"🗃️ กล่องดำ: <code>boots/{archived}</code>\n" if archived else "")
+              + f"<code>{last}</code>")
 
 
 def get_watchdog_state():
@@ -2226,6 +2335,8 @@ def heartbeat_loop():
             if db_fs:
                 doc = dict(s)
                 doc["boot_time"]  = int(psutil.boot_time())
+                doc["boot_id"]    = _BOOT_ID          # ใช้ตั้งชื่อ boots/<id> ตอนเก็บกล่องดำ
+                doc["reset"]      = _BOOT_RESET       # boot นี้เริ่มจากอะไร (ไฟดับ/watchdog/reboot)
                 doc["recent"]     = list(_hb_samples)
                 doc["smart"]      = get_smart()
                 doc["updated_at"] = fs.SERVER_TIMESTAMP
