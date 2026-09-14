@@ -2196,6 +2196,66 @@ _BOOT_KIND_TEXT = {
 }
 
 
+# กล่องดำเคยพลาดมาแล้วครั้งหนึ่ง (14 ก.ย. 2569): Pi ถูกถอดปลั๊กไป 32 ชม.
+# พอบูตกลับมา record_boot_forensics() วิ่งทันทีแล้วเจอสองด่านพร้อมกัน
+#   1. resolve firestore.googleapis.com ไม่ได้ — Pi ใช้ DNS ตัวเอง แต่ AdGuard ยังไม่ขึ้น
+#   2. นาฬิกาช้า 32 ชม. (Pi ไม่มี RTC) Google เลยปฏิเสธ JWT ของ service account
+#      "Invalid JWT: Token must be a short-lived token (60 minutes)"
+# ผลคือข้อมูลก่อนดับของ boot นั้นหายไปเลย ทั้งที่นี่คือหน้าที่หลักของกล่องดำ
+#
+# แก้โดยรอให้นาฬิกาตรงและ DNS ใช้ได้ก่อนค่อยคุย Firestore แล้วค่อย retry
+# ตั้งใจไม่ใช้ After=time-sync.target ใน unit เพราะถ้า NTP ล่ม service จะไม่สตาร์ตเลย
+# ซึ่งแย่กว่าเดิม เพราะ dashboard ในเครื่องต้องขึ้นให้ได้เสมอไม่ว่าเน็ตจะเป็นยังไง
+FORENSICS_CLOCK_WAIT = int(os.getenv("FORENSICS_CLOCK_WAIT", "900"))   # รอนาฬิกา sync
+FORENSICS_DNS_WAIT   = int(os.getenv("FORENSICS_DNS_WAIT", "300"))     # รอ DNS ใช้ได้
+FORENSICS_HB_WAIT    = int(os.getenv("FORENSICS_HB_WAIT", "1200"))     # heartbeat รอกล่องดำนานสุด
+
+_forensics_done = threading.Event()   # ปลดล็อกให้ heartbeat_loop เขียนทับ status/heartbeat ได้
+
+
+def _wait_clock_sync(timeout=FORENSICS_CLOCK_WAIT):
+    """รอจน timesyncd บอกว่านาฬิกาตรงแล้ว — JWT ของ Firebase ทนคลาดเคลื่อนได้ไม่กี่นาที
+
+    timesyncd ยิง NTP ด้วย IP ตรง ๆ (ดู /etc/systemd/timesyncd.conf) ไม่ต้องใช้ DNS
+    จึง sync ได้ก่อน AdGuard ขึ้น และการรอตรงนี้ก็เผื่อเวลาให้ AdGuard ไปในตัว
+    """
+    end = time.time() + timeout
+    while time.time() < end:
+        if os.path.exists("/run/systemd/timesync/synchronized"):
+            return True
+        try:
+            if subprocess.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
+                              capture_output=True, text=True, timeout=10).stdout.strip() == "yes":
+                return True
+        except Exception:
+            pass
+        time.sleep(5)
+    return False
+
+
+def _wait_dns(host="firestore.googleapis.com", timeout=FORENSICS_DNS_WAIT):
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            socket.getaddrinfo(host, 443)
+            return True
+        except OSError:
+            time.sleep(5)
+    return False
+
+
+def _fs_retry(fn, what, tries=5, delay=20):
+    """Firestore ตอนเพิ่งบูตล้มง่าย — ลองซ้ำแทนที่จะยอมแพ้ตั้งแต่ครั้งแรก"""
+    for i in range(tries):
+        try:
+            return fn(), True
+        except Exception as e:
+            print(f"[boot] {what} ไม่สำเร็จ ({i + 1}/{tries}): {e}")
+            if i < tries - 1:
+                time.sleep(delay)
+    return None, False
+
+
 def _archive_prev_heartbeat(rec):
     """เก็บ status/heartbeat ของ boot ก่อนหน้าไว้ที่ boots/<id> ก่อนถูกเขียนทับ
 
@@ -2205,12 +2265,13 @@ def _archive_prev_heartbeat(rec):
     """
     if not db_fs:
         return None
-    try:
-        snap = db_fs.collection("status").document("heartbeat").get()
-        prev = snap.to_dict() if snap.exists else {}
-    except Exception as e:
-        print(f"[boot] อ่าน heartbeat เดิมไม่สำเร็จ: {e}")
-        prev = {}
+    snap, ok = _fs_retry(lambda: db_fs.collection("status").document("heartbeat").get(),
+                         "อ่าน heartbeat เดิม")
+    if not ok:
+        # เคยเขียน boots/boot-unknown-<ts> ที่ recent ว่างเปล่าไว้ ซึ่งไม่มีประโยชน์
+        # และทำให้ดูเหมือนเก็บสำเร็จ — ยอมรับว่าพลาดตรง ๆ ดีกว่า
+        return "read_failed"
+    prev = snap.to_dict() if snap.exists else {}
     pb = prev.get("boot_time")
     if pb and abs(int(pb) - int(psutil.boot_time())) < 5:
         return "same_boot"
@@ -2218,20 +2279,25 @@ def _archive_prev_heartbeat(rec):
     rec = dict(rec, prev_boot_time=pb, last_heartbeat_ts=prev.get("ts"),
                recent=prev.get("recent", []), smart_before=prev.get("smart", {}),
                recorded_at=fs.SERVER_TIMESTAMP)
-    try:
-        db_fs.collection("boots").document(doc_id).set(rec)
-        return doc_id
-    except Exception as e:
-        print(f"[boot] เก็บ boots/{doc_id} ไม่สำเร็จ: {e}")
-        return None
+    _, ok = _fs_retry(lambda: db_fs.collection("boots").document(doc_id).set(rec),
+                      f"เก็บ boots/{doc_id}")
+    return doc_id if ok else None
 
 
 def record_boot_forensics():
     """ตอนสตาร์ต ดูว่า boot ก่อนหน้าจบยังไง แล้วเก็บกล่องดำของมันไว้ถาวร
 
-    ต้องรันก่อน heartbeat thread เสมอ (main() เรียกแบบ synchronous ก่อนสตาร์ต thread)
+    รันเป็น thread แล้วรอนาฬิกา/DNS ก่อนคุย Firestore (ดูคอมเมนต์เหนือ _wait_clock_sync)
+    heartbeat_loop จะไม่เขียนทับ status/heartbeat จนกว่า _forensics_done จะถูกตั้ง
     รายงานครั้งเดียวต่อ boot — restart service ใน boot เดิมจะข้าม (BOOT_MARK)
     """
+    try:
+        _record_boot_forensics()
+    finally:
+        _forensics_done.set()      # ต้องปลดล็อกเสมอ ไม่งั้น heartbeat ค้างรอจนครบ timeout
+
+
+def _record_boot_forensics():
     try:
         with open(BOOT_MARK) as f:
             if _BOOT_ID and f.read().strip() == _BOOT_ID:
@@ -2256,6 +2322,12 @@ def record_boot_forensics():
         kind = "unclean"
     unsafe = get_smart(force=True).get("nvme_unsafe_shutdowns")
 
+    if db_fs:
+        if not _wait_clock_sync():
+            print(f"[boot] นาฬิกายัง sync ไม่ได้ใน {FORENSICS_CLOCK_WAIT}s — ลองเขียนทั้งอย่างนั้น")
+        if not _wait_dns():
+            print(f"[boot] resolve firestore ไม่ได้ใน {FORENSICS_DNS_WAIT}s — ลองเขียนทั้งอย่างนั้น")
+
     archived = _archive_prev_heartbeat({
         "kind": kind, "clean": clean,
         "rsts": _BOOT_RESET["rsts"], "rsts_reason": _BOOT_RESET["reason"],
@@ -2272,7 +2344,11 @@ def record_boot_forensics():
     if archived == "same_boot":
         return      # heartbeat ของ boot นี้เขียนไปแล้ว = แค่ restart service ไม่ใช่บูตใหม่
 
-    where = f" · กล่องดำเก็บที่ boots/{archived}" if archived else ""
+    if archived == "read_failed":
+        where = " · กล่องดำเก็บไม่สำเร็จ (Firestore ไม่ตอบ)"
+        archived = None
+    else:
+        where = f" · กล่องดำเก็บที่ boots/{archived}" if archived else ""
     msg = f"boot ที่แล้ว: {_BOOT_KIND_TEXT[kind]} (rsts={_BOOT_RESET['rsts']}, unsafe={unsafe}){where}"
     if kind == "reboot":
         log_event("info", "system", None, "info", msg)
@@ -2326,6 +2402,7 @@ def api_blackbox():
 
 
 def heartbeat_loop():
+    first_cloud_write = True
     while True:
         try:
             s = _sample()
@@ -2333,6 +2410,12 @@ def heartbeat_loop():
             del _hb_samples[:-HEARTBEAT_KEEP]
             check_power_alert(s)
             if db_fs:
+                if first_cloud_write:
+                    # กล่องดำต้อง copy heartbeat ของ boot ก่อนไปเก็บให้เสร็จก่อน
+                    # ไม่งั้นบรรทัดถัดไปจะเขียนทับหลักฐานนาทีสุดท้ายก่อนเครื่องดับ
+                    if not _forensics_done.wait(timeout=FORENSICS_HB_WAIT):
+                        print(f"[heartbeat] รอกล่องดำเกิน {FORENSICS_HB_WAIT}s — เขียนต่อไปก่อน")
+                    first_cloud_write = False
                 doc = dict(s)
                 doc["boot_time"]  = int(psutil.boot_time())
                 doc["boot_id"]    = _BOOT_ID          # ใช้ตั้งชื่อ boots/<id> ตอนเก็บกล่องดำ
@@ -2352,7 +2435,7 @@ def main():
     init_firestore()
     push_alert_config(load_alert_config())                      # sync เกณฑ์แจ้งเตือนขึ้น cloud
     log_event("info", "system", None, "info", "ระบบเริ่มทำงาน")  # โผล่ใน Event Log = proxy ของการรีบูต
-    record_boot_forensics()
+    threading.Thread(target=record_boot_forensics, daemon=True).start()
     threading.Thread(target=collector_loop, daemon=True).start()
     threading.Thread(target=bot_loop, daemon=True).start()
     threading.Thread(target=reboot_poll_loop, daemon=True).start()
