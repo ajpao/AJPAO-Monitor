@@ -2073,6 +2073,26 @@ let agProtection=false, agEverSeen=false, agLoaded=false, currentPanel='temp';
 // การ์ด AdGuard โชว์เฉพาะหน้า dashboard (แท็บ "อุณหภูมิ")
 function applyAdguardVisibility(){
   document.getElementById('adguardCard').style.display = (currentPanel==='temp') ? '' : 'none';
+  document.getElementById('airconCard').style.display = (currentPanel==='temp' && acSeen) ? '' : 'none';
+}
+
+// ─── Aircon widget (AJPAO-Aircon :5100 บน Pi เครื่องเดียวกัน, LAN เท่านั้น) ─────────────
+let acSeen=false;
+const AC_URL = `http://${location.hostname}:5100`;
+async function pollAircon(){
+  try{
+    const d = await fetch(`${AC_URL}/api/public/summary`, {cache:'no-store'}).then(r=>r.json());
+    acSeen = true;
+    const r = d.reading || {};
+    setText('acTemp', r.temp!=null ? `${r.temp}°C` : '--');
+    setText('acHum',  r.humidity!=null ? `${r.humidity}%` : '--');
+    const on = d.ac && d.ac.P===1;
+    setText('acState', on ? `ON · ${d.ac.T}°` : 'OFF');
+    setText('acSub', d.auto ? `Auto: ${d.auto.name} ถึง ${d.auto.end.slice(11,16)}` : 'Air Conditioner');
+    document.getElementById('acIco').className = 'ag-ico ' + (on ? 'ac-on' : 'ac-off');
+    document.getElementById('acOpen').href = AC_URL + '/';
+  }catch(e){ acSeen = false; }
+  applyAdguardVisibility();
 }
 
 // สลับ 3 สถานะของการ์ด: skeleton (กำลังโหลด) / data (มีข้อมูล) / offline (ติดต่อไม่ได้)
@@ -2403,6 +2423,8 @@ function startLocal(){
   };
   pollStatus();
   setInterval(pollStatus, 10000);
+  pollAircon();
+  setInterval(pollAircon, 30000);
   startDashboard();
   syncCloudSettings();
 }

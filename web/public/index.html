@@ -965,6 +965,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ag-ico.total{background:rgba(51,153,255,.12)}   .ag-ico.total svg{color:var(--info)}
 .ag-ico.blocked{background:rgba(255,51,85,.12)}  .ag-ico.blocked svg{color:var(--danger)}
 .ag-ico.rate{background:rgba(255,107,0,.12)}     .ag-ico.rate svg{color:var(--accent)}
+.ag-ico.ac-on{background:rgba(0,229,160,.12)} .ag-ico.ac-on svg{color:var(--ok)}
+.ag-ico.ac-off{background:rgba(123,140,174,.12)} .ag-ico.ac-off svg{color:var(--dim)}
+#acOpen{text-decoration:none}
 .ag-meta{min-width:0}
 .ag-val{font-family:var(--font-display);font-size:1.5rem;font-weight:800;line-height:1.1;color:var(--text);letter-spacing:-.5px}
 .ag-val.ag-blocked{color:var(--danger)} .ag-val.ag-rate{color:var(--accent)}
@@ -2002,6 +2005,28 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
         <button class="note-sort" id="notesSortTitleBtn" onclick="notesToggleTitle()"><i data-lucide="arrow-down-a-z"></i>A→Z</button>
       </div>
       <div id="notesList" class="notes-list"></div>
+    </div>
+  </div>
+
+  <!-- Aircon: ดึงสรุปจาก AJPAO-Aircon (พอร์ต 5100 บน Pi เครื่องเดียวกัน) — แสดงเฉพาะ LAN, ติดต่อไม่ได้ = ซ่อนการ์ด -->
+  <div class="chart-card adguard-card" id="airconCard" style="display:none">
+    <div class="cc-head">
+      <div class="cc-title"><i data-lucide="snowflake"></i>Aircon</div>
+      <a class="ag-btn ag-btn-toggle" id="acOpen" target="_blank" rel="noopener"><i data-lucide="external-link"></i>เปิด AJPAO Aircon</a>
+    </div>
+    <div class="ag-grid">
+      <div class="ag-tile">
+        <div class="ag-ico total"><i data-lucide="thermometer"></i></div>
+        <div class="ag-meta"><div class="ag-val" id="acTemp">--</div><div class="ag-lbl">Room Temp</div></div>
+      </div>
+      <div class="ag-tile">
+        <div class="ag-ico rate"><i data-lucide="droplets"></i></div>
+        <div class="ag-meta"><div class="ag-val" id="acHum">--</div><div class="ag-lbl">Humidity</div></div>
+      </div>
+      <div class="ag-tile">
+        <div class="ag-ico" id="acIco"><i data-lucide="air-vent"></i></div>
+        <div class="ag-meta"><div class="ag-val" id="acState">--</div><div class="ag-lbl" id="acSub">Air Conditioner</div></div>
+      </div>
     </div>
   </div>
 
