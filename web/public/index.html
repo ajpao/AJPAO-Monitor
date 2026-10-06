@@ -202,6 +202,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .topbar .section-nav .sn-btn{flex:1 1 0;min-width:0;padding:10px 8px;font-size:.68rem;letter-spacing:1px;gap:7px;
   white-space:nowrap;justify-content:center}
 .topbar .section-nav .sn-btn svg{width:1.05em;height:1.05em;flex-shrink:0}
+.sn-link{text-decoration:none;color:#38bdf8;border-color:color-mix(in srgb,#38bdf8 45%,var(--border))}
+.sn-link:hover{color:#7dd3fc;border-color:#38bdf8}
 @media(max-width:640px){
   .topbar .section-nav{gap:6px}
   .topbar .section-nav .sn-btn{padding:10px 0;font-size:0;letter-spacing:0;gap:0}
@@ -1329,6 +1331,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
     <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
     <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
+    <!-- ลิงก์ไปเว็บ AJPAO-Aircon (Pi เครื่องเดียวกัน พอร์ต 5100 — ใช้ได้ใน LAN) -->
+    <a class="sn-btn sn-link" id="airconLink" href="http://192.168.1.253:5100/" target="_blank" rel="noopener" title="เปิด AJPAO Aircon"><i data-lucide="snowflake"></i>Aircon</a>
   </div>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
