@@ -2076,7 +2076,7 @@ function applyAdguardVisibility(){
   document.getElementById('airconCard').style.display = (currentPanel==='temp' && acSeen) ? '' : 'none';
 }
 
-// ─── AJPAO Remote widget (:5100 บน Pi เครื่องเดียวกัน, LAN เท่านั้น) ─────────────
+// ─── AJPAO Home widget (:5100 บน Pi เครื่องเดียวกัน, LAN เท่านั้น) ─────────────
 let acSeen=false;
 // LAN: Pi เครื่องเดียวกับหน้านี้ · Cloud (web.app): ใช้ IP ของ Pi ในบ้าน (เปิดได้เฉพาะตอนอยู่ใน Wi-Fi บ้าน)
 const AC_URL = /^(\d+\.){3}\d+$|\.local$|^localhost$/.test(location.hostname) ? `http://${location.hostname}:5100` : 'http://192.168.1.253:5100';
