@@ -1331,8 +1331,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <button class="sn-btn" onclick="switchPanel('terminal',this)"><i data-lucide="terminal"></i>Terminal</button>
     <button class="sn-btn" onclick="switchPanel('files',this)"><i data-lucide="folder"></i>Files</button>
     <button class="sn-btn" onclick="switchPanel('notes',this)"><i data-lucide="sticky-note"></i>Notes</button>
-    <!-- ลิงก์ไปเว็บ AJPAO-Aircon (Pi เครื่องเดียวกัน พอร์ต 5100 — ใช้ได้ใน LAN) -->
-    <a class="sn-btn sn-link" id="airconLink" href="http://192.168.1.253:5100/" target="_blank" rel="noopener" title="เปิด AJPAO Aircon"><i data-lucide="snowflake"></i>Aircon</a>
+    <!-- ลิงก์ไปเว็บ AJPAO Remote (แอร์ + ไฟ, Pi เครื่องเดียวกัน พอร์ต 5100 — ใช้ได้ใน LAN) -->
+    <a class="sn-btn sn-link" id="airconLink" href="http://192.168.1.253:5100/" target="_blank" rel="noopener" title="เปิด AJPAO Remote (แอร์ + ไฟ)"><i data-lucide="house"></i>Remote</a>
   </div>
   <div class="spacer"></div>
   <div class="clock" id="hTime">--:--:--</div>
@@ -2012,11 +2012,11 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     </div>
   </div>
 
-  <!-- Aircon: ดึงสรุปจาก AJPAO-Aircon (พอร์ต 5100 บน Pi เครื่องเดียวกัน) — แสดงเฉพาะ LAN, ติดต่อไม่ได้ = ซ่อนการ์ด -->
+  <!-- AJPAO Remote: ดึงสรุปแอร์จาก AJPAO Remote (พอร์ต 5100 บน Pi เครื่องเดียวกัน) — แสดงเฉพาะ LAN, ติดต่อไม่ได้ = ซ่อนการ์ด -->
   <div class="chart-card adguard-card" id="airconCard" style="display:none">
     <div class="cc-head">
-      <div class="cc-title"><i data-lucide="snowflake"></i>Aircon</div>
-      <a class="ag-btn ag-btn-toggle" id="acOpen" target="_blank" rel="noopener"><i data-lucide="external-link"></i>เปิด AJPAO Aircon</a>
+      <div class="cc-title"><i data-lucide="house"></i>AJPAO Remote</div>
+      <a class="ag-btn ag-btn-toggle" id="acOpen" target="_blank" rel="noopener"><i data-lucide="external-link"></i>เปิด AJPAO Remote</a>
     </div>
     <div class="ag-grid">
       <div class="ag-tile">
