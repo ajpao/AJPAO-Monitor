@@ -1199,7 +1199,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background:var(--panel2);border:1px solid var(--border);border-radius:12px;color:var(--text);
   transition:.12s;display:grid;place-items:center;-webkit-user-select:none;user-select:none}
 .pin-key:hover{border-color:var(--accent);color:var(--accent)}
-.pin-key:active{transform:scale(.94);background:rgba(255,107,0,.12)}
+.pin-key:active,.pin-key.hit{transform:scale(.94);background:rgba(255,107,0,.12)}
+.pin-pad,.pin-key{touch-action:manipulation;-webkit-touch-callout:none}
 .pin-key.pin-fn{font-size:1rem;color:var(--dim)}
 .pin-key.pin-fn svg{width:1.2em;height:1.2em}
 

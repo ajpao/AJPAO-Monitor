@@ -2315,8 +2315,16 @@ function showLogin(){
   document.getElementById('loginErr').textContent='';
   const pad = document.getElementById('pinPad');
   if(pad && !pad._wired){
+    // iPhone: click ต้องรอ Safari ดูว่าแตะสองครั้ง (ซูม) ไหม -> กดเลขเร็ว ๆ หน่วง/ไม่ติด (30 ต.ค. 2026)
+    // -> รับตอนนิ้วแตะ (pointerdown) · click เหลือไว้เฉพาะกดผ่านคีย์บอร์ด (Enter/Space บนปุ่ม = detail 0)
+    pad.addEventListener('pointerdown', e=>{
+      const b=e.target.closest('.pin-key'); if(!b || b.disabled) return;
+      e.preventDefault();
+      b.classList.add('hit'); setTimeout(()=>b.classList.remove('hit'), 120);   // แทน :active
+      pinInput(b.dataset.d);
+    });
     pad.addEventListener('click', e=>{
-      const b=e.target.closest('.pin-key'); if(b) pinInput(b.dataset.d);
+      const b=e.target.closest('.pin-key'); if(b && e.detail===0) pinInput(b.dataset.d);
     });
     pad._wired=true;
   }
