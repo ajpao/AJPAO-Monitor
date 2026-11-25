@@ -1849,30 +1849,102 @@ def api_logs():
 
 _speedtest_lock = threading.Lock()   # กัน speedtest ซ้อนกัน (เปลืองแบนด์วิดท์ + ผลเพี้ยน)
 
+# speedtest-cli (Ookla) โดนบล็อก HTTP 403 ตั้งแต่ปลายปี 2026 → วัดกับ speed.cloudflare.com แทน
+# (edge ที่ใกล้สุด เช่น BKK; __down จำกัด ≤ 50MB ต่อ request เลยวนขอก้อนละ 25MB หลายเธรดพร้อมกัน)
+CF_SPEED       = "https://speed.cloudflare.com"
+ST_STREAMS     = int(os.getenv("SPEEDTEST_STREAMS", "8"))     # จำนวนการเชื่อมต่อพร้อมกัน
+ST_SECONDS     = float(os.getenv("SPEEDTEST_SECONDS", "8"))   # เวลาวัดต่อทิศทาง (วินาที)
+_ST_DOWN_CHUNK = 25_000_000
+_ST_UP_CHUNK   = 8_000_000
+_ST_HEADERS    = {"User-Agent": "AJPAO-Monitor speedtest"}
+
+
+def _cf_ping(n=8):
+    """latency = ค่ากลางของเวลา TCP handshake ไป edge (≈ 1 RTT)
+    ไม่ใช้เวลา HTTP เพราะรวมเวลาประมวลผลของ worker ฝั่ง Cloudflare (~25ms) ทำให้ ping สูงเกินจริง"""
+    host = CF_SPEED.split("://", 1)[1]
+    ip = socket.gethostbyname(host)
+    vals = []
+    for _ in range(n):
+        t0 = time.perf_counter()
+        with socket.create_connection((ip, 443), timeout=5):
+            vals.append((time.perf_counter() - t0) * 1000)
+    vals.sort()
+    return vals[len(vals) // 2]
+
+
+def _cf_colo():
+    """รหัส edge ที่ให้บริการ (เช่น BKK) จาก /cdn-cgi/trace — ว่างถ้าอ่านไม่ได้"""
+    try:
+        txt = requests.get(f"{CF_SPEED}/cdn-cgi/trace", headers=_ST_HEADERS, timeout=10).text
+        m = re.search(r"^colo=(\w+)", txt, re.M)
+        return m.group(1) if m else ""
+    except Exception:
+        return ""
+
+
+def _cf_transfer(direction):
+    """รับ/ส่งข้อมูลพร้อมกัน ST_STREAMS เธรด นาน ST_SECONDS → คืน Mbps"""
+    total = [0]
+    lock = threading.Lock()
+    payload = os.urandom(_ST_UP_CHUNK) if direction == "up" else None
+    t_end = time.perf_counter() + ST_SECONDS
+
+    def worker():
+        s = requests.Session()
+        try:
+            while time.perf_counter() < t_end:
+                if direction == "down":
+                    with s.get(f"{CF_SPEED}/__down?bytes={_ST_DOWN_CHUNK}", headers=_ST_HEADERS,
+                               stream=True, timeout=15) as r:
+                        r.raise_for_status()
+                        for chunk in r.iter_content(1 << 20):
+                            with lock:
+                                total[0] += len(chunk)
+                            if time.perf_counter() >= t_end:
+                                break
+                else:
+                    r = s.post(f"{CF_SPEED}/__up", data=payload, headers=_ST_HEADERS, timeout=30)
+                    r.raise_for_status()
+                    with lock:
+                        total[0] += len(payload)
+        except Exception as e:
+            print(f"[speedtest] {direction} stream: {e}")
+        finally:
+            s.close()
+
+    t0 = time.perf_counter()
+    ths = [threading.Thread(target=worker, daemon=True) for _ in range(ST_STREAMS)]
+    for t in ths:
+        t.start()
+    for t in ths:
+        t.join(ST_SECONDS + 35)
+    elapsed = time.perf_counter() - t0
+    return total[0] * 8 / elapsed / 1e6 if elapsed > 0 else 0.0
+
+
 @flask_app.route("/api/speedtest", methods=["POST"])
 @require_auth
 def api_speedtest():
-    """วัดความเร็วเน็ตด้วย speedtest-cli (~30 วิ) — รันได้ทีละ 1 ครั้ง"""
+    """วัดความเร็วเน็ตกับ Cloudflare (~20 วิ) — รันได้ทีละ 1 ครั้ง"""
     if not _speedtest_lock.acquire(blocking=False):
         return jsonify({"ok": False, "error": "กำลังวัดความเร็วอยู่ รอสักครู่"}), 409
     try:
-        import speedtest
-        st = speedtest.Speedtest(secure=True)
-        st.get_best_server()
-        down = st.download()
-        up = st.upload(pre_allocate=False)
-        res = st.results.dict()
+        colo = _cf_colo()
+        ping = _cf_ping()
+        down = _cf_transfer("down")
+        up = _cf_transfer("up")
+        if down <= 0 and up <= 0:
+            return jsonify({"ok": False, "error": "ต่อ speed.cloudflare.com ไม่ได้"}), 502
         return jsonify({
             "ok": True,
-            "down_mbps": round(down / 1e6, 2),
-            "up_mbps":   round(up / 1e6, 2),
-            "ping_ms":   round(res.get("ping", 0), 1),
-            "server": (res.get("server") or {}).get("sponsor", ""),
-            "isp":    (res.get("client") or {}).get("isp", ""),
+            "down_mbps": round(down, 1),
+            "up_mbps":   round(up, 1),
+            "ping_ms":   round(ping, 1),
+            "server":    f"Cloudflare {colo}".strip(),
+            "isp":       "",
             "ts": datetime.now().strftime("%H:%M:%S"),
         })
-    except ImportError:
-        return jsonify({"ok": False, "error": "ยังไม่ได้ติดตั้ง speedtest-cli บน Pi"}), 500
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
     finally:

@@ -5,4 +5,3 @@ requests
 python-dotenv
 matplotlib
 firebase-admin
-speedtest-cli

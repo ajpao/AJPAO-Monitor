@@ -1403,7 +1403,7 @@ function durFmt(sec){
 async function runSpeedtest(){
   if(MODE!=='local'){ toast('Speedtest ใช้ได้เฉพาะตอนเปิดใน LAN','error'); return; }
   const btn=document.getElementById('stBtn'), orig=btn.innerHTML;
-  btn.disabled=true; btn.innerHTML='<i data-lucide="loader"></i>กำลังวัด… ~30 วิ'; if(window.lucide) lucide.createIcons();
+  btn.disabled=true; btn.innerHTML='<i data-lucide="loader"></i>กำลังวัด… ~20 วิ'; if(window.lucide) lucide.createIcons();
   document.getElementById('stMeta').textContent='กำลังทดสอบ — อย่าปิดหน้านี้';
   try{
     const d=await fetch('/api/speedtest',{method:'POST'}).then(r=>r.json());
