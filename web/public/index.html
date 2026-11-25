@@ -365,6 +365,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .info-card .info-row{display:flex;justify-content:space-between;align-items:center;
   padding:6px 0;border-bottom:1px solid rgba(29,47,80,.6);gap:8px}
 .info-card .info-row:last-child{border-bottom:none}
+/* แถว interface อยู่ในกล่องย่อย #dIfaces — แถวสุดท้ายของกล่องยังมีแถว Speed ต่อท้าย ต้องคงเส้นคั่นไว้ */
+.info-card #dIfaces .info-row:last-child{border-bottom:1px solid rgba(29,47,80,.6)}
 .ir-label{font-family:var(--font-mono);font-size:.52rem;letter-spacing:.5px;color:var(--dim);text-transform:uppercase;flex-shrink:0;display:inline-flex;align-items:center;gap:6px}
 .ir-label svg{width:1.2em;height:1.2em;color:var(--accent);flex-shrink:0}
 .ir-val{font-family:var(--font-mono);font-size:.66rem;color:var(--text);text-align:right;word-break:break-all}

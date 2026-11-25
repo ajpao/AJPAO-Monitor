@@ -2207,7 +2207,26 @@ function agPause5(){ agControl(false, 300000); }   // ปิดชั่วค�
 
 const panelLoaded = {};
 
+// แท็บ ↔ #hash ใน URL (ใช้ชื่อตามปุ่ม) — refresh แล้วยังอยู่แท็บเดิม และแชร์/บุ๊กมาร์กแท็บได้
+const PANEL_HASH = {temp:'dashboard', system:'usage', monthly:'monthly', history:'history',
+                    device:'system', terminal:'terminal', files:'files', notes:'notes'};
+
+function panelBtn(name){
+  return document.querySelector(`.sn-btn[onclick*="switchPanel('${name}'"]`);
+}
+
+function openPanelFromHash(){
+  const want = decodeURIComponent(location.hash.slice(1)).toLowerCase();
+  const name = Object.keys(PANEL_HASH).find(k => PANEL_HASH[k] === want);
+  const btn = name && panelBtn(name);
+  if(btn && name !== currentPanel) switchPanel(name, btn);
+}
+
+window.addEventListener('hashchange', openPanelFromHash);
+
 function switchPanel(name, btn){
+  const h = PANEL_HASH[name];
+  if(h && location.hash !== '#'+h) history.replaceState(null, '', '#'+h);
   document.querySelectorAll('.sn-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.s-panel').forEach(p=>p.classList.remove('active'));
@@ -2497,6 +2516,7 @@ function startDashboard(){
   loadDatePanel('temp');
   panelLoaded['temp'] = true;
   setInterval(()=>{ loadCompare(); loadDash24(); loadAlertCfg(); }, 300000);   // refresh ทุก 5 นาที
+  openPanelFromHash();                 // เปิดแท็บตาม #hash (เช่น #system) หลัง refresh
 }
 
 async function init(){
