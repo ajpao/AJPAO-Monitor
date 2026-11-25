@@ -2016,6 +2016,21 @@ function updateCards(d){
     }
   }
 
+  // รอบพัดลม (Pi 5 Active Cooler) — ซ่อนแถวถ้าเครื่องไม่มีพัดลมที่อ่านรอบได้ (Pi 4)
+  const fRow=document.getElementById('iFanRow'), fEl=document.getElementById('iFan');
+  if(fRow && fEl){
+    const rpm=d.fan_rpm;
+    if(rpm==null){ fRow.style.display='none'; }
+    else {
+      fRow.style.display='';
+      const lab = rpm===0 ? 'หยุด' : rpm<4000 ? 'เบา' : rpm<7000 ? 'กลาง' : 'แรง';
+      const col = rpm===0 ? C.ok : rpm<4000 ? C.ok : rpm<7000 ? C.info : C.warn;
+      fEl.innerHTML = rpm===0
+        ? `<b style="color:${col}">${lab}</b><span style="color:var(--dim);font-size:.82em;margin-left:5px">0 RPM</span>`
+        : `<b style="color:${col}">${rpm.toLocaleString()} RPM</b><span style="color:var(--dim);font-size:.82em;margin-left:5px">${lab}</span>`;
+    }
+  }
+
   const now = new Date();
   document.getElementById('iLastSeen').textContent =
     `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -2464,7 +2479,7 @@ function startCloudData(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
-      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')

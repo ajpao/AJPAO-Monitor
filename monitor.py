@@ -703,6 +703,9 @@ def push_reading(now, temp, cpu, ram, disk):
         thr = get_throttle_status()          # throttle/undervoltage (เฉพาะ Pi) — ข้ามถ้าไม่ใช่ Pi
         if thr is not None:
             status_doc["throttle"] = thr
+        fan = get_fan_rpm()                  # รอบพัดลม (Pi 5 Active Cooler) — ข้ามถ้าไม่มีพัดลม
+        if fan is not None:
+            status_doc["fan_rpm"] = fan
         ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
         if ag is not None:
             status_doc["adguard"] = ag
@@ -1159,6 +1162,7 @@ def api_status():
         "hostname": oi["hostname"], "ip": get_primary_ip(),
         **get_net_speed(),                  # down_kbps, up_kbps (เน็ตเวิร์ก speed)
         "throttle": get_throttle_status(),  # None ถ้าไม่ใช่ Pi/อ่านไม่ได้
+        "fan_rpm": get_fan_rpm(),           # None ถ้าไม่มีพัดลมที่อ่านรอบได้ (Pi 4)
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
     })
 
