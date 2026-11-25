@@ -2507,7 +2507,6 @@ async function init(){
   badge.innerHTML = MODE==='local' ? '<i data-lucide="network"></i>LAN Mode' : '<i data-lucide="cloud"></i>Cloud Mode';
   if(window.lucide) lucide.createIcons();
   badge.className = 'mode-badge '+MODE;
-  document.getElementById('iMode').textContent = MODE==='local'?'LAN / Flask':'Cloud / Firestore';
   const piStat = document.getElementById('iPiStatus');
   if(piStat) piStat.innerHTML = '<span class="live-dot"></span>Online ('+(MODE==='local'?'LAN':'Cloud')+' Mode)';
 
