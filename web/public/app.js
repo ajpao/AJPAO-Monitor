@@ -2079,7 +2079,7 @@ function applyAdguardVisibility(){
 // ─── AJPAO Home widget (:5100 บน Pi เครื่องเดียวกัน, LAN เท่านั้น) ─────────────
 let acSeen=false;
 // LAN: Pi เครื่องเดียวกับหน้านี้ · Cloud (web.app): ใช้ IP ของ Pi ในบ้าน (เปิดได้เฉพาะตอนอยู่ใน Wi-Fi บ้าน)
-const AC_URL = /^(\d+\.){3}\d+$|\.local$|^localhost$/.test(location.hostname) ? `http://${location.hostname}:5100` : 'http://192.168.1.253:5100';
+const AC_URL = /^(\d+\.){3}\d+$|\.local$|^localhost$/.test(location.hostname) ? `http://${location.hostname}:5100` : 'http://192.168.1.252:5100';
 document.getElementById('airconLink').href = AC_URL + '/';
 async function pollAircon(){
   try{

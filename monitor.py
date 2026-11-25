@@ -19,6 +19,7 @@ AJPAO-Monitor — single-file Raspberry Pi monitor.
 import os
 import io
 import re
+import glob
 import csv
 import time
 import socket
@@ -2007,8 +2008,12 @@ def reboot_poll_loop():
 HEARTBEAT_INTERVAL = int(os.getenv("HEARTBEAT_INTERVAL", "60"))
 HEARTBEAT_KEEP     = int(os.getenv("HEARTBEAT_KEEP", "15"))
 SMART_INTERVAL     = int(os.getenv("SMART_INTERVAL", "1800"))
-SMART_DEVICE       = os.getenv("SMART_DEVICE", "/dev/sda")
-SMART_DEV_TYPE     = os.getenv("SMART_DEV_TYPE", "sntrealtek")  # กล่อง RTL9210B ต้องใช้ตัวนี้ (-d sat ไม่ผ่าน)
+# Pi 5 + M.2 HAT ต่อ NVMe ตรงผ่าน PCIe (/dev/nvme0, -d nvme)
+# Pi 4 ใช้ NVMe ในกล่อง USB RTL9210B (/dev/sda, -d sntrealtek — -d sat ไม่ผ่าน)
+_SMART_DEFAULT_DEV = "/dev/nvme0" if os.path.exists("/dev/nvme0") else "/dev/sda"
+SMART_DEVICE       = os.getenv("SMART_DEVICE", _SMART_DEFAULT_DEV)
+SMART_DEV_TYPE     = os.getenv("SMART_DEV_TYPE",
+                               "nvme" if SMART_DEVICE.startswith("/dev/nvme") else "sntrealtek")
 PROBE_PATH         = os.path.join(BASE_DIR, ".io_probe")
 
 
@@ -2103,6 +2108,24 @@ def get_smart(force=False):
     return _smart_cache["data"]
 
 
+def get_fan_rpm():
+    """รอบพัดลมจาก hwmon (Pi 5 Active Cooler) — None ถ้าเครื่องไม่มีพัดลมที่อ่านค่าได้ (Pi 4)"""
+    for p in sorted(glob.glob("/sys/class/hwmon/hwmon*/fan1_input")):
+        try:
+            with open(p) as f:
+                return int(f.read().strip())
+        except Exception:
+            continue
+    return None
+
+
+def get_psu_volts():
+    """แรงดัน 5V ขาเข้าบอร์ดจาก PMIC (เฉพาะ Pi 5: vcgencmd pmic_read_adc EXT5V_V) — None ถ้าอ่านไม่ได้"""
+    raw = _vcgencmd("pmic_read_adc", "EXT5V_V")
+    m = re.search(r"=([\d.]+)V", raw or "")
+    return round(float(m.group(1)), 3) if m else None
+
+
 _hb_samples = []
 
 
@@ -2119,6 +2142,8 @@ def _sample():
         "load1":        round(os.getloadavg()[0], 2),
         "disk_ms":      disk_probe_ms(),
         "volts_core":   thr.get("volts"),
+        "psu_v":        get_psu_volts(),
+        "fan_rpm":      get_fan_rpm(),
         "clock_mhz":    thr.get("clock_mhz"),
         "throttle_raw": thr.get("raw"),
         "power_ok":     thr.get("healthy"),
