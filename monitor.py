@@ -2140,6 +2140,27 @@ def disk_probe_ms():
 
 
 _smart_cache = {"ts": 0.0, "data": {}}
+
+# ตัวนับ SMART เป็นค่าสะสมใน controller ของ SSD — รีเซ็ตไม่ได้ จึงตั้ง "จุดเริ่มนับ" แทน
+# (เช่น ตอนเริ่มใช้ SSD ใหม่ให้เสถียรแล้ว) แล้วแสดงจำนวนที่เกิดหลังวันนั้น · ว่าง = ไม่ใช้ baseline
+def _env_int(name):
+    v = (os.getenv(name) or "").strip()
+    return int(v) if v.isdigit() else None
+
+SMART_BASELINE_DATE    = (os.getenv("SMART_BASELINE_DATE") or "").strip()   # เช่น 2026-11-26
+SMART_UNSAFE_BASELINE  = _env_int("SMART_UNSAFE_BASELINE")                  # ค่า Unsafe Shutdowns ณ วันนั้น
+SMART_CYCLES_BASELINE  = _env_int("SMART_CYCLES_BASELINE")                  # ค่า Power Cycles ณ วันนั้น
+
+
+def unsafe_text(sm):
+    """ข้อความ unsafe shutdowns สำหรับ log/Telegram — 'N ตั้งแต่ <วัน> (SSD สะสม M)' ถ้ามี baseline"""
+    total = sm.get("nvme_unsafe_shutdowns")
+    since = sm.get("nvme_unsafe_since")
+    if since is None:
+        return f"{total}"
+    return f"{since} ตั้งแต่ {SMART_BASELINE_DATE} (SSD สะสม {total})"
+
+
 _SMART_FIELDS = {
     "Temperature":                     ("nvme_temp_c",           r"(\d+)"),
     "Percentage Used":                 ("nvme_used_pct",         r"(\d+)"),
@@ -2180,6 +2201,12 @@ def get_smart(force=False):
     except Exception as e:
         print(f"[smart] อ่านไม่สำเร็จ: {e}")
     if d:
+        if SMART_UNSAFE_BASELINE is not None and isinstance(d.get("nvme_unsafe_shutdowns"), int):
+            d["nvme_unsafe_since"] = max(d["nvme_unsafe_shutdowns"] - SMART_UNSAFE_BASELINE, 0)
+        if SMART_CYCLES_BASELINE is not None and isinstance(d.get("nvme_power_cycles"), int):
+            d["nvme_cycles_since"] = max(d["nvme_power_cycles"] - SMART_CYCLES_BASELINE, 0)
+        if SMART_BASELINE_DATE and ("nvme_unsafe_since" in d or "nvme_cycles_since" in d):
+            d["smart_baseline_date"] = SMART_BASELINE_DATE
         _smart_cache.update(ts=now, data=d)
     return _smart_cache["data"]
 
@@ -2421,7 +2448,9 @@ def _record_boot_forensics():
         kind = _BOOT_RESET["reason"]
     else:
         kind = "unclean"
-    unsafe = get_smart(force=True).get("nvme_unsafe_shutdowns")
+    sm = get_smart(force=True)
+    unsafe = sm.get("nvme_unsafe_shutdowns")
+    unsafe_msg = unsafe_text(sm)
 
     if db_fs:
         if not _wait_clock_sync():
@@ -2450,14 +2479,14 @@ def _record_boot_forensics():
         archived = None
     else:
         where = f" · กล่องดำเก็บที่ boots/{archived}" if archived else ""
-    msg = f"boot ที่แล้ว: {_BOOT_KIND_TEXT[kind]} (rsts={_BOOT_RESET['rsts']}, unsafe={unsafe}){where}"
+    msg = f"boot ที่แล้ว: {_BOOT_KIND_TEXT[kind]} (rsts={_BOOT_RESET['rsts']}, unsafe={unsafe_msg}){where}"
     if kind == "reboot":
         log_event("info", "system", None, "info", msg)
         return
     log_event("warning", "system", None, "warning", f"{msg} บรรทัดสุดท้าย: {last}")
     broadcast(f"⚠️ <b>เครื่องดับผิดปกติ — {_BOOT_KIND_TEXT[kind]}</b>\n"
               f"🔌 reset: <code>{_BOOT_RESET['rsts']}</code>\n"
-              f"💾 unsafe shutdowns สะสม: <b>{unsafe}</b>\n"
+              f"💾 unsafe shutdowns: <b>{unsafe_msg}</b>\n"
               + (f"🗃️ กล่องดำ: <code>boots/{archived}</code>\n" if archived else "")
               + f"<code>{last}</code>")
 

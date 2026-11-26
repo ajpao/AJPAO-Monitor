@@ -1316,7 +1316,13 @@ function bbNvme(sm){
   if(spare!=null) out.push(chip('spare', spare+'%', spare<=20?'warn':''));
   out.push(chip('media err', err, err>0?'bad':''));
   out.push(chip('crit', crit, (crit&&crit!=='0x00')?'bad':''));
-  if(sm.nvme_unsafe_shutdowns!=null) out.push(chip('unsafe', sm.nvme_unsafe_shutdowns));
+  if(sm.nvme_unsafe_since!=null){
+    // ตัวนับใน SSD รีเซ็ตไม่ได้ — แสดงจำนวนตั้งแต่วันเริ่มนับ (baseline) + ค่าสะสมจริงตัวเล็ก
+    const bd=(sm.smart_baseline_date||'').split('-'), since=bd.length===3?` ตั้งแต่ ${+bd[2]}/${+bd[1]}`:'';
+    out.push(`<span class="bb-chip${sm.nvme_unsafe_since>0?' warn':''}" title="SSD นับสะสม ${sm.nvme_unsafe_shutdowns} ครั้ง">`+
+             `unsafe${since} <b>${sm.nvme_unsafe_since}</b> <span style="opacity:.6">(รวม ${sm.nvme_unsafe_shutdowns})</span></span>`);
+  } else if(sm.nvme_unsafe_shutdowns!=null) out.push(chip('unsafe', sm.nvme_unsafe_shutdowns));
+  if(sm.nvme_cycles_since!=null) out.push(chip('power cycles', sm.nvme_cycles_since));
   if(sm.nvme_power_on_hours!=null)   out.push(chip('hours', Number(sm.nvme_power_on_hours).toLocaleString()));
   el.innerHTML=out.join('');
 }
