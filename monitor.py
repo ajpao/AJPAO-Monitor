@@ -6,7 +6,7 @@ AJPAO-Monitor — single-file Raspberry Pi monitor.
   • Collector   — อ่าน temp/CPU/RAM/Disk ทุก ~10 นาที → เก็บลง SQLite (local) + push Firestore (cloud)
   • Flask web   — dashboard ใน LAN ที่ http://<ip-pi>:5000 (อ่านจาก SQLite)
   • Telegram bot— รับคำสั่ง /status /temp /system /today /history /monthly /reboot ฯลฯ
-  • Daily report— สรุปกราฟอุณหภูมิเมื่อวานทุกเช้า + สุขภาพเครื่อง (พัดลม/SSD/ความเสถียร/AdGuard/อัปเดต)
+  • Daily report— สรุปกราฟอุณหภูมิเมื่อวานทุกเช้า + สุขภาพเครื่อง (พัดลม/SSD/ความเสถียร/AdGuard/backup/อัปเดต)
   • Reboot poll — เช็คคำสั่ง reboot จาก Firestore (cloud dashboard) แล้วสั่ง reboot
 
 ดู dashboard ได้ 2 ที่ ข้อมูล sync กันเสมอ:
@@ -1982,6 +1982,12 @@ def collector_loop():
             # แจ้งเตือนตาม threshold ทุก metric (temp/cpu/ram/disk) + บันทึก event
             check_alerts(now, temp, cpu, ram.percent, disk.percent)
 
+            # backup config รายสัปดาห์เพิ่งรันเสร็จ → แจ้ง Telegram ทันที (สำเร็จ/ล้มเหลว)
+            try:
+                check_backup_notify()
+            except Exception as e:
+                print(f"[backup-notify] error: {e}")
+
             # สถานะรายชั่วโมง (ส่งครั้งเดียวต่อชั่วโมง)
             if last_status_hour != now.hour:
                 broadcast(
@@ -2081,9 +2087,89 @@ def _services_down():
     for line in r.stdout.splitlines():
         unit = line.split()[0] if line.split() else ""
         name = unit.removesuffix(".service")
-        if unit and name not in down:
+        if unit and name not in down and unit != BACKUP_UNIT:   # backup มีบรรทัดของตัวเองแล้ว ไม่นับซ้ำ
             down.append(name)
     return down
+
+
+# ── backup config รายสัปดาห์ (pi5-config-backup.timer จันทร์ 07:30 → tarball + อัปโหลด GCS) ──
+# service จะ success ก็ต่อเมื่ออัปโหลดขึ้น gs://ajpao-pi5-backup สำเร็จ (ขั้นสุดท้ายของสคริปต์, set -e)
+BACKUP_UNIT     = os.getenv("BACKUP_UNIT", "pi5-config-backup.service")
+BACKUP_GLOB     = os.getenv("BACKUP_GLOB", "/home/ajpao/pi5-config-backup-*.tar.gz")
+BACKUP_MAX_DAYS = int(os.getenv("BACKUP_MAX_DAYS", "8"))
+_TH_WD = ["จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.", "อา."]
+
+
+def _backup_status():
+    """คืน (ข้อความ 1 บรรทัด, ข้อความเตือนหรือ None) — None ทั้งคู่ถ้าเครื่องนี้ไม่มี backup unit"""
+    r = subprocess.run(["systemctl", "show", BACKUP_UNIT, "--timestamp=unix",
+                        "-p", "LoadState", "-p", "Result", "-p", "ExecMainExitTimestamp"],
+                       capture_output=True, text=True, timeout=10)
+    props = dict(l.split("=", 1) for l in r.stdout.splitlines() if "=" in l)
+    if props.get("LoadState") != "loaded":
+        return None, None
+    files = sorted(glob.glob(BACKUP_GLOB))
+    size = f" ({os.path.getsize(files[-1]) / 1e6:.1f} MB)" if files else ""
+    ts = props.get("ExecMainExitTimestamp", "").lstrip("@")
+    if not ts.isdigit():                                   # ยังไม่เคยรันตั้งแต่บูต — ดูจากไฟล์ล่าสุดแทน
+        if not files:
+            return "💾 backup: ยังไม่มีไฟล์", "ยังไม่มี backup config"
+        when = datetime.fromtimestamp(os.path.getmtime(files[-1]))
+        ok = None
+    else:
+        when = datetime.fromtimestamp(int(ts))
+        ok = props.get("Result") == "success"
+    stamp = f"{_TH_WD[when.weekday()]} {when.strftime('%d/%m %H:%M')}"
+    age = (datetime.now() - when).days
+    if ok is False:
+        return f"💾 backup ล่าสุด: {stamp} ❌ ล้มเหลว ({props.get('Result')})", "backup config ล้มเหลว"
+    tail = "✅ ขึ้น GCS แล้ว" if ok else "(ไฟล์ล่าสุดบน Pi)"
+    line = f"💾 backup ล่าสุด: {stamp} {tail}{size}"
+    if age > BACKUP_MAX_DAYS:
+        return line, f"backup เก่า {age} วัน"
+    return line, None
+
+
+BACKUP_NOTIFY_FILE = os.path.join(BASE_DIR, ".backup_notified")   # เวลาจบรอบล่าสุดที่แจ้งไปแล้ว (unix)
+
+
+def check_backup_notify():
+    """เรียกทุกรอบ collector (10 นาที): ถ้า backup unit มีรอบใหม่จบลง → broadcast ผลครั้งเดียว
+
+    จำเวลาจบรอบที่แจ้งแล้วไว้ในไฟล์ — restart monitor ไม่แจ้งซ้ำ · เปิดครั้งแรก (ไม่มีไฟล์) แค่จำไว้ ไม่แจ้งรอบเก่า
+    """
+    r = subprocess.run(["systemctl", "show", BACKUP_UNIT, "--timestamp=unix",
+                        "-p", "LoadState", "-p", "Result", "-p", "ExecMainExitTimestamp", "-p", "ActiveState"],
+                       capture_output=True, text=True, timeout=10)
+    props = dict(l.split("=", 1) for l in r.stdout.splitlines() if "=" in l)
+    ts = props.get("ExecMainExitTimestamp", "").lstrip("@")
+    if props.get("LoadState") != "loaded" or not ts.isdigit() or props.get("ActiveState") == "activating":
+        return
+    try:
+        with open(BACKUP_NOTIFY_FILE) as f:
+            last = f.read().strip()
+    except FileNotFoundError:
+        last = None
+    if last == ts:
+        return
+    with open(BACKUP_NOTIFY_FILE, "w") as f:
+        f.write(ts)
+    if last is None:
+        return
+    when = datetime.fromtimestamp(int(ts))
+    stamp = f"{_TH_WD[when.weekday()]} {when.strftime('%d/%m/%Y %H:%M')}"
+    if props.get("Result") == "success":
+        files = sorted(glob.glob(BACKUP_GLOB))
+        name = os.path.basename(files[-1]) if files else "?"
+        size = f" ({os.path.getsize(files[-1]) / 1e6:.1f} MB)" if files else ""
+        broadcast(f"💾 <b>Backup config สำเร็จ</b>\n🕐 {stamp}\n"
+                  f"☁️ ขึ้น GCS แล้ว{size}\n<code>gs://ajpao-pi5-backup/pi5/{name}</code>")
+        log_event("info", "backup", None, "info", f"backup config สำเร็จ {name}")
+    else:
+        broadcast(f"❌ <b>Backup config ล้มเหลว</b> ({props.get('Result')})\n🕐 {stamp}\n"
+                  f"ดู log: <code>journalctl -u {BACKUP_UNIT}</code>\n"
+                  f"สั่งใหม่: <code>sudo systemctl start {BACKUP_UNIT}</code>")
+        log_event("warning", "backup", None, "warning", f"backup config ล้มเหลว ({props.get('Result')})")
 
 
 def _adguard_24h():
@@ -2208,15 +2294,31 @@ def daily_health_text(yesterday):
         return ["🛡️ <b>AdGuard (24 ชม.)</b>",
                 f"{a['queries']:,} queries · บล็อก {a['blocked']:,} ({pct:.1f}%) · ตอบเฉลี่ย {a['avg_ms']:.0f} ms"]
 
+    def backup_part():
+        line, w = _backup_status()
+        if w:
+            warn.append(w)
+        return [line] if line else []
+
     def apt_part():
         n = _apt_upgradable()
         return [f"📦 อัปเดตค้าง: {n} แพ็กเกจ"]
+
+    def footer_part():                    # 2 บรรทัดเดี่ยวท้ายรายงาน ไม่เว้นบรรทัดคั่น — พังแยกกันได้
+        out = []
+        for title, fn in (("💾 backup", backup_part), ("📦 อัปเดต", apt_part)):
+            try:
+                out.extend(fn())
+            except Exception as e:
+                print(f"[daily] {title}: {e}")
+                out.append(f"{title}: อ่านไม่ได้")
+        return out
 
     section("🌀 พัดลม", fan_part)
     section("💾 SSD", ssd_part)
     section("⏱️ ความเสถียร", stable_part)
     section("🛡️ AdGuard", adguard_part)
-    section("📦 อัปเดต", apt_part)
+    section("ท้ายรายงาน", footer_part)
 
     L.insert(1, "✅ ทุกอย่างปกติ" if not warn else "⚠️ ควรดู: " + " · ".join(warn))
     return "\n".join(L).rstrip()
