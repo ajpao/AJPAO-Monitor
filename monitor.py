@@ -6,7 +6,7 @@ AJPAO-Monitor — single-file Raspberry Pi monitor.
   • Collector   — อ่าน temp/CPU/RAM/Disk ทุก ~10 นาที → เก็บลง SQLite (local) + push Firestore (cloud)
   • Flask web   — dashboard ใน LAN ที่ http://<ip-pi>:5000 (อ่านจาก SQLite)
   • Telegram bot— รับคำสั่ง /status /temp /system /today /history /monthly /reboot ฯลฯ
-  • Daily report— สรุปกราฟอุณหภูมิเมื่อวานทุกเช้า
+  • Daily report— สรุปกราฟอุณหภูมิเมื่อวานทุกเช้า + สุขภาพเครื่อง (พัดลม/SSD/ความเสถียร/AdGuard/อัปเดต)
   • Reboot poll — เช็คคำสั่ง reboot จาก Firestore (cloud dashboard) แล้วสั่ง reboot
 
 ดู dashboard ได้ 2 ที่ ข้อมูล sync กันเสมอ:
@@ -132,8 +132,10 @@ def init_db():
         )
     """)
     # เผื่อ db เดิมยังไม่มีคอลัมน์ — เพิ่มแบบ idempotent
+    # fan_rpm / nvme_c / psu_v เพิ่ม 2026-11-27 ให้สรุปรายวันมีรอบพัดลม, SSD ร้อนสุด, ไฟเลี้ยงต่ำสุด
     for col, decl in [("cpu_pct", "REAL"), ("ram_pct", "REAL"),
-                      ("disk_pct", "REAL"), ("synced", "INTEGER DEFAULT 0")]:
+                      ("disk_pct", "REAL"), ("synced", "INTEGER DEFAULT 0"),
+                      ("fan_rpm", "INTEGER"), ("nvme_c", "REAL"), ("psu_v", "REAL")]:
         try:
             con.execute(f"ALTER TABLE temperature ADD COLUMN {col} {decl}")
         except sqlite3.OperationalError:
@@ -171,12 +173,12 @@ def query(sql, params=()):
     return rows
 
 
-def save_data(now, temp, cpu, ram_pct, disk_pct):
+def save_data(now, temp, cpu, ram_pct, disk_pct, fan_rpm=None, nvme_c=None, psu_v=None):
     con = sqlite3.connect(DB_PATH)
     cur = con.execute(
-        "INSERT INTO temperature (timestamp, temp_c, cpu_pct, ram_pct, disk_pct, synced) "
-        "VALUES (?, ?, ?, ?, ?, 0)",
-        (now.strftime("%Y-%m-%d %H:%M:%S"), temp, cpu, ram_pct, disk_pct),
+        "INSERT INTO temperature (timestamp, temp_c, cpu_pct, ram_pct, disk_pct, fan_rpm, nvme_c, psu_v, synced) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)",
+        (now.strftime("%Y-%m-%d %H:%M:%S"), temp, cpu, ram_pct, disk_pct, fan_rpm, nvme_c, psu_v),
     )
     rowid = cur.lastrowid
     con.commit()
@@ -772,11 +774,21 @@ def broadcast(text):
             send_message(cid, text)
 
 
+# เกณฑ์ของ Pi 5 (ปกติ 47–55°C, firmware เริ่มลดความเร็วเองที่ 80°C)
+# เดิมตั้งไว้สำหรับ Pi 4 ที่ 50/55 — บน Pi 5 จะขึ้น "เริ่มอุ่น" แทบทั้งวันทั้งที่ยังเย็น
 def temp_status(t):
-    if   t < 50: return "✅ ปกติ"
-    elif t < 55: return "🟡 เริ่มอุ่น"
-    elif t < 70: return "⚠️ อุ่น"
+    if   t < 60: return "✅ ปกติ"
+    elif t < 70: return "🟡 เริ่มอุ่น"
+    elif t < 80: return "⚠️ อุ่น"
     else:        return "🔥 ร้อนมาก!"
+
+
+def fan_text(rpm):
+    """รอบพัดลม + ระดับ (เกณฑ์เดียวกับการ์ดข้อมูล Pi บน dashboard)"""
+    if rpm is None:
+        return None
+    lab = "หยุด" if rpm == 0 else "เบา" if rpm < 4000 else "กลาง" if rpm < 7000 else "แรง"
+    return f"{rpm:,} rpm ({lab})"
 
 
 # ─── graphs (matplotlib) ────────────────────────────────────────────────────────
@@ -789,7 +801,7 @@ def make_temp_graph(rows, title):
     hours = sorted(buckets)
     avgs  = [sum(buckets[h]) / len(buckets[h]) for h in hours]
 
-    colors = ["#e05252" if t >= 55 else "#e09a3a" if t >= 50 else "#4a9fd4" for t in avgs]
+    colors = ["#e05252" if t >= 70 else "#e09a3a" if t >= 60 else "#4a9fd4" for t in avgs]
     x = range(len(hours))
 
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -1960,8 +1972,9 @@ def collector_loop():
         try:
             temp, cpu, ram, disk = collect_metrics()
             now = datetime.now()
+            fan, nvme_c, psu_v = get_fan_rpm(), get_nvme_temp(), get_psu_volts()
 
-            rowid = save_data(now, temp, cpu, ram.percent, disk.percent)
+            rowid = save_data(now, temp, cpu, ram.percent, disk.percent, fan, nvme_c, psu_v)
             if push_reading(now, temp, cpu, ram, disk):
                 mark_synced(rowid)
             backfill_unsynced()
@@ -1975,7 +1988,8 @@ def collector_loop():
                     f"🍓 <b>AJPAO's Raspberry Pi — Status</b>\n"
                     f"🕐 {now.strftime('%d/%m/%Y %H:%M')}\n"
                     f"🌡️ Temp: <b>{temp:.1f}°C</b>  {temp_status(temp)}\n"
-                    f"🖥️ CPU: <b>{cpu:.1f}%</b>\n"
+                    + (f"🌀 พัดลม: <b>{fan_text(fan)}</b>\n" if fan is not None else "")
+                    + f"🖥️ CPU: <b>{cpu:.1f}%</b>\n"
                     f"🧠 RAM: <b>{ram.percent:.1f}%</b> (ว่าง {ram.available//1024//1024} MB)\n"
                     f"💾 Disk: <b>{disk.percent:.1f}%</b> (ว่าง {disk.free//1024//1024//1024} GB)")
                 last_status_hour = now.hour
@@ -1995,16 +2009,217 @@ def send_daily_report():
     yesterday = datetime.now() - timedelta(days=1)
     rows = query("SELECT timestamp, temp_c FROM temperature WHERE timestamp LIKE ? ORDER BY timestamp",
                  (f"{yesterday.strftime('%Y-%m-%d')}%",))
-    if not rows:
-        return
-    temps = [r[1] for r in rows]
-    buf, mn, avg, mx = make_temp_graph(rows, f"AJPAO's Raspberry Pi — {yesterday.strftime('%d %b %Y')}")
-    caption = (f"📊 <b>สรุปอุณหภูมิรายวัน</b> — {yesterday.strftime('%d/%m/%Y')}\n"
-               f"🌡️ Min: {mn:.1f}°C | Avg: {avg:.1f}°C | Max: {mx:.1f}°C\n📈 {len(rows)} จุดข้อมูลเมื่อวาน")
-    for cid in ALLOWED:
-        if cid:
-            send_photo(cid, buf, caption)
-            buf.seek(0)
+    if rows:
+        buf, mn, avg, mx = make_temp_graph(rows, f"AJPAO's Raspberry Pi — {yesterday.strftime('%d %b %Y')}")
+        caption = (f"📊 <b>สรุปอุณหภูมิรายวัน</b> — {yesterday.strftime('%d/%m/%Y')}\n"
+                   f"🌡️ Min: {mn:.1f}°C | Avg: {avg:.1f}°C | Max: {mx:.1f}°C\n📈 {len(rows)} จุดข้อมูลเมื่อวาน")
+        for cid in ALLOWED:
+            if cid:
+                send_photo(cid, buf, caption)
+                buf.seek(0)
+    # สุขภาพเครื่องส่งเป็นข้อความแยก — caption รูปจำกัด 1024 ตัวอักษร ยาวไม่พอ
+    try:
+        broadcast(daily_health_text(yesterday))
+    except Exception as e:
+        print(f"[daily] สร้างรายงานสุขภาพเครื่องไม่สำเร็จ: {e}")
+
+
+# ─── รายงานสุขภาพเครื่องประจำวัน (ส่งต่อจากกราฟอุณหภูมิตอน DAILY_REPORT_HOUR) ─────────
+# เพิ่ม 2026-11-27 · แต่ละส่วนพังแยกกันได้ ส่วนที่อ่านไม่ได้จะขึ้น "อ่านไม่ได้" แทนที่จะทิ้งทั้งรายงาน
+
+DAILY_SERVICES = [s.strip() for s in (os.getenv("DAILY_SERVICES")
+                  or "AdGuardHome,ajpao-home,plexmediaserver,transmission-daemon,tailscaled,watchdog").split(",")
+                  if s.strip()]
+SMART_DAILY_FILE = os.path.join(BASE_DIR, ".smart_daily.json")   # ตัวนับ Data Units Written รอบก่อน
+NVME_UNIT_BYTES  = 512 * 1000                                     # 1 data unit ของ NVMe = 1000 sector × 512 B
+
+
+def _fmt_gb(units):
+    return f"{units * NVME_UNIT_BYTES / 1e9:,.1f} GB"
+
+
+def _written_since_last(units):
+    """GB ที่เขียนตั้งแต่รายงานรอบก่อน (~24 ชม.) — จำตัวนับไว้ในไฟล์ รอบแรกคืน None"""
+    prev = None
+    try:
+        with open(SMART_DAILY_FILE) as f:
+            prev = json.load(f)
+    except Exception:
+        pass
+    try:
+        with open(SMART_DAILY_FILE, "w") as f:
+            json.dump({"ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "units": units}, f)
+    except Exception as e:
+        print(f"[daily] เขียน {SMART_DAILY_FILE} ไม่สำเร็จ: {e}")
+    if not prev or not isinstance(prev.get("units"), int) or units < prev["units"]:
+        return None
+    return units - prev["units"]
+
+
+def _uptime_text():
+    sec = int(time.time() - psutil.boot_time())
+    d, h = sec // 86400, sec % 86400 // 3600
+    return f"{d} วัน {h} ชม." if d else f"{h} ชม. {sec % 3600 // 60} นาที"
+
+
+def _journal_disk_errors(day):
+    """จำนวน log ของ kernel วันนั้นที่บอกว่า SSD/PCIe มีปัญหา (timeout/reset/I/O error)"""
+    nxt = (datetime.strptime(day, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    out = subprocess.run(["journalctl", "-k", "--since", day, "--until", nxt, "--no-pager", "-q"],
+                         capture_output=True, text=True, timeout=30).stdout
+    return len(re.findall(r"(?im)nvme.*(timeout|reset|error|abort)|aer:.*error|i/o error", out))
+
+
+def _services_down():
+    down = []
+    for s in DAILY_SERVICES:
+        r = subprocess.run(["systemctl", "is-active", s], capture_output=True, text=True, timeout=5)
+        if r.stdout.strip() != "active":
+            down.append(s)
+    r = subprocess.run(["systemctl", "--failed", "--no-legend", "--plain"],
+                       capture_output=True, text=True, timeout=5)
+    for line in r.stdout.splitlines():
+        unit = line.split()[0] if line.split() else ""
+        name = unit.removesuffix(".service")
+        if unit and name not in down:
+            down.append(name)
+    return down
+
+
+def _adguard_24h():
+    """สถิติ AdGuard 24 ชม.ล่าสุด จาก array รายชั่วโมงของ /control/stats — None ถ้าปิดฟีเจอร์/ต่อไม่ได้"""
+    if not ADGUARD_IP:
+        return None
+    auth = (ADGUARD_USER, ADGUARD_PASSWORD) if ADGUARD_USER else None
+    s = requests.get(f"http://{ADGUARD_IP}:{ADGUARD_PORT}/control/stats", auth=auth, timeout=6).json()
+    if s.get("time_units") == "hours" and s.get("dns_queries"):
+        q, b = sum(s["dns_queries"][-24:]), sum(s.get("blocked_filtering", [])[-24:])
+    else:
+        q, b = int(s.get("num_dns_queries", 0)), int(s.get("num_blocked_filtering", 0))
+    return {"queries": q, "blocked": b, "avg_ms": float(s.get("avg_processing_time") or 0) * 1000}
+
+
+def _apt_upgradable():
+    out = subprocess.run(["apt", "list", "--upgradable"], capture_output=True, text=True, timeout=60).stdout
+    return sum(1 for l in out.splitlines() if "/" in l and "upgradable" in l)
+
+
+def daily_health_text(yesterday):
+    day  = yesterday.strftime("%Y-%m-%d")
+    warn = []            # เรื่องที่ควรดู — สรุปไว้บรรทัดบนสุด
+    L    = [f"🩺 <b>สุขภาพเครื่องประจำวัน</b> — {yesterday.strftime('%d/%m/%Y')}", ""]
+
+    def section(title, fn):
+        try:
+            L.extend(fn())
+        except Exception as e:
+            print(f"[daily] {title}: {e}")
+            L.append(f"{title}: อ่านไม่ได้")
+        L.append("")
+
+    agg = query("SELECT AVG(fan_rpm), MAX(fan_rpm), COUNT(fan_rpm), MAX(nvme_c), MIN(psu_v), COUNT(psu_v) "
+                "FROM temperature WHERE timestamp LIKE ?", (f"{day}%",))[0]
+    fan_avg, fan_max, fan_n, nvme_max, psu_min, psu_n = agg
+
+    def fan_part():
+        if fan_n:
+            return ["🌀 <b>พัดลม</b>", f"เฉลี่ย {int(fan_avg):,} rpm · สูงสุด {fan_max:,} rpm"]
+        now = get_fan_rpm()
+        if now is None:
+            return ["🌀 <b>พัดลม</b>", "ไม่มีพัดลมที่อ่านค่าได้"]
+        return ["🌀 <b>พัดลม</b>", f"ตอนนี้ {fan_text(now)} · สถิติทั้งวันเริ่มมีพรุ่งนี้"]
+
+    def ssd_part():
+        sm  = get_smart(force=True)
+        cur = get_nvme_temp()
+        out = ["💾 <b>SSD</b>"]
+        t = []
+        if nvme_max is not None:
+            t.append(f"เมื่อวานร้อนสุด {nvme_max:.0f}°C")
+        if cur is not None:
+            t.append(f"ตอนนี้ {cur:.0f}°C")
+        if t:
+            out.append(" · ".join(t))
+        if (nvme_max or 0) >= 70 or (cur or 0) >= 70:
+            warn.append("SSD ร้อนเกิน 70°C")
+        if not sm:
+            out.append("อ่าน SMART ไม่ได้")
+            return out
+        media = sm.get("nvme_media_errors")
+        crit  = sm.get("nvme_crit_warn")
+        out.append(f"error {media} · ใช้อายุไป {sm.get('nvme_used_pct')}% · สำรองเหลือ {sm.get('nvme_spare_pct')}%")
+        if media:
+            warn.append(f"SSD มี media error {media}")
+        if crit and crit != "0x00":
+            warn.append(f"SSD critical warning {crit}")
+        units = sm.get("nvme_units_written")
+        if isinstance(units, int):
+            delta = _written_since_last(units)
+            out.append((f"เขียน 24 ชม. {_fmt_gb(delta)} · " if delta is not None else "") + f"รวม {_fmt_gb(units)}")
+        out.append(f"ดับกะทันหัน: {unsafe_text(sm)}")
+        if sm.get("nvme_unsafe_since"):
+            warn.append(f"SSD ดับกะทันหัน {sm['nvme_unsafe_since']} ครั้งตั้งแต่ {SMART_BASELINE_DATE}")
+        return out
+
+    def stable_part():
+        out = ["⏱️ <b>ความเสถียร</b>", f"เปิดต่อเนื่อง {_uptime_text()}"]
+        boots = query("SELECT type FROM events WHERE metric='system' AND message LIKE 'boot ที่แล้ว%' "
+                      "AND ts LIKE ?", (f"{day}%",))
+        bad = sum(1 for (t,) in boots if t == "warning")
+        out.append(f"บูตเมื่อวาน {len(boots)} ครั้ง" + (f" (ผิดปกติ {bad})" if bad else ""))
+        if bad:
+            warn.append(f"เครื่องดับผิดปกติ {bad} ครั้ง")
+        thr = get_throttle_status() or {}
+        past = thr.get("past") or {}
+        p = []
+        if psu_n:
+            p.append(f"ไฟเลี้ยงต่ำสุด {psu_min:.2f} V")
+            if psu_min < 4.9:
+                warn.append(f"ไฟเลี้ยงตกถึง {psu_min:.2f} V")
+        if thr:
+            if any(past.values()):
+                flags = [k for k, v in past.items() if v]
+                p.append("เคยไฟตก/ลดความเร็ว: " + ", ".join(flags))
+                warn.append("CPU เคยไฟตกหรือถูกลดความเร็ว")
+            else:
+                p.append("ไม่เคยไฟตกหรือลดความเร็ว")
+        if p:
+            out.append(" · ".join(p))
+        errs = _journal_disk_errors(day)
+        out.append(f"SSD/PCIe error เมื่อวาน {errs}")
+        if errs:
+            warn.append(f"SSD/PCIe error {errs} ครั้ง")
+        wd = get_watchdog_state()
+        if wd.get("armed") is not None:
+            out.append("watchdog พร้อม" if wd["armed"] else "watchdog ไม่ทำงาน ⚠️")
+            if not wd["armed"]:
+                warn.append("watchdog ไม่ทำงาน")
+        down = _services_down()
+        out.append("service: ครบทุกตัว" if not down else "service ล่ม: " + ", ".join(down))
+        if down:
+            warn.append("service ล่ม " + ", ".join(down))
+        return out
+
+    def adguard_part():
+        a = _adguard_24h()
+        if a is None:
+            return ["🛡️ <b>AdGuard</b>", "ไม่ได้ตั้งค่า"]
+        pct = a["blocked"] * 100 / a["queries"] if a["queries"] else 0
+        return ["🛡️ <b>AdGuard (24 ชม.)</b>",
+                f"{a['queries']:,} queries · บล็อก {a['blocked']:,} ({pct:.1f}%) · ตอบเฉลี่ย {a['avg_ms']:.0f} ms"]
+
+    def apt_part():
+        n = _apt_upgradable()
+        return [f"📦 อัปเดตค้าง: {n} แพ็กเกจ"]
+
+    section("🌀 พัดลม", fan_part)
+    section("💾 SSD", ssd_part)
+    section("⏱️ ความเสถียร", stable_part)
+    section("🛡️ AdGuard", adguard_part)
+    section("📦 อัปเดต", apt_part)
+
+    L.insert(1, "✅ ทุกอย่างปกติ" if not warn else "⚠️ ควรดู: " + " · ".join(warn))
+    return "\n".join(L).rstrip()
 
 
 def bot_loop():
@@ -2170,6 +2385,7 @@ _SMART_FIELDS = {
     "Media and Data Integrity Errors": ("nvme_media_errors",     r"([\d,]+)"),
     "Power Cycles":                    ("nvme_power_cycles",     r"([\d,]+)"),
     "Power On Hours":                  ("nvme_power_on_hours",   r"([\d,]+)"),
+    "Data Units Written":              ("nvme_units_written",    r"([\d,]+)"),
 }
 
 
@@ -2217,6 +2433,20 @@ def get_fan_rpm():
         try:
             with open(p) as f:
                 return int(f.read().strip())
+        except Exception:
+            continue
+    return None
+
+
+def get_nvme_temp():
+    """อุณหภูมิ SSD NVMe จาก hwmon (ไม่ต้อง sudo, ไม่ปลุก SSD) — None ถ้าไม่มี NVMe"""
+    for d in sorted(glob.glob("/sys/class/hwmon/hwmon*")):
+        try:
+            with open(os.path.join(d, "name")) as f:
+                if f.read().strip() != "nvme":
+                    continue
+            with open(os.path.join(d, "temp1_input")) as f:
+                return round(int(f.read().strip()) / 1000, 1)
         except Exception:
             continue
     return None
