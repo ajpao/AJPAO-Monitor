@@ -2162,8 +2162,7 @@ def check_backup_notify():
         files = sorted(glob.glob(BACKUP_GLOB))
         name = os.path.basename(files[-1]) if files else "?"
         size = f" ({os.path.getsize(files[-1]) / 1e6:.1f} MB)" if files else ""
-        broadcast(f"💾 <b>Backup config สำเร็จ</b>\n🕐 {stamp}\n"
-                  f"☁️ ขึ้น GCS แล้ว{size}\n<code>gs://ajpao-pi5-backup/pi5/{name}</code>")
+        broadcast(f"💾 <b>Backup config สำเร็จ</b>\n🕐 {stamp}\n☁️ ขึ้น GCS แล้ว{size}")   # user ไม่เอา path
         log_event("info", "backup", None, "info", f"backup config สำเร็จ {name}")
     else:
         broadcast(f"❌ <b>Backup config ล้มเหลว</b> ({props.get('Result')})\n🕐 {stamp}\n"
