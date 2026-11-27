@@ -312,6 +312,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .btn-label{display:none}
   .brand-sub{display:none}
   .topbar{gap:5px;min-height:0;padding:calc(5px + env(safe-area-inset-top,0px)) 8px 5px}
+  /* แถบบนทึบบนมือถือ: เดิมโปร่ง (liquid glass ~55%) + blur — แสงขาวมุมบนของพื้นหลังกับเนื้อหาที่เลื่อนอยู่ข้างใต้
+     ทะลุขึ้นมาเป็น "หมอก" โดยเฉพาะใต้ status bar ตอนเปิดจากไอคอนหน้าจอ iPhone (black-translucent) */
+  .topbar{background:color-mix(in srgb,var(--bg) 97%,transparent);-webkit-backdrop-filter:none;backdrop-filter:none}
   .brand-mono{font-size:.92rem;letter-spacing:1px}
   .mode-badge{display:none}   /* ซ่อน badge บนมือถือ — รู้โหมดจาก URL อยู่แล้ว ให้ปุ่มพอดีแถวเดียว */
   .icon-btn{width:30px;height:30px}
