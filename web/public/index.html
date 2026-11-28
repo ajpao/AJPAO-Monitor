@@ -882,6 +882,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* toast */
 .toast-wrap{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:400;
   display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.toast span{white-space:pre-line}   /* tooltip หลายบรรทัด (แตะแถวบนมือถือ) */
 .toast{display:flex;align-items:center;gap:9px;font-family:var(--font-sans);font-size:.78rem;color:var(--text);
   background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--dim);
   border-radius:10px;padding:11px 16px;box-shadow:0 6px 24px rgba(0,0,0,.4);
@@ -1607,7 +1608,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="iIP">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="gauge"></i>Speed</span><span class="ir-val" id="iSpeed">--</span></div>
       <div class="info-row" id="iPowerRow" style="display:none" title="สถานะไฟ · กำลังไฟชิป+บอร์ด (PMIC ไม่รวม SSD/พัดลม/USB) · แรงดัน core · ความเร็ว CPU"><span class="ir-label"><i data-lucide="zap"></i>Power</span><span class="ir-val" id="iPower">--</span></div>
-      <div class="info-row" id="iFanRow" style="display:none"><span class="ir-label"><i data-lucide="fan"></i>Fan</span><span class="ir-val" id="iFan">--</span></div>
+      <div class="info-row" id="iFanRow" style="display:none" title="พัดลม Active Cooler ปรับตามอุณหภูมิ CPU (config.txt 26 พ.ย. 2569)&#10;• ต่ำกว่า 50°C → หยุด&#10;• 50°C → 49% (~5,700 RPM)&#10;• 60°C → 69% (~7,400 RPM)&#10;• 67.5°C → 88% (~9,000 RPM)&#10;• 75°C → 100% (~10,000 RPM)&#10;ลดระดับเมื่อเย็นลงต่ำกว่าจุดนั้น 5°C (หยุดเมื่อต่ำกว่า 45°C)&#10;ช่วง 45–50°C จึงอาจหมุนหรือหยุดก็ได้ แล้วแต่ว่าเพิ่งร้อนขึ้นหรือเย็นลง"><span class="ir-label"><i data-lucide="fan"></i>Fan</span><span class="ir-val" id="iFan">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="clock"></i>Uptime</span><span class="ir-val online" id="iUptime">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="refresh-cw"></i>Last Update</span><span class="ir-val" id="iLastSeen">--</span></div>
     </div>
@@ -2115,7 +2116,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129n"></script>
+<script src="app.js?v=20261129o"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */

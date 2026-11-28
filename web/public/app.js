@@ -278,6 +278,13 @@ function toast(msg, type='info', ms=3200){
   setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),250); }, ms);
 }
 
+// มือถือ (ไม่มี hover) ดู tooltip ไม่ได้ → แตะแถวในการ์ดข้อมูลที่มีคำอธิบาย (title) แล้วโชว์เป็น toast แทน
+document.addEventListener('click', e => {
+  if(!window.matchMedia('(hover: none)').matches) return;
+  const row = e.target.closest('.info-row[title]');
+  if(row && !e.target.closest('a,button')) toast(row.getAttribute('title'), 'info', 8000);
+});
+
 // ─── date helpers ────────────────────────────────────────────────────────────
 
 const pad = n => String(n).padStart(2,'0');
