@@ -2014,7 +2014,7 @@ function updateCards(d){
     else {
       const sc = d.nvme_c>=70?C.danger:d.nvme_c>=60?C.warn:C.ok;
       ssd.style.setProperty('--ssd-c', sc);
-      ssd.innerHTML = `SSD <b>${Math.round(d.nvme_c)}°</b>`;
+      ssd.innerHTML = `SSD <b>${Math.round(d.nvme_c)}°C</b>`;
       ssd.hidden = false;
     }
   }
