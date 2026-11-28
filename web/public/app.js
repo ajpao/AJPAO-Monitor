@@ -2016,7 +2016,7 @@ function updateCards(d){
     if(d.power_w==null){ pw.hidden = true; }
     else {
       pw.style.setProperty('--ssd-c', d.power_w>=7?C.warn:d.power_w>=4?C.info:C.ok);
-      pw.innerHTML = `<b>${d.power_w.toFixed(1)}</b> W`;
+      pw.innerHTML = `Power <b>${d.power_w.toFixed(1)} W</b>`;   // มีคำนำหน้าแบบป้าย SSD
       pw.hidden = false;
     }
   }
