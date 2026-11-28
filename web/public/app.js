@@ -1104,7 +1104,15 @@ function setupHistory(){ loadHistory(histRange); }
 function setText(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
 // "Raspberry Pi 4 Model B Rev 1.2" → "Pi 4 Model B"
 function shortModel(m){ return (m||'').replace(/^Raspberry\s+/i,'').replace(/\s+Rev.*$/i,'').trim() || m; }
-function fmtSpeed(kbps){ return kbps>=1024 ? (kbps/1024).toFixed(1)+' MB/s' : kbps.toFixed(0)+' KB/s'; }
+// ความเร็วเน็ตแสดงเป็น Mbps (หน่วยเดียวกับแพ็กเกจเน็ต/speedtest) — server ส่งมาเป็น KiB/s (bytes/1024)
+// 27→29 พ.ย. 2026 user ขอ: เดิม KB/s · MB/s อ่านแล้วต้องคูณ 8 ในหัว
+function fmtSpeed(kbps){
+  const m = (kbps||0) * 1024 * 8 / 1e6;
+  if(m >= 100) return m.toFixed(0)+' Mbps';
+  if(m >= 1)   return m.toFixed(1)+' Mbps';
+  if(m >= 0.01) return m.toFixed(2)+' Mbps';
+  return '0 Mbps';
+}
 
 async function loadDevice(){
   if(MODE==='local'){
