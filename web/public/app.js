@@ -1996,6 +1996,17 @@ function updateCards(d){
   setRing('sTempRing', d.temp/90*100, rampColor(d.temp, RING_RAMP.temp));   // temp เทียบสเกล 0–90°C
   const st = d.temp>=70?'🔥 ร้อนมาก!':d.temp>=55?'⚠️ อุ่น':d.temp>=50?'🟡 เริ่มอุ่น':'✅ ปกติ';
   document.getElementById('sTempSub').textContent = st;
+  // SSD M.2 (Micron 2500 เตือนที่ 83°C) — เขียวปกติ · เหลือง ≥60 · แดง ≥70
+  const ssd = document.getElementById('sSsd');
+  if(ssd){
+    if(d.nvme_c==null){ ssd.hidden = true; }
+    else {
+      const sc = d.nvme_c>=70?C.danger:d.nvme_c>=60?C.warn:C.ok;
+      ssd.style.setProperty('--ssd-c', sc);
+      ssd.innerHTML = `SSD <b>${Math.round(d.nvme_c)}°</b>`;
+      ssd.hidden = false;
+    }
+  }
 
   const cpuC = d.cpu>=80?C.danger:d.cpu>=50?C.accent:C.info;
   document.getElementById('sCpu').textContent = d.cpu.toFixed(1)+'%';
@@ -2528,7 +2539,7 @@ function startCloudData(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
-      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health, nvme_c:x.nvme_c,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')

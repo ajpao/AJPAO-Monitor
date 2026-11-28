@@ -354,6 +354,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-ring-bg{stroke:var(--border)}
 .sc-ring-fg{stroke-linecap:round;stroke-dasharray:0 100;
   transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1),stroke .3s}
+/* อุณหภูมิ SSD M.2 ตัวเล็กในการ์ด Temperature — จอใหญ่อยู่ต่อท้ายบรรทัดสถานะ (ซ้ายของวงแหวน)
+   มือถือ (ไม่มีวงแหวน) ย้ายไปมุมขวาบนแถวเดียวกับป้าย TEMP · ไม่เปลี่ยนขนาดการ์ด */
+.ssd-chip{display:inline-flex;align-items:center;gap:3px;margin-left:8px;padding:1px 7px;border-radius:999px;
+  border:1px solid var(--border);font-family:var(--font-mono);font-size:.58rem;letter-spacing:.5px;
+  color:var(--dim);white-space:nowrap;line-height:1.5}
+.ssd-chip[hidden]{display:none}
+.ssd-chip b{font-weight:700;color:var(--ssd-c,var(--text))}
+@media(max-width:640px){.ssd-chip{position:absolute;top:13px;right:12px;margin:0}}
 .sc-temp .sc-ring-fg{stroke:var(--ok)}  .sc-cpu .sc-ring-fg{stroke:var(--info)}
 .sc-ram .sc-ring-fg{stroke:var(--purple)} .sc-disk .sc-ring-fg{stroke:var(--warn)}
 .lbl-short{display:none}
@@ -1542,7 +1550,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sTempRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="thermometer"></i><span class="lbl-full">Temperature</span><span class="lbl-short">Temp</span></div>
       <div class="sc-value" id="sTemp">--.-°</div>
-      <div class="sc-sub" id="sTempSub">--</div>
+      <div class="sc-sub"><span id="sTempSub">--</span><span class="ssd-chip" id="sSsd" title="อุณหภูมิ SSD M.2" hidden></span></div>
     </div>
     <div class="stat-card sc-cpu">
       <div class="sc-bar"></div>
@@ -2103,7 +2111,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129b"></script>
+<script src="app.js?v=20261129c"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */

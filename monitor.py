@@ -708,6 +708,9 @@ def push_reading(now, temp, cpu, ram, disk):
         fan = get_fan_rpm()                  # รอบพัดลม (Pi 5 Active Cooler) — ข้ามถ้าไม่มีพัดลม
         if fan is not None:
             status_doc["fan_rpm"] = fan
+        nv = get_nvme_temp()                 # อุณหภูมิ SSD สำหรับการ์ด Temperature บน cloud
+        if nv is not None:
+            status_doc["nvme_c"] = nv
         ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
         if ag is not None:
             status_doc["adguard"] = ag
@@ -1179,6 +1182,7 @@ def api_status():
         **get_net_speed(),                  # down_kbps, up_kbps (เน็ตเวิร์ก speed)
         "throttle": get_throttle_status(),  # None ถ้าไม่ใช่ Pi/อ่านไม่ได้
         "fan_rpm": get_fan_rpm(),           # None ถ้าไม่มีพัดลมที่อ่านรอบได้ (Pi 4)
+        "nvme_c": get_nvme_temp(),          # อุณหภูมิ SSD (โชว์มุมการ์ด Temperature) — None ถ้าไม่มี NVMe
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
         "health": get_health_flags(),       # ปัญหาจริง (SSD/ดิสก์หลุด/service) ให้ Health Score หักคะแนน
     })
