@@ -711,6 +711,10 @@ def push_reading(now, temp, cpu, ram, disk):
         ag = get_adguard_stats()             # เพิ่มข้อมูล AdGuard ถ้าดึงได้ (ไม่ได้ก็ข้าม)
         if ag is not None:
             status_doc["adguard"] = ag
+        try:
+            status_doc["health"] = get_health_flags()   # ให้ Health Score บน cloud หักคะแนนได้เหมือน LAN
+        except Exception as e:
+            print(f"[health] {e}")
         db_fs.collection("status").document("latest").set(status_doc)
         return True
     except Exception as e:
@@ -1176,6 +1180,7 @@ def api_status():
         "throttle": get_throttle_status(),  # None ถ้าไม่ใช่ Pi/อ่านไม่ได้
         "fan_rpm": get_fan_rpm(),           # None ถ้าไม่มีพัดลมที่อ่านรอบได้ (Pi 4)
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
+        "health": get_health_flags(),       # ปัญหาจริง (SSD/ดิสก์หลุด/service) ให้ Health Score หักคะแนน
     })
 
 
@@ -2820,6 +2825,42 @@ def _record_boot_forensics():
               f"💾 unsafe shutdowns: <b>{unsafe_msg}</b>\n"
               + (f"🗃️ กล่องดำ: <code>boots/{archived}</code>\n" if archived else "")
               + f"<code>{last}</code>")
+
+
+_health_cache = {"ts": 0.0, "data": None}
+HEALTH_CACHE_SEC = int(os.getenv("HEALTH_CACHE_SEC", "300"))
+
+
+def get_health_flags():
+    """ปัญหาจริงของเครื่อง ให้ Health Score บนหน้าเว็บหักคะแนน (เพิ่ม 29 พ.ย. 2569)
+
+    /api/status ถูก poll ทุกไม่กี่วินาที → cache HEALTH_CACHE_SEC (ค่า SMART เองก็ cache 30 นาทีอยู่แล้ว)
+    ค่าที่อ่านไม่ได้ = None (หน้าเว็บไม่หักคะแนนข้อนั้น)
+    """
+    now = time.time()
+    if _health_cache["data"] is not None and now - _health_cache["ts"] < HEALTH_CACHE_SEC:
+        return _health_cache["data"]
+    d = {"ssd_media_errors": None, "ssd_crit_warn": None, "ssd_unsafe_since": None,
+         "disk_errors_boot": None, "services_down": None}
+    try:
+        sm = get_smart()
+        d["ssd_media_errors"] = sm.get("nvme_media_errors")
+        d["ssd_crit_warn"] = sm.get("nvme_crit_warn")
+        d["ssd_unsafe_since"] = sm.get("nvme_unsafe_since")
+    except Exception as e:
+        print(f"[health] smart: {e}")
+    try:
+        out = subprocess.run(["journalctl", "-k", "-b", "--no-pager", "-q"],
+                             capture_output=True, text=True, timeout=30).stdout
+        d["disk_errors_boot"] = len(re.findall(r"(?im)nvme.*(timeout|reset|error|abort)|aer:.*error|i/o error", out))
+    except Exception as e:
+        print(f"[health] journal: {e}")
+    try:
+        d["services_down"] = _services_down()
+    except Exception as e:
+        print(f"[health] services: {e}")
+    _health_cache.update(ts=now, data=d)
+    return d
 
 
 def get_watchdog_state():

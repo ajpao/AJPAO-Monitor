@@ -800,14 +800,27 @@ async function loadDash24(){
   }catch(e){ console.error('dash24 error',e); }
 }
 
-// Health Score 0–100 จากค่าสด (เย็น/ว่าง = คะแนนสูง)
+// Health Score 0–100 = คะแนนจากค่าสด (เย็น/ว่าง = สูง) − หักคะแนนเมื่อเจอปัญหาจริง
+// 29 พ.ย. 2569: อุณหภูมิใช้เกณฑ์ Pi 5 (50°→100, 80°→0 · firmware ลดสปีดเองที่ 80°C — เดิม 40/70 ของ Pi 4)
+// + หัก: ไฟตก/ลดสปีด (throttle), SSD error/ดับกะทันหัน, SSD/PCIe หลุด, service ล่ม (d.health จาก server)
 function healthScore(d){
   if(!d || d.temp==null) return null;
-  const sTemp = Math.max(0, Math.min(100, (70-d.temp)/(70-40)*100));  // 40°→100, 70°→0
+  const sTemp = Math.max(0, Math.min(100, (80-d.temp)/(80-50)*100));  // 50°→100, 80°→0
   const sCpu  = Math.max(0, 100-(d.cpu||0));
   const sRam  = Math.max(0, 100-(d.ram||0));
   const sDisk = Math.max(0, 100-(d.disk||0));
-  return Math.round(0.30*sTemp + 0.20*sCpu + 0.20*sRam + 0.30*sDisk);
+  let score = 0.30*sTemp + 0.20*sCpu + 0.20*sRam + 0.30*sDisk;
+  const why = [];                                   // เหตุผลที่โดนหัก (โชว์ข้างคะแนน)
+  const pen = (pts, txt)=>{ score -= pts; why.push(txt); };
+  const t = d.throttle;
+  if(t && t.now && Object.values(t.now).some(Boolean)) pen(30, 'ไฟตก/ลดสปีดอยู่');
+  else if(t && t.past && Object.values(t.past).some(Boolean)) pen(15, 'เคยไฟตก/ลดสปีด');
+  const h = d.health || {};
+  if((h.ssd_media_errors||0) > 0 || (h.ssd_crit_warn && h.ssd_crit_warn!=='0x00')) pen(30, 'SSD error');
+  if((h.ssd_unsafe_since||0) > 0) pen(Math.min(20, 10*h.ssd_unsafe_since), 'เคยดับกะทันหัน');
+  if((h.disk_errors_boot||0) > 0) pen(20, 'SSD/PCIe หลุด');
+  if(h.services_down && h.services_down.length) pen(Math.min(30, 15*h.services_down.length), 'service ล่ม: '+h.services_down.join(', '));
+  return { score: Math.max(0, Math.round(score)), why };
 }
 
 // ─── alerts + event log ─────────────────────────────────────────────────────────
@@ -2051,12 +2064,15 @@ function updateCards(d){
 
   window.lastData = d;
   if(typeof updateBell==='function') updateBell();
-  const hs = healthScore(d);
-  if(hs!=null){
-    const el=document.getElementById('iHealth');
+  const H = healthScore(d);
+  if(H!=null){
+    const hs=H.score, el=document.getElementById('iHealth');
     if(el){ const lab=hs>=85?'ดีมาก':hs>=70?'ดี':hs>=50?'พอใช้':'ควรเช็ก';
       const col=hs>=85?C.ok:hs>=70?C.info:hs>=50?C.warn:C.danger;
-      el.innerHTML=`<b style="color:${col}">${hs}</b><span style="color:var(--dim);font-size:.82em;margin-left:6px">${lab}</span>`; }
+      const why=H.why.length?` · ${H.why.join(' · ')}`:'';
+      el.title = H.why.length ? 'โดนหักคะแนน: '+H.why.join(', ') : 'ไม่มีปัญหาที่ต้องหักคะแนน';
+      el.innerHTML=`<b style="color:${col}">${hs}</b><span style="color:var(--dim);font-size:.82em;margin-left:6px">${lab}</span>`
+        + (why?`<span style="color:${C.warn};font-size:.78em">${agEsc(why)}</span>`:''); }
   }
   netPush(d);
   if(currentPanel==='system') renderNetChart();
@@ -2512,7 +2528,7 @@ function startCloudData(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
-      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
