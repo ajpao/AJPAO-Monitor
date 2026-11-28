@@ -1980,7 +1980,7 @@ function rampColor(v, stops){
 }
 // คงสีประจำการ์ดตอนค่าต่ำ แล้วเฟด → ส้ม → แดง ตอนค่าสูง (temp ใช้ °C, ที่เหลือใช้ %)
 const RING_RAMP = {
-  temp: [[50,C.ok],   [57,C.warn], [64,C.accent], [73,C.danger]],
+  temp: [[55,C.ok],   [62,C.warn], [72,C.accent], [80,C.danger]],   // Pi 5 (ลดสปีดเองที่ 80°C)
   cpu:  [[0, C.info], [55,C.accent], [80,C.danger]],
   ram:  [[0, C.purple],[60,C.accent], [82,C.danger]],
   disk: [[0, C.warn], [72,C.accent], [92,C.danger]],
@@ -1988,13 +1988,14 @@ const RING_RAMP = {
 
 function updateCards(d){
   if(!d) return;
-  const tc = d.temp>=70?C.danger:d.temp>=55?C.accent:d.temp>=50?C.warn:C.ok;
+  // ป้าย/สีการ์ดใช้เกณฑ์ Pi 5 เดียวกับ Telegram + Health Score: <60 ปกติ · 60 เริ่มอุ่น · 70 อุ่น · 80 ร้อนมาก
+  const tc = d.temp>=80?C.danger:d.temp>=70?C.accent:d.temp>=60?C.warn:C.ok;
   const tempEl = document.getElementById('sTemp');
   tempEl.textContent = d.temp.toFixed(1)+'°';
   tempEl.style.color = tc;
   document.querySelector('.sc-temp .sc-bar').style.background = tc;
   setRing('sTempRing', d.temp/90*100, rampColor(d.temp, RING_RAMP.temp));   // temp เทียบสเกล 0–90°C
-  const st = d.temp>=70?'🔥 ร้อนมาก!':d.temp>=55?'⚠️ อุ่น':d.temp>=50?'🟡 เริ่มอุ่น':'✅ ปกติ';
+  const st = d.temp>=80?'🔥 ร้อนมาก!':d.temp>=70?'⚠️ อุ่น':d.temp>=60?'🟡 เริ่มอุ่น':'✅ ปกติ';
   document.getElementById('sTempSub').textContent = st;
   // SSD M.2 (Micron 2500 เตือนที่ 83°C) — เขียวปกติ · เหลือง ≥60 · แดง ≥70
   const ssd = document.getElementById('sSsd');
