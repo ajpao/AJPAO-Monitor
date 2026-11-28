@@ -365,7 +365,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* มือถือ: การ์ดแคบ → ย่อฟอนต์บรรทัดล่างของ 2 การ์ดนี้ให้ค่า+ป้ายอยู่บรรทัดเดียว */
 @media(max-width:640px){
   .ssd-chip{margin-left:2px;padding:1px 5px;font-size:.52rem;letter-spacing:0;gap:2px}
-  .sc-temp .sc-sub,.sc-cpu .sc-sub{font-size:.58rem;gap:3px}}
+  .sc-temp .sc-sub,.sc-cpu .sc-sub,.sc-ram .sc-sub,.sc-disk .sc-sub{font-size:.58rem;gap:3px;white-space:nowrap}}
 .sc-temp .sc-ring-fg{stroke:var(--ok)}  .sc-cpu .sc-ring-fg{stroke:var(--info)}
 .sc-ram .sc-ring-fg{stroke:var(--purple)} .sc-disk .sc-ring-fg{stroke:var(--warn)}
 .lbl-short{display:none}
@@ -2115,7 +2115,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129k"></script>
+<script src="app.js?v=20261129l"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */

@@ -1986,6 +1986,16 @@ const RING_RAMP = {
   disk: [[0, C.warn], [72,C.accent], [92,C.danger]],
 };
 
+// บรรทัดล่างการ์ด RAM/Disk: "ใช้ 0.9 · ว่าง 3.1 GB" (หน่วยเดียวกันเขียนท้ายครั้งเดียว)
+// ค่าเป็น MB · ตั้งแต่ 1024 MB แสดงเป็น GB · GB ≥100 ไม่มีทศนิยม · ไม่มีค่าใช้ (server เก่า) = "ว่าง …" อย่างเดียว
+function usedFreeText(usedMb, freeMb){
+  const f = v => v>=1024 ? [(v/1024>=100 ? Math.round(v/1024) : (v/1024).toFixed(1)), 'GB'] : [Math.round(v), 'MB'];
+  const [fv, fu] = f(freeMb||0);
+  if(usedMb==null) return `ว่าง ${fv} ${fu}`;
+  const [uv, uu] = f(usedMb);
+  return uu===fu ? `ใช้ ${uv} · ว่าง ${fv} ${fu}` : `ใช้ ${uv} ${uu} · ว่าง ${fv} ${fu}`;
+}
+
 function updateCards(d){
   if(!d) return;
   // ป้าย/สีการ์ดใช้เกณฑ์ Pi 5 เดียวกับ Telegram + Health Score: <60 ปกติ · 60 เริ่มอุ่น · 70 อุ่น · 80 ร้อนมาก
@@ -2033,16 +2043,14 @@ function updateCards(d){
   document.getElementById('sRam').textContent = d.ram.toFixed(1)+'%';
   document.getElementById('sRam').style.color = ramC;
   document.querySelector('.sc-ram .sc-bar').style.background = ramC;
-  // แรมว่าง: ตั้งแต่ 1024 MB ขึ้นไปแสดงเป็น GB (เช่น 3.1 GB) อ่านง่ายกว่า
-  const rf = d.ram_free_mb;
-  document.getElementById('sRamSub').textContent = rf>=1024 ? `ว่าง ${(rf/1024).toFixed(1)} GB` : `ว่าง ${rf} MB`;
+  document.getElementById('sRamSub').textContent = usedFreeText(d.ram_used_mb, d.ram_free_mb);
   setRing('sRamRing', d.ram, rampColor(d.ram, RING_RAMP.ram));
 
   const diskC = d.disk>=90?C.danger:d.disk>=70?C.accent:C.warn;
   document.getElementById('sDisk').textContent = d.disk.toFixed(1)+'%';
   document.getElementById('sDisk').style.color = diskC;
   document.querySelector('.sc-disk .sc-bar').style.background = diskC;
-  document.getElementById('sDiskSub').textContent = `ว่าง ${d.disk_free_gb} GB`;
+  document.getElementById('sDiskSub').textContent = usedFreeText(d.disk_used_gb!=null ? d.disk_used_gb*1024 : null, d.disk_free_gb*1024);
   setRing('sDiskRing', d.disk, rampColor(d.disk, RING_RAMP.disk));
 
   if(d.uptime) document.getElementById('iUptime').textContent = uptimeFmt(d.uptime);
@@ -2556,7 +2564,7 @@ function startCloudData(){
     cloudStatus = x;
     updateCards({
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
-      ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
+      ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, ram_used_mb:x.ram_used_mb, disk_used_gb:x.disk_used_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
       down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health, nvme_c:x.nvme_c, power_w:x.power_w,
     });

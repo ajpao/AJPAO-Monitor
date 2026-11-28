@@ -693,6 +693,8 @@ def push_reading(now, temp, cpu, ram, disk):
             "disk_pct":     round(disk.percent, 1),
             "ram_free_mb":  ram.available // 1024 // 1024,
             "disk_free_gb": disk.free // 1024 // 1024 // 1024,
+            "ram_used_mb":  (ram.total - ram.available) // 1024 // 1024,   # การ์ด RAM: ใช้ · ว่าง
+            "disk_used_gb": round(disk.used / 1024 ** 3, 1),                 # การ์ด Disk: ใช้ · ว่าง
             "uptime":       int(psutil.boot_time()),
             "model":        oi["model"],
             "os":           oi["os"],
@@ -1178,6 +1180,8 @@ def api_status():
         "temp": temp, "cpu": cpu, "ram": ram.percent,
         "ram_free_mb": ram.available // 1024 // 1024,
         "disk": disk.percent, "disk_free_gb": disk.free // 1024 // 1024 // 1024,
+        "ram_used_mb": (ram.total - ram.available) // 1024 // 1024,      # การ์ด RAM: ใช้ · ว่าง
+        "disk_used_gb": round(disk.used / 1024 ** 3, 1),                    # การ์ด Disk: ใช้ · ว่าง
         "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
         "uptime": int(psutil.boot_time()),
         "model": oi["model"], "os": oi["os"], "kernel": oi["kernel"],
