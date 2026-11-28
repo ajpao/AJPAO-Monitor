@@ -354,19 +354,18 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .sc-ring-bg{stroke:var(--border)}
 .sc-ring-fg{stroke-linecap:round;stroke-dasharray:0 100;
   transition:stroke-dasharray .6s cubic-bezier(.4,0,.2,1),stroke .3s}
-/* อุณหภูมิ SSD M.2 ตัวเล็กในการ์ด Temperature — จอใหญ่อยู่ต่อท้ายบรรทัดสถานะ (ซ้ายของวงแหวน)
-   มือถือ (ไม่มีวงแหวน) ย้ายไปมุมขวาบนแถวเดียวกับป้าย TEMP · ไม่เปลี่ยนขนาดการ์ด */
+/* ป้ายเล็กในการ์ด: SSD xx° (Temperature) · Power x.x W (CPU) — อยู่ต่อท้ายบรรทัดล่างของการ์ดทุกขนาดจอ
+   ซ้ายของวงแหวนบนจอใหญ่ · ไม่เปลี่ยนขนาดการ์ด (29 พ.ย. 2569: มือถือเดิม SSD ลอยมุมขวาบน ไม่เข้าชุดกับการ์ด CPU) */
 .ssd-chip{display:inline-flex;align-items:center;gap:3px;margin-left:8px;padding:1px 7px;border-radius:999px;
   border:1px solid var(--border);font-family:var(--font-mono);font-size:.58rem;letter-spacing:.5px;
   color:var(--dim);white-space:nowrap;line-height:1.5}
 .ssd-chip[hidden]{display:none}
 .ssd-chip b{font-weight:700;color:var(--ssd-c,var(--text))}
-@media(max-width:640px){.ssd-chip{position:absolute;top:13px;right:10px;margin:0;letter-spacing:0;padding:1px 6px;gap:2px}}
-/* การ์ด CPU: บรรทัดล่าง = ความเร็ว CPU + ป้าย "Power 2.8 W" ทุกขนาดจอ (แทนคำตกแต่ง "Processing" เดิมที่ไม่มีความหมาย)
-   มือถือไม่ย้ายขึ้นมุมขวาบนเหมือนป้าย SSD เพราะยาวเกินแถวหัวการ์ด */
-#sCpuClk{white-space:nowrap}
-@media(max-width:640px){.sc-cpu .ssd-chip{position:static;margin-left:2px;padding:1px 5px;font-size:.52rem}
-  .sc-cpu .sc-sub{font-size:.58rem;gap:3px}}
+#sCpuClk,#sTempSub{white-space:nowrap}
+/* มือถือ: การ์ดแคบ → ย่อฟอนต์บรรทัดล่างของ 2 การ์ดนี้ให้ค่า+ป้ายอยู่บรรทัดเดียว */
+@media(max-width:640px){
+  .ssd-chip{margin-left:2px;padding:1px 5px;font-size:.52rem;letter-spacing:0;gap:2px}
+  .sc-temp .sc-sub,.sc-cpu .sc-sub{font-size:.58rem;gap:3px}}
 .sc-temp .sc-ring-fg{stroke:var(--ok)}  .sc-cpu .sc-ring-fg{stroke:var(--info)}
 .sc-ram .sc-ring-fg{stroke:var(--purple)} .sc-disk .sc-ring-fg{stroke:var(--warn)}
 .lbl-short{display:none}
@@ -2116,7 +2115,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129i"></script>
+<script src="app.js?v=20261129j"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */
