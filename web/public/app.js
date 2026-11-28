@@ -2008,7 +2008,7 @@ function updateCards(d){
   // ป้าย/สีการ์ดใช้เกณฑ์ Pi 5 เดียวกับ Telegram + Health Score: <60 ปกติ · 60 เริ่มอุ่น · 70 อุ่น · 80 ร้อนมาก
   const tc = d.temp>=80?C.danger:d.temp>=70?C.accent:d.temp>=60?C.warn:C.ok;
   const tempEl = document.getElementById('sTemp');
-  tempEl.textContent = d.temp.toFixed(1)+'°';
+  tempEl.innerHTML = d.temp.toFixed(1)+'°<span class="unit-c">C</span>';   // C ตัวเล็ก เข้าชุดกับป้าย SSD xx°C
   tempEl.style.color = tc;
   document.querySelector('.sc-temp .sc-bar').style.background = tc;
   setRing('sTempRing', d.temp/90*100, rampColor(d.temp, RING_RAMP.temp));   // temp เทียบสเกล 0–90°C

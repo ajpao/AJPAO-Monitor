@@ -360,6 +360,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   border:1px solid var(--border);font-family:var(--font-mono);font-size:.58rem;letter-spacing:.5px;
   color:var(--dim);white-space:nowrap;line-height:1.5}
 .ssd-chip[hidden]{display:none}
+.unit-c{font-size:.55em;font-weight:700;margin-left:1px;letter-spacing:0}   /* °C ตัวเล็กในการ์ด Temperature */
 .ssd-chip b{font-weight:700;color:var(--ssd-c,var(--text))}
 #sCpuClk,#sTempSub{white-space:nowrap}
 /* มือถือ: การ์ดแคบ → ย่อฟอนต์บรรทัดล่างของ 2 การ์ดนี้ให้ค่า+ป้ายอยู่บรรทัดเดียว */
@@ -2116,7 +2117,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129o"></script>
+<script src="app.js?v=20261129p"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */
