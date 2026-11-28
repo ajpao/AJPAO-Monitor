@@ -2010,6 +2010,10 @@ function updateCards(d){
   }
 
   const cpuC = d.cpu>=80?C.danger:d.cpu>=50?C.accent:C.info;
+  // ความเร็ว CPU ตอนนี้ (governor ondemand ลดเองตอนว่าง) แทนคำ Processing เดิม
+  const clk = document.getElementById('sCpuClk');
+  if(clk){ const mhz = d.throttle && d.throttle.clock_mhz;
+    clk.textContent = mhz ? (mhz/1000).toFixed(1)+' GHz' : ''; }
   // กำลังไฟตอนนี้ (W) ป้ายเล็กแบบเดียวกับ SSD — เขียว <4 W ว่าง · ฟ้า <7 W ทำงาน · เหลือง ≥7 W หนัก
   const pw = document.getElementById('sPow');
   if(pw){
