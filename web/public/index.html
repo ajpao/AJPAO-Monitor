@@ -1602,7 +1602,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <div class="info-row"><span class="ir-label"><i data-lucide="tag"></i>Hostname</span><span class="ir-val" id="iHostname">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="network"></i>Primary IP</span><span class="ir-val" id="iIP">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="gauge"></i>Speed</span><span class="ir-val" id="iSpeed">--</span></div>
-      <div class="info-row" id="iPowerRow" style="display:none"><span class="ir-label"><i data-lucide="zap"></i>Power</span><span class="ir-val" id="iPower">--</span></div>
+      <div class="info-row" id="iPowerRow" style="display:none" title="สถานะไฟ · กำลังไฟชิป+บอร์ด (PMIC ไม่รวม SSD/พัดลม/USB) · แรงดัน core · ความเร็ว CPU"><span class="ir-label"><i data-lucide="zap"></i>Power</span><span class="ir-val" id="iPower">--</span></div>
       <div class="info-row" id="iFanRow" style="display:none"><span class="ir-label"><i data-lucide="fan"></i>Fan</span><span class="ir-val" id="iFan">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="clock"></i>Uptime</span><span class="ir-val online" id="iUptime">--</span></div>
       <div class="info-row"><span class="ir-label"><i data-lucide="refresh-cw"></i>Last Update</span><span class="ir-val" id="iLastSeen">--</span></div>
@@ -2111,7 +2111,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129d"></script>
+<script src="app.js?v=20261129f"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */

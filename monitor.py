@@ -708,6 +708,9 @@ def push_reading(now, temp, cpu, ram, disk):
         fan = get_fan_rpm()                  # รอบพัดลม (Pi 5 Active Cooler) — ข้ามถ้าไม่มีพัดลม
         if fan is not None:
             status_doc["fan_rpm"] = fan
+        pw = get_board_power()               # กำลังไฟชิป/บอร์ด (Pi 5) สำหรับการ์ดข้อมูล Pi บน cloud
+        if pw is not None:
+            status_doc["power_w"] = pw
         nv = get_nvme_temp()                 # อุณหภูมิ SSD สำหรับการ์ด Temperature บน cloud
         if nv is not None:
             status_doc["nvme_c"] = nv
@@ -1183,6 +1186,7 @@ def api_status():
         "throttle": get_throttle_status(),  # None ถ้าไม่ใช่ Pi/อ่านไม่ได้
         "fan_rpm": get_fan_rpm(),           # None ถ้าไม่มีพัดลมที่อ่านรอบได้ (Pi 4)
         "nvme_c": get_nvme_temp(),          # อุณหภูมิ SSD (โชว์มุมการ์ด Temperature) — None ถ้าไม่มี NVMe
+        "power_w": get_board_power(),       # กำลังไฟชิป/บอร์ดจาก PMIC (Pi 5)
         "adguard": get_adguard_stats(),     # None ถ้า AdGuard ปิด/ต่อไม่ได้
         "health": get_health_flags(),       # ปัญหาจริง (SSD/ดิสก์หลุด/service) ให้ Health Score หักคะแนน
     })
@@ -2560,6 +2564,25 @@ def get_nvme_temp():
         except Exception:
             continue
     return None
+
+
+_power_cache = {"ts": 0.0, "w": None}
+
+
+def get_board_power():
+    """กำลังไฟของชิป/บอร์ด (W) จาก PMIC ของ Pi 5: รวม แรงดัน×กระแส ทุกวงจรที่ PMIC วัด
+    ไม่รวมอุปกรณ์ที่ดึง 5V ตรง (SSD บน HAT, พัดลม, USB) — ใช้ดูแนวโน้มว่างาน/ไม่ว่าง ไม่ใช่ค่าที่ปลั๊ก
+    cache 10 วิ (/api/status ถูก poll ถี่) · None ถ้าไม่ใช่ Pi 5"""
+    now = time.time()
+    if now - _power_cache["ts"] < 10:
+        return _power_cache["w"]
+    raw = _vcgencmd("pmic_read_adc") or ""
+    amps, volts = {}, {}
+    for name, kind, val in re.findall(r"^\s*(\S+)_([AV]) \w+\(\d+\)=([\d.]+)", raw, re.M):
+        (amps if kind == "A" else volts)[name] = float(val)
+    w = round(sum(a * volts[n] for n, a in amps.items() if n in volts), 2) if amps else None
+    _power_cache.update(ts=now, w=w)
+    return w
 
 
 def get_psu_volts():

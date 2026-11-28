@@ -2044,6 +2044,8 @@ function updateCards(d){
     else {
       tRow.style.display='';
       const extra=[];
+      // กำลังไฟชิป/บอร์ดจาก PMIC (Pi 5) — ไม่รวม SSD/พัดลม/USB ที่ดึง 5V ตรง · ว่าง ~2.5–3 W
+      if(d.power_w!=null)   extra.push(d.power_w.toFixed(1)+' W');
       if(t.volts!=null)     extra.push(t.volts.toFixed(2)+'V');
       if(t.clock_mhz!=null) extra.push((t.clock_mhz/1000).toFixed(1)+' GHz');
       const sub=extra.length?` <span style="color:var(--dim);font-size:.82em;margin-left:5px">${extra.join(' · ')}</span>`:'';
@@ -2540,7 +2542,7 @@ function startCloudData(){
       temp:x.temp_c, cpu:x.cpu_pct, ram:x.ram_pct, disk:x.disk_pct,
       ram_free_mb:x.ram_free_mb, disk_free_gb:x.disk_free_gb, uptime:x.uptime,
       model:x.model, hostname:x.hostname, ip:x.ip,
-      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health, nvme_c:x.nvme_c,
+      down_kbps:x.down_kbps, up_kbps:x.up_kbps, throttle:x.throttle, fan_rpm:x.fan_rpm, health:x.health, nvme_c:x.nvme_c, power_w:x.power_w,
     });
     updateAdguard(x.adguard);
     if(document.getElementById('panel-device').classList.contains('active') && MODE==='cloud')
