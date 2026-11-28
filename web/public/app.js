@@ -2010,6 +2010,16 @@ function updateCards(d){
   }
 
   const cpuC = d.cpu>=80?C.danger:d.cpu>=50?C.accent:C.info;
+  // กำลังไฟตอนนี้ (W) ป้ายเล็กแบบเดียวกับ SSD — เขียว <4 W ว่าง · ฟ้า <7 W ทำงาน · เหลือง ≥7 W หนัก
+  const pw = document.getElementById('sPow');
+  if(pw){
+    if(d.power_w==null){ pw.hidden = true; }
+    else {
+      pw.style.setProperty('--ssd-c', d.power_w>=7?C.warn:d.power_w>=4?C.info:C.ok);
+      pw.innerHTML = `<b>${d.power_w.toFixed(1)}</b> W`;
+      pw.hidden = false;
+    }
+  }
   document.getElementById('sCpu').textContent = d.cpu.toFixed(1)+'%';
   document.getElementById('sCpu').style.color = cpuC;
   document.querySelector('.sc-cpu .sc-bar').style.background = cpuC;

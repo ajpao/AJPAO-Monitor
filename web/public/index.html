@@ -1557,7 +1557,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
       <svg class="sc-ring" viewBox="0 0 36 36"><circle class="sc-ring-bg" cx="18" cy="18" r="14" pathLength="100"/><circle class="sc-ring-fg" id="sCpuRing" cx="18" cy="18" r="14" pathLength="100"/></svg>
       <div class="sc-label"><i data-lucide="cpu"></i>CPU</div>
       <div class="sc-value" id="sCpu">--.-%</div>
-      <div class="sc-sub">Processing</div>
+      <div class="sc-sub"><span>Processing</span><span class="ssd-chip" id="sPow" title="กำลังไฟชิป+บอร์ดจาก PMIC (ไม่รวม SSD/พัดลม/USB)" hidden></span></div>
     </div>
     <div class="stat-card sc-ram">
       <div class="sc-bar"></div>
@@ -2111,7 +2111,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 </div>
 </div>
 
-<script src="app.js?v=20261129f"></script>
+<script src="app.js?v=20261129g"></script>
 <script>if (window.lucide) lucide.createIcons();</script>
 <script>
 /* ลงทะเบียน service worker — ติดตั้งเป็นแอปลง home screen + ใช้งานออฟไลน์บางส่วน */
