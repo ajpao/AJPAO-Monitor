@@ -1986,14 +1986,14 @@ const RING_RAMP = {
   disk: [[0, C.warn], [72,C.accent], [92,C.danger]],
 };
 
-// บรรทัดล่างการ์ด RAM/Disk: "ใช้ 0.9 · ว่าง 3.1 GB" (หน่วยเดียวกันเขียนท้ายครั้งเดียว)
+// บรรทัดล่างการ์ด RAM/Disk: "ใช้ 890 MB · ว่าง 3.1 GB"
 // ค่าเป็น MB · ตั้งแต่ 1024 MB แสดงเป็น GB · GB ≥100 ไม่มีทศนิยม · ไม่มีค่าใช้ (server เก่า) = "ว่าง …" อย่างเดียว
 function usedFreeText(usedMb, freeMb){
   const f = v => v>=1024 ? [(v/1024>=100 ? Math.round(v/1024) : (v/1024).toFixed(1)), 'GB'] : [Math.round(v), 'MB'];
   const [fv, fu] = f(freeMb||0);
   if(usedMb==null) return `ว่าง ${fv} ${fu}`;
   const [uv, uu] = f(usedMb);
-  return uu===fu ? `ใช้ ${uv} · ว่าง ${fv} ${fu}` : `ใช้ ${uv} ${uu} · ว่าง ${fv} ${fu}`;
+  return `ใช้ ${uv} ${uu} · ว่าง ${fv} ${fu}`;          // ใส่หน่วยทั้งสองค่าเสมอ (user ขอ)
 }
 
 function updateCards(d){
