@@ -2033,7 +2033,9 @@ function updateCards(d){
   document.getElementById('sRam').textContent = d.ram.toFixed(1)+'%';
   document.getElementById('sRam').style.color = ramC;
   document.querySelector('.sc-ram .sc-bar').style.background = ramC;
-  document.getElementById('sRamSub').textContent = `ว่าง ${d.ram_free_mb} MB`;
+  // แรมว่าง: ตั้งแต่ 1024 MB ขึ้นไปแสดงเป็น GB (เช่น 3.1 GB) อ่านง่ายกว่า
+  const rf = d.ram_free_mb;
+  document.getElementById('sRamSub').textContent = rf>=1024 ? `ว่าง ${(rf/1024).toFixed(1)} GB` : `ว่าง ${rf} MB`;
   setRing('sRamRing', d.ram, rampColor(d.ram, RING_RAMP.ram));
 
   const diskC = d.disk>=90?C.danger:d.disk>=70?C.accent:C.warn;
